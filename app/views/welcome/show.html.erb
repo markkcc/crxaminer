@@ -1,0 +1,81 @@
+<div class="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
+  <div class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow overflow-y-auto">
+    
+
+    <!-- Analysis Status -->
+    <div id="analysis_status">
+      <% if @extension_id && !@manifest %>
+        <%= render "loading_status", message: "Starting analysis..." %>
+        
+        <%= javascript_tag nonce: true do %>
+          document.addEventListener('DOMContentLoaded', function() {
+            const progressBar = document.getElementById('progress-bar');
+            const progressMessage = document.getElementById('progress-message');
+            const messages = [
+              'Starting analysis...',
+              'Fetching extension details...',
+              'Downloading extension...',
+              'Analyzing permissions...',
+              'Checking security...',
+              'Finalizing analysis...'
+            ];
+            let currentProgress = 0;
+            let messageIndex = 0;
+
+            // Update progress every 800ms
+            const progressInterval = setInterval(() => {
+              if (currentProgress < 90) {
+                currentProgress += Math.random() * 15;
+                currentProgress = Math.min(currentProgress, 90);
+                progressBar.style.width = currentProgress + '%';
+                
+                // Update message periodically
+                if (currentProgress > (messageIndex + 1) * 15 && messageIndex < messages.length - 1) {
+                  messageIndex++;
+                  progressMessage.textContent = messages[messageIndex];
+                }
+              }
+            }, 800);
+
+            // Start the analysis
+            fetch('/welcome/analyze?id=<%= @extension_id %>', {
+              headers: {
+                'Accept': 'text/html',
+                'X-Requested-With': 'XMLHttpRequest'
+              },
+              credentials: 'same-origin'
+            })
+            .then(response => response.text())
+            .then(html => {
+              // Complete the progress bar
+              clearInterval(progressInterval);
+              progressBar.style.width = '100%';
+              progressMessage.textContent = 'Analysis complete!';
+              
+              // Short delay before showing results
+              setTimeout(() => {
+                document.getElementById('analysis_results').innerHTML = html;
+                document.getElementById('analysis_status').style.display = 'none';
+              }, 500);
+            })
+            .catch(error => {
+              clearInterval(progressInterval);
+              progressMessage.textContent = 'Error during analysis. Please try again.';
+              progressBar.style.backgroundColor = '#EF4444'; // Red color for error
+            });
+          });
+        <% end %>
+      <% end %>
+    </div>
+
+    <!-- Results -->
+    <div id="analysis_results">
+      <% if @manifest %>
+        <%= render 'results' %>
+      <% end %>
+    </div>
+
+
+  </div>
+</div>
+
