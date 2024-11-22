@@ -1,0 +1,224 @@
+<!-- Logo -->
+    <div class="flex justify-center mb-8">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40">
+            <!-- Shield -->
+            <path d="M20 5 L35 10 L35 25 L20 32 L5 25 L5 10 Z" 
+                    fill="#E6E6FA" 
+                    stroke="#9370DB" 
+                    stroke-width="1.5"/>
+            
+            <!-- Magnifying glass -->
+            <circle cx="17" cy="17" r="6" 
+                    fill="none" 
+                    stroke="#9370DB" 
+                    stroke-width="2"/>
+            <line x1="21" y1="21" x2="26" y2="26" 
+                    stroke="#9370DB" 
+                    stroke-width="2" 
+                    stroke-linecap="round"/>
+            
+            <!-- Puzzle piece suggestion -->
+            <path d="M15 14 Q13 14 13 16 L13 18 Q13 20 11 20 L15 20 L15 14" 
+                    fill="#9370DB"/>
+            
+            <!-- Text with consistent spacing and clear separation -->
+            <text x="45" y="25" 
+                    font-family="Arial Black, sans-serif" 
+                    font-size="20" 
+                    fill="#9370DB"
+                    letter-spacing="1">CRX</text>
+            <text x="94" y="25" 
+                    font-family="Arial, sans-serif" 
+                    font-size="20" 
+                    fill="#B19CD9"
+                    letter-spacing="1">aminer</text>
+            
+            <!-- Scanning line -->
+            <line x1="8" y1="12" x2="18" y2="12" 
+                    stroke="#B19CD9" 
+                    stroke-width="0.75" 
+                    opacity="0.6">
+                <animate attributeName="y1" 
+                        values="12;22;12" 
+                        dur="3s" 
+                        repeatCount="indefinite"/>
+                <animate attributeName="y2" 
+                        values="12;22;12" 
+                        dur="3s" 
+                        repeatCount="indefinite"/>
+            </line>
+        </svg>
+    </div>
+
+<% if @manifest %>
+  <!-- Extension details section -->
+  <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+    <div class="flex items-center space-x-4 mb-4">
+      <% if @extension_image %>
+        <img src="<%= @extension_image %>" alt="Extension icon" class="w-16 h-16 rounded-lg">
+      <% end %>
+      <div>
+        <h1 class="text-2xl font-bold text-gray-700 dark:text-gray-200">
+          <%= @extension_name || "Unknown Extension" %>
+        </h1>
+        <% if @manifest[:version] %>
+          <p class="text-gray-600 dark:text-gray-300">
+            Version <%= @manifest[:version] %>
+
+            <!-- Chrome Web Store link -->
+            <% if @extension_id %>
+                <%= link_to "View in Chrome Web Store", 
+                    "https://chrome.google.com/webstore/detail/#{@extension_id}", 
+                    target: "_blank", 
+                    class: "text-[#9370DB] hover:text-[#7851c5] underline" %>
+            <% end %>
+
+          </p>
+        <% end %>
+
+      </div>
+    </div>
+    
+    <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mb-6">
+      <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-3">Extension Details</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        <% if @extension_details&.dig(:author).present? %>
+          <div class="flex items-start">
+            <span class="text-gray-500 dark:text-gray-400 w-32">Developer:</span>
+            <span class="text-gray-700 dark:text-gray-200"><%= @extension_details[:author] %></span>
+          </div>
+        <% end %>
+        
+        <% if @extension_details&.dig(:rating).present? %>
+          <div class="flex items-start">
+            <span class="text-gray-500 dark:text-gray-400 w-32">Rating:</span>
+            <span class="text-gray-700 dark:text-gray-200">
+              <%= @extension_details[:rating] %> ★
+              <% if @extension_details[:rating_count].present? %>
+                (<%= @extension_details[:rating_count] %> ratings)
+              <% end %>
+            </span>
+          </div>
+        <% end %>
+        
+        <% if @extension_details[:size].present? %>
+          <div class="flex items-start">
+            <span class="text-gray-500 dark:text-gray-400 w-32">Size:</span>
+            <span class="text-gray-700 dark:text-gray-200"><%= @extension_details[:size] %></span>
+          </div>
+        <% end %>
+        
+        <% if @extension_details[:last_updated].present? %>
+          <div class="flex items-start">
+            <span class="text-gray-500 dark:text-gray-400 w-32">Last Updated:</span>
+            <span class="text-gray-700 dark:text-gray-200"><%= @extension_details[:last_updated] %></span>
+          </div>
+        <% end %>
+        
+        <% if @extension_details[:developer_info].present? %>
+          <div class="flex items-start col-span-2">
+            <span class="text-gray-500 dark:text-gray-400 w-32">Developer Info:</span>
+            <span class="text-gray-700 dark:text-gray-200 break-words max-w-[30ch]"><%= @extension_details[:developer_info] %></span>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+
+  <!-- Security findings section -->
+  <% if @security_findings&.any? %>
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+      <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">Security Analysis</h2>
+      
+      <div class="space-y-3">
+        <% # First, display the overall risk assessment %>
+        <% overall_finding = @security_findings.find { |f| f[:title].downcase.include?('overall risk') } %>
+        <% if overall_finding %>
+          <div class="<%= severity_color_class(overall_finding[:severity]) %> rounded-lg p-3">
+            <div class="flex items-center gap-2">
+              <div class="px-2 py-0.5 rounded text-white font-semibold text-sm">
+                <%= overall_finding[:severity].upcase %>
+              </div>
+              <div class="font-medium text-white text-sm">
+                Overall Risk
+              </div>
+            </div>
+            <div class="text-white text-sm mt-1">
+              <%= overall_finding[:description] %>
+            </div>
+          </div>
+        <% end %>
+
+        <% # Then, sort and display the rest of the findings %>
+        <% severity_order = { 'critical' => 0, 'high' => 1, 'medium' => 2, 'low' => 3 } %>
+        <% other_findings = @security_findings
+             .reject { |f| f[:title].downcase.include?('overall risk') }
+             .sort_by { |f| [severity_order.fetch(f[:severity].downcase, 999), f[:title]] } %>
+        
+        <% other_findings.each do |finding| %>
+          <div class="border dark:border-gray-700 rounded-lg p-3">
+            <div class="flex items-center gap-2">
+              <div class="<%= severity_color_class(finding[:severity]) %> px-2 py-0.5 rounded text-white font-semibold text-sm">
+                <%= finding[:severity].upcase %>
+              </div>
+              <div class="font-medium text-gray-700 dark:text-gray-200 text-sm">
+                <%= finding[:title] %>
+              </div>
+            </div>
+            <div class="text-gray-600 dark:text-gray-300 text-sm mt-1">
+              <%= finding[:description] %>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+
+
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+    <h2 class="text-xl font-semibold text-violet-600 dark:text-violet-600 mb-4">Security Analysis Details</h2>
+    <div class="space-y-3 text-gray-600 dark:text-gray-300">
+      <!-- Permissions List -->
+      <% if @manifest %>
+        <div class="mt-4">
+          <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-2">Permissions</h3>
+          <div class="space-y-2">
+            <% if @manifest[:permissions]&.any? %>
+              <div>
+                <h4 class="text-sm font-medium text-gray-600 dark:text-gray-400">Required Permissions:</h4>
+                <ul class="list-disc list-inside ml-4 text-sm">
+                  <% @manifest[:permissions].each do |permission| %>
+                    <li><%= permission %></li>
+                  <% end %>
+                </ul>
+              </div>
+            <% end %>
+
+            <% if @manifest[:optional_permissions]&.any? %>
+              <div>
+                <h4 class="text-sm font-medium text-gray-600 dark:text-gray-400">Optional Permissions:</h4>
+                <ul class="list-disc list-inside ml-4 text-sm">
+                  <% @manifest[:optional_permissions].each do |permission| %>
+                    <li><%= permission %></li>
+                  <% end %>
+                </ul>
+              </div>
+            <% end %>
+
+            <% if @manifest[:host_permissions]&.any? %>
+              <div>
+                <h4 class="text-sm font-medium text-gray-600 dark:text-gray-400">Host Permissions:</h4>
+                <ul class="list-disc list-inside ml-4 text-sm">
+                  <% @manifest[:host_permissions].each do |permission| %>
+                    <li><%= permission %></li>
+                  <% end %>
+                </ul>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+    </div>
+
+  <% end %>
+<% end %> 

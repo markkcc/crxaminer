@@ -1,0 +1,89 @@
+<div class="h-screen flex items-center justify-center">
+  <div class="max-w-2xl w-full mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg">
+      <div class="flex justify-center items-center mb-6">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40">
+            <!-- Shield -->
+            <path d="M20 5 L35 10 L35 25 L20 32 L5 25 L5 10 Z" 
+                    fill="#E6E6FA" 
+                    stroke="#9370DB" 
+                    stroke-width="1.5"/>
+            
+            <!-- Magnifying glass -->
+            <circle cx="17" cy="17" r="6" 
+                    fill="none" 
+                    stroke="#9370DB" 
+                    stroke-width="2"/>
+            <line x1="21" y1="21" x2="26" y2="26" 
+                    stroke="#9370DB" 
+                    stroke-width="2" 
+                    stroke-linecap="round"/>
+            
+            <!-- Puzzle piece suggestion -->
+            <path d="M15 14 Q13 14 13 16 L13 18 Q13 20 11 20 L15 20 L15 14" 
+                    fill="#9370DB"/>
+            
+            <!-- Text with consistent spacing and clear separation -->
+            <text x="45" y="25" 
+                    font-family="Arial Black, sans-serif" 
+                    font-size="20" 
+                    fill="#9370DB"
+                    letter-spacing="1">CRX</text>
+            <text x="94" y="25" 
+                    font-family="Arial, sans-serif" 
+                    font-size="20" 
+                    fill="#B19CD9"
+                    letter-spacing="1">aminer</text>
+            
+            <!-- Scanning line -->
+            <line x1="8" y1="12" x2="18" y2="12" 
+                    stroke="#B19CD9" 
+                    stroke-width="0.75" 
+                    opacity="0.6">
+                <animate attributeName="y1" 
+                        values="12;22;12" 
+                        dur="3s" 
+                        repeatCount="indefinite"/>
+                <animate attributeName="y2" 
+                        values="12;22;12" 
+                        dur="3s" 
+                        repeatCount="indefinite"/>
+            </line>
+        </svg>
+      </div>
+      
+    
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+      Analysis of <span class="text-[#9370DB]"><%= @extension_name %></span>
+    </h1>
+    
+    <%= turbo_stream_from "analysis_progress_#{@extension_id}" %>
+    <div id="progress_bar">
+      <%= render partial: "welcome/progress_bar", locals: { progress: 0, status: "Starting analysis..." } %>
+    </div>
+
+    <div class="mt-4 text-gray-600 dark:text-gray-300">
+      <p class="mb-4">Extension ID: <span class="font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded"><%= @extension_id %></span></p>
+      
+      <% if @manifest %>
+        <div class="mt-8">
+          <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Manifest Details</h2>
+          
+          <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-4">
+            <pre class="overflow-auto text-sm text-gray-800 dark:text-gray-200"><%= JSON.pretty_generate(@manifest) %></pre>
+          </div>
+        </div>
+      <% end %>
+
+      <div class="mt-4">
+        <%= link_to "View in Chrome Web Store", 
+            "https://chrome.google.com/webstore/detail/#{@extension_id}", 
+            target: "_blank", 
+            class: "text-[#9370DB] hover:text-[#7851c5] underline" %>
+      </div>
+    </div>
+
+    </div>
+  </div>
+</div>

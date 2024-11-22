@@ -1,0 +1,117 @@
+<div class="h-screen flex items-center justify-center">
+  <div class="max-w-2xl w-full mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg">
+      <div class="flex justify-center items-center mb-6">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40">
+            <!-- Shield -->
+            <path d="M20 5 L35 10 L35 25 L20 32 L5 25 L5 10 Z" 
+                    fill="#E6E6FA" 
+                    stroke="#9370DB" 
+                    stroke-width="1.5"/>
+            
+            <!-- Magnifying glass -->
+            <circle cx="17" cy="17" r="6" 
+                    fill="none" 
+                    stroke="#9370DB" 
+                    stroke-width="2"/>
+            <line x1="21" y1="21" x2="26" y2="26" 
+                    stroke="#9370DB" 
+                    stroke-width="2" 
+                    stroke-linecap="round"/>
+            
+            <!-- Puzzle piece suggestion -->
+            <path d="M15 14 Q13 14 13 16 L13 18 Q13 20 11 20 L15 20 L15 14" 
+                    fill="#9370DB"/>
+            
+            <!-- Text with consistent spacing and clear separation -->
+            <text x="45" y="25" 
+                    font-family="Arial Black, sans-serif" 
+                    font-size="20" 
+                    fill="#9370DB"
+                    letter-spacing="1">CRX</text>
+            <text x="94" y="25" 
+                    font-family="Arial, sans-serif" 
+                    font-size="20" 
+                    fill="#B19CD9"
+                    letter-spacing="1">aminer</text>
+            
+            <!-- Scanning line -->
+            <line x1="8" y1="12" x2="18" y2="12" 
+                    stroke="#B19CD9" 
+                    stroke-width="0.75" 
+                    opacity="0.6">
+                <animate attributeName="y1" 
+                        values="12;22;12" 
+                        dur="3s" 
+                        repeatCount="indefinite"/>
+                <animate attributeName="y2" 
+                        values="12;22;12" 
+                        dur="3s" 
+                        repeatCount="indefinite"/>
+            </line>
+        </svg>
+      </div>
+      
+      <p class="text-gray-600 dark:text-gray-300 mb-8 text-center">
+        Enter the ID of the Chrome extension you want to analyze.
+        <span class="text-sm text-gray-500 dark:text-gray-400 block mt-1"></span>
+      </p>
+
+      <%= form_tag welcome_path, method: :get, data: { turbo: true } do %>
+        <div class="flex gap-2">
+          <%= text_field_tag :id, nil, 
+              class: "flex-grow px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#9370DB] dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200",
+              placeholder: "Enter Chrome Extension ID" %>
+          <%= submit_tag "Analyze", 
+              class: "px-6 py-2 bg-[#9370DB] text-white rounded-lg hover:bg-[#7851c5] focus:outline-none focus:ring-2 focus:ring-[#9370DB] focus:ring-offset-2" %>
+        </div>
+      <% end %>
+
+      <!-- Error container that shows both client-side and server-side errors -->
+      <div id="extension-error" class="mt-4 text-center">
+        <% if flash[:error] %>
+          <div class="text-red-500 text-sm"><%= flash[:error] %></div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+window.addEventListener('load', function() {
+  const form = document.querySelector('form');
+  const input = document.querySelector('input[name="id"]');
+  const errorContainer = document.querySelector('#extension-error');
+  console.log('Form:', form);
+  console.log('Input:', input);
+  console.log('Error container:', errorContainer);
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const extensionId = input.value.trim();
+    console.log('Submitting with ID:', extensionId);
+    console.log('ID length:', extensionId.length);
+    
+    const isValid = /^[a-zA-Z0-9]{32}$/.test(extensionId);
+    console.log('Is valid:', isValid);
+
+    if (!isValid) {
+      console.log('Validation failed');
+      errorContainer.innerHTML = '<div class="text-red-500 text-sm">Extension ID must be 32 characters long and contain only letters and numbers.</div>';
+      input.classList.add('border-red-500');
+    } else {
+      console.log('Validation passed, submitting form');
+      errorContainer.innerHTML = '';
+      input.classList.remove('border-red-500');
+      form.submit();
+    }
+  });
+
+  // Clear error on input
+  input.addEventListener('input', function() {
+    errorContainer.innerHTML = '';
+    input.classList.remove('border-red-500');
+  });
+});
+</script>

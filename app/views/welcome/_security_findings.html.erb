@@ -1,0 +1,21 @@
+<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+  <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">Security Analysis</h2>
+  
+  <div class="space-y-3">
+    <% @security_findings.each do |finding| %>
+      <div class="border dark:border-gray-700 rounded-lg p-3">
+        <div class="flex items-center gap-2">
+          <div class="<%= ExtensionAnalyzer::SEVERITY_COLORS[finding[:severity]] %> font-semibold text-sm">
+            <%= finding[:severity].upcase %>
+          </div>
+          <div class="font-medium text-gray-700 dark:text-gray-200 text-sm">
+            <%= finding[:title] %>
+          </div>
+        </div>
+        <div class="text-gray-600 dark:text-gray-300 text-sm mt-1">
+          <%= finding[:description] %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div> 
