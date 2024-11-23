@@ -50,6 +50,14 @@
         </svg>
     </div>
 
+<div class="w-full bg-gray-100 dark:bg-gray-900 py-2 text-center -mt-8">
+  <span class="space-x-4">
+    <%= link_to "[ new scan ]", root_path, class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
+    <span class="text-gray-600 dark:text-gray-400">[ statistics ]</span>
+    <%= link_to "[ github ]", "https://github.com/markkcc/crxaminer", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
+  </span>
+</div>
+
 <% if @manifest %>
   <!-- Extension details section -->
   <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">

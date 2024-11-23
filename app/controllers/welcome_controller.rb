@@ -16,8 +16,8 @@ class WelcomeController < ApplicationController
 
     # Validate extension ID format
     unless @extension_id =~ /^[a-zA-Z0-9]{32}$/
-      flash[:error] = "Invalid Extension ID format. Must be exactly 32 characters long and contain only letters and numbers."
-      redirect_to root_path(anchor: 'top')
+      flash[:error] = "Invalid extension ID: Must be 32 alphanumeric characters long."
+      render :index, layout: false
       return
     end
 
@@ -29,9 +29,9 @@ class WelcomeController < ApplicationController
 
     if @error
       flash[:error] = @error
-      redirect_to root_path(anchor: 'top')
+      render :index
     else
-      render :show
+      render :show, layout: false
     end
   end
 

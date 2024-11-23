@@ -1,5 +1,11 @@
 <div class="h-screen flex items-center justify-center">
   <div class="max-w-2xl w-full mx-auto px-4 sm:px-6 lg:px-8">
+  <div class="w-full bg-gray-100 dark:bg-gray-900 py-2 text-center -mt-8">
+  <span class="space-x-4">
+    <span class="text-gray-600 dark:text-gray-400">[ statistics ]</span>
+    <%= link_to "[ github ]", "https://github.com/markkcc/crxaminer", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
+  </span>
+</div>
     <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg">
       <div class="flex justify-center items-center mb-6">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40">
@@ -92,7 +98,7 @@ window.addEventListener('load', function() {
 
     if (!isValid) {
       console.log('Validation failed');
-      errorContainer.innerHTML = '<div class="text-red-500 text-sm">Extension ID must be 32 characters long and contain only letters and numbers.</div>';
+      errorContainer.innerHTML = '<div class="text-red-500 text-sm">Invalid extension ID: Must be 32 alphanumeric characters long.</div>';
       input.classList.add('border-red-500');
     } else {
       errorContainer.innerHTML = '';
