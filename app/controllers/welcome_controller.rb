@@ -66,7 +66,6 @@ class WelcomeController < ApplicationController
       # Follow redirect if necessary
       if response.code == "301" || response.code == "302"
         redirect_location = response['location']
-        Rails.logger.info "Original redirect URL: #{redirect_location}"
         
         # Parse the URL into components
         uri_parts = redirect_location.match(%r{(https?://[^/]+)(/.*$)})
@@ -81,8 +80,6 @@ class WelcomeController < ApplicationController
           redirect_location = protocol_and_host + encoded_path
         end
         
-        Rails.logger.info "Encoded redirect URL: #{redirect_location}"
-        
         redirect_uri = URI.parse(redirect_location)
         Rails.logger.info "Parsed redirect URI: #{redirect_uri.inspect}"
         
@@ -96,7 +93,6 @@ class WelcomeController < ApplicationController
       # Ensure proper encoding when parsing HTML
       doc = Nokogiri::HTML(response.body.force_encoding('UTF-8'))
       raw_extension_name = doc.css('h1').first&.text&.strip.to_s
-      Rails.logger.info "Raw extension name: #{raw_extension_name}"
       
       @extension_name = raw_extension_name
                         .gsub('&mdash;', '—')
@@ -106,13 +102,13 @@ class WelcomeController < ApplicationController
                         .gsub('&copy;', '©')
                         .gsub('&amp;', '&')
       
-      Rails.logger.info "Processed extension name: #{@extension_name}"
       
       @extension_image = doc.css('.rBxtY').first&.attr('src')
       
       # Find elements by their text content
       size_element = doc.css('.nws2nb').find { |el| el.text.strip == "Size" }
       updated_element = doc.css('.nws2nb').find { |el| el.text.strip == "Updated" }
+      users_element = doc.css('.gqpEIe.bgp7Ye').first&.next_sibling&.text&.strip&.split(' ')&.first
       
       @extension_details = {
         author: doc.css('.cJI8ee').first&.text&.strip.to_s
@@ -121,10 +117,10 @@ class WelcomeController < ApplicationController
         rating_count: doc.css('.xJEoWe').first&.text&.strip,
         last_updated: updated_element&.next_element&.text&.strip,
         size: size_element&.next_element&.text&.strip,
+        users: users_element,
         developer_info: doc.css('.Fm8Cnb').first&.text&.strip.to_s
                        .gsub('&amp;', '&')
       }
-      
       Rails.logger.info "Fetched details: #{@extension_details.inspect}"
       
     rescue Net::HTTPError => e

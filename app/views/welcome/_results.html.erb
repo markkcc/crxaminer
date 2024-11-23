@@ -122,6 +122,13 @@
             <span class="text-gray-700 dark:text-gray-200"><%= @extension_details[:last_updated] %></span>
           </div>
         <% end %>
+
+        <% if @extension_details[:users].present? %>
+          <div class="flex items-start">
+            <span class="text-gray-500 dark:text-gray-400 w-32">Users:</span>
+            <span class="text-gray-700 dark:text-gray-200"><%= @extension_details[:users] %></span>
+          </div>
+        <% end %>
         
         <% if @extension_details[:developer_info].present? %>
           <div class="flex items-start col-span-2">
