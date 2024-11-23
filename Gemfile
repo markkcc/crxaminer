@@ -64,6 +64,6 @@ group :test do
   gem "selenium-webdriver"
 end
 
-gem 'httparty'
+#gem 'httparty'
 gem 'rubyzip', require: 'zip'
 gem 'nokogiri'
