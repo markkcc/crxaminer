@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12">
+  <!-- Shield background -->
+  <path d="M1 1 L11 1 L11 7 L6 10 L1 7 Z" 
+        fill="#E6E6FA" 
+        stroke="#9370DB" 
+        stroke-width="0.5"/>
+  
+  <!-- Magnifying glass moved higher -->
+  <circle cx="5" cy="4" r="2" 
+          fill="none"
+          stroke="#9370DB" 
+          stroke-width="1"/>
+  <line x1="6.5" y1="5.5" x2="8.5" y2="7.5" 
+        stroke="#9370DB" 
+        stroke-width="1" 
+        stroke-linecap="round"/>
+</svg>
