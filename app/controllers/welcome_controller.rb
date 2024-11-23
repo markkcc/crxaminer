@@ -35,6 +35,11 @@ class WelcomeController < ApplicationController
     end
   end
 
+  def stats
+    # Add any statistics logic here
+    render :stats
+  end
+
   private
 
   def fetch_chrome_store_data
