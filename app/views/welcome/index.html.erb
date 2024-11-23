@@ -82,26 +82,19 @@ window.addEventListener('load', function() {
   const form = document.querySelector('form');
   const input = document.querySelector('input[name="id"]');
   const errorContainer = document.querySelector('#extension-error');
-  console.log('Form:', form);
-  console.log('Input:', input);
-  console.log('Error container:', errorContainer);
 
   form.addEventListener('submit', function(e) {
     e.preventDefault();
     
     const extensionId = input.value.trim();
-    console.log('Submitting with ID:', extensionId);
-    console.log('ID length:', extensionId.length);
     
     const isValid = /^[a-zA-Z0-9]{32}$/.test(extensionId);
-    console.log('Is valid:', isValid);
 
     if (!isValid) {
       console.log('Validation failed');
       errorContainer.innerHTML = '<div class="text-red-500 text-sm">Extension ID must be 32 characters long and contain only letters and numbers.</div>';
       input.classList.add('border-red-500');
     } else {
-      console.log('Validation passed, submitting form');
       errorContainer.innerHTML = '';
       input.classList.remove('border-red-500');
       form.submit();
