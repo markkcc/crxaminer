@@ -233,11 +233,19 @@
             <% if @manifest[:embedded_urls]&.any? %>
               <div>
                 <h4 class="text-sm font-medium text-gray-600 dark:text-gray-400">Embedded URLs:</h4>
-                <ul class="list-disc list-inside ml-4 text-sm">
-                  <% @manifest[:embedded_urls].each do |url| %>
-                    <li><%= url %></li>
-                  <% end %>
-                </ul>
+                <div class="mt-2 overflow-x-auto w-full">
+                  <table class="w-full table-fixed text-sm">
+                    <tbody>
+                      <% @manifest[:embedded_urls].each_slice(3) do |url_pair| %>
+                        <tr class="border-t dark:border-gray-700">
+                          <td class="w-1/2 px-4 py-2 text-gray-600 dark:text-gray-300 truncate"><%= url_pair[0] %></td>
+                          <td class="w-1/2 px-4 py-2 text-gray-600 dark:text-gray-300 truncate"><%= url_pair[1] %></td>
+                          <td class="w-1/2 px-4 py-2 text-gray-600 dark:text-gray-300 truncate"><%= url_pair[2] %></td>
+                        </tr>
+                      <% end %>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             <% end %>
 
