@@ -1,4 +1,4 @@
-module WelcomeHelper
+module ScanHelper
   def severity_color_class(severity)
     case severity.to_s.downcase
     when 'critical'

@@ -2,7 +2,7 @@
   <div class="max-w-2xl w-full mx-auto px-4 sm:px-6 lg:px-8">
   <div class="w-full bg-gray-100 dark:bg-gray-900 py-2 text-center -mt-8">
   <span class="space-x-4">
-    <%= link_to "[ statistics ]", stats_path, class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
+    <%= link_to "[ statistics ]", stats_scan_index_path, class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
     <%= link_to "[ github ]", "https://github.com/markkcc/crxaminer", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
   </span>
 </div>
@@ -63,7 +63,7 @@
         <span class="text-sm text-gray-500 dark:text-gray-400 block mt-1"></span>
       </p>
 
-      <%= form_tag welcome_path, method: :get, data: { turbo: true } do %>
+      <%= form_tag scan_path(':id'), method: :get, class: "extension-form", data: { turbo: false } do %>
         <div class="flex gap-2">
           <%= text_field_tag :id, nil, 
               class: "flex-grow px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#9370DB] dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200",
@@ -85,7 +85,7 @@
 
 <script>
 window.addEventListener('load', function() {
-  const form = document.querySelector('form');
+  const form = document.querySelector('.extension-form');
   const input = document.querySelector('input[name="id"]');
   const errorContainer = document.querySelector('#extension-error');
 
@@ -97,13 +97,13 @@ window.addEventListener('load', function() {
     const isValid = /^[a-zA-Z0-9]{32}$/.test(extensionId);
 
     if (!isValid) {
-      console.log('Validation failed');
       errorContainer.innerHTML = '<div class="text-red-500 text-sm">Invalid extension ID: Must be 32 alphanumeric characters long.</div>';
       input.classList.add('border-red-500');
     } else {
       errorContainer.innerHTML = '';
       input.classList.remove('border-red-500');
-      form.submit();
+      // Replace the placeholder ID with the actual ID and submit
+      window.location.href = form.action.replace(':id', extensionId);
     }
   });
 

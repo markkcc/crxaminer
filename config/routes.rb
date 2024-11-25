@@ -1,6 +1,10 @@
 Rails.application.routes.draw do
-  get '/welcome', to: 'welcome#show'
-  get '/welcome/analyze', to: 'welcome#analyze'
-  get 'stats', to: 'welcome#stats'
-  root 'welcome#index'
+  root 'scan#index'
+
+  resources :scan, only: [:index, :show] do
+    collection do
+      get :analyze
+      get :stats
+    end
+  end
 end

@@ -22,7 +22,7 @@ class ExtensionAnalysisJob < ApplicationJob
     Turbo::StreamsChannel.broadcast_update_to(
       "analysis_#{extension_id}",
       target: "analysis_status",
-      partial: "welcome/loading_status",
+      partial: "scan/loading_status",
       locals: { message: message }
     )
   end
@@ -31,7 +31,7 @@ class ExtensionAnalysisJob < ApplicationJob
     Turbo::StreamsChannel.broadcast_update_to(
       "analysis_#{extension_id}",
       target: "analysis_status",
-      partial: "welcome/complete_status"
+      partial: "scan/complete_status"
     )
   end
 

@@ -1,0 +1,222 @@
+<div class="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
+  <div class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow overflow-y-auto">
+    
+
+    <!-- Analysis Status -->
+    <div id="analysis_status">
+      <% if @extension_id %>
+        <%= render "loading_status", message: "Starting analysis..." %>
+      <% end %>
+    </div>
+
+    <!-- Results container - Make sure this exists -->
+    <div id="analysis_results" class="mt-4"></div>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        const progressBar = document.getElementById('progress-bar');
+        const progressMessage = document.getElementById('progress-message');
+        const analysisStatus = document.getElementById('analysis_status');
+        const analysisResults = document.getElementById('analysis_results');
+
+        if (!progressBar || !progressMessage || !analysisStatus || !analysisResults) {
+          console.error('Required elements not found');
+          return;
+        }
+
+        const messages = [
+          'Starting analysis...',
+          'Fetching extension details...',
+          'Downloading extension...',
+          'Analyzing permissions...',
+          'Checking security...',
+          'Finalizing analysis...'
+        ];
+        let currentProgress = 0;
+        let messageIndex = 0;
+
+        // Update progress every 800ms
+        const progressInterval = setInterval(() => {
+          if (currentProgress < 90) {
+            currentProgress += Math.random() * 15;
+            currentProgress = Math.min(currentProgress, 90);
+            progressBar.style.width = currentProgress + '%';
+            
+            // Update message periodically
+            if (currentProgress > (messageIndex + 1) * 15 && messageIndex < messages.length - 1) {
+              messageIndex++;
+              progressMessage.textContent = messages[messageIndex];
+            }
+          }
+        }, 800);
+
+        // Start the analysis
+        fetch('/scan/analyze?id=<%= @extension_id %>', {
+          headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.error) {
+            throw new Error(data.error);
+          }
+          
+          // Complete the progress bar
+          clearInterval(progressInterval);
+          progressBar.style.width = '100%';
+          progressMessage.textContent = 'Analysis complete!';
+          
+          // Short delay before showing results
+          setTimeout(() => {
+            // Hide the loading status
+            analysisStatus.style.display = 'none';
+            
+            // Fetch and render the results partial with proper string handling
+            fetch(`/scan/<%= @extension_id %>`, {
+              headers: {
+                'Accept': 'text/html',
+                'X-Requested-With': 'XMLHttpRequest'
+              }
+            })
+            .then(response => {
+              if (!response.ok) {
+                throw new Error('Failed to load results');
+              }
+              return response.text();
+            })
+            .then(html => {
+              analysisResults.innerHTML = html;
+              // Initialize pagination if needed
+              if (typeof initializeUrlsPagination === 'function') {
+                initializeUrlsPagination();
+              }
+            })
+            .catch(error => {
+              console.error('Error loading results:', error);
+              analysisResults.innerHTML = '<div class="text-red-500 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg">Error loading results. Please try again.</div>';
+            });
+          }, 500);
+        })
+        .catch(error => {
+          clearInterval(progressInterval);
+          progressMessage.textContent = error.message || 'Error during analysis. Please try again.';
+          progressBar.style.backgroundColor = '#EF4444'; // Red color for error
+        });
+
+        function getSeverityColor(severity) {
+          const colors = {
+            'Critical': 'text-red-700',
+            'High': 'text-red-600',
+            'Medium': 'text-yellow-600',
+            'Low': 'text-yellow-500',
+            'Info': 'text-blue-500',
+            'Minimal': 'text-green-500'
+          };
+          return colors[severity] || 'text-gray-600';
+        }
+      });
+    </script>
+  </div>
+</div>
+
+<% content_for :page_scripts do %>
+  <script>
+    function initializeUrlsPagination() {
+      
+      const container = document.getElementById('embedded-urls-container');
+      if (!container) {
+        console.log('No pagination container found, trying again in 1000ms');
+        setTimeout(initializeUrlsPagination, 1000);
+        return;
+      }
+
+      const urls = JSON.parse(container.dataset.urls);
+
+      const tbody = document.getElementById('embedded-urls-tbody');
+      const currentPageEl = document.getElementById('current-page');
+      const prevButton = document.getElementById('prev-page');
+      const nextButton = document.getElementById('next-page');
+      
+      const ROWS_PER_PAGE = 25;
+      const URLS_PER_ROW = 3;
+      const URLS_PER_PAGE = ROWS_PER_PAGE * URLS_PER_ROW;
+      const totalPages = Math.ceil(urls.length / URLS_PER_PAGE);
+      let currentPage = 1;
+
+      if (totalPages === 1) return;
+
+      function updateTable() {
+        const startIdx = (currentPage - 1) * URLS_PER_PAGE;
+        const endIdx = startIdx + URLS_PER_PAGE;
+        const pageUrls = urls.slice(startIdx, endIdx);
+
+        // Clear existing rows
+        tbody.innerHTML = '';
+        
+        // Create new rows
+        for (let i = 0; i < pageUrls.length; i += URLS_PER_ROW) {
+          const row = document.createElement('tr');
+          row.className = 'border-t dark:border-gray-700';
+          
+          for (let j = 0; j < URLS_PER_ROW; j++) {
+            const cell = document.createElement('td');
+            cell.className = 'w-1/3 px-4 py-2 text-gray-600 dark:text-gray-300 truncate';
+            const url = pageUrls[i + j];
+            cell.textContent = url || '';
+            row.appendChild(cell);
+          }
+          
+          tbody.appendChild(row);
+        }
+
+        // Update UI state
+        currentPageEl.textContent = currentPage;
+        
+        // Handle prev button
+        if (currentPage === 1) {
+          prevButton.classList.add('hidden');
+          prevButton.disabled = true;
+        } else {
+          prevButton.classList.remove('hidden');
+          prevButton.disabled = false;
+        }
+
+        // Handle next button
+        if (currentPage === totalPages) {
+          nextButton.classList.add('hidden');
+          nextButton.disabled = true;
+        } else {
+          nextButton.classList.remove('hidden');
+          nextButton.disabled = false;
+        }
+      }
+
+      // Add event listeners
+      prevButton?.addEventListener('click', () => {
+        if (currentPage > 1) {
+          currentPage--;
+          updateTable();
+        }
+      });
+
+      nextButton?.addEventListener('click', () => {
+        if (currentPage < totalPages) {
+          currentPage++;
+          updateTable();
+        }
+      });
+
+      // Initialize the table
+      updateTable();
+    }
+
+    // Listen for both initial load and Turbo navigation
+    document.addEventListener('DOMContentLoaded', initializeUrlsPagination);
+    document.addEventListener('turbo:load', initializeUrlsPagination);
+    document.addEventListener('turbo:render', initializeUrlsPagination);
+  </script>
+<% end %>
+

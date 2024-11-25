@@ -1,4 +1,4 @@
-module ExtensionAnalyzer
+module ExtensionAnalyzerData
   HIGH_RISK_PERMISSIONS = {
     "tabs" => "Can access browser tab information and manipulate tabs",
     "webRequest" => "Can intercept and modify web requests",

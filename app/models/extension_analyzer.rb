@@ -6,41 +6,38 @@ require 'uri'
 require 'cgi'
 require 'open-uri'
 
-class WelcomeController < ApplicationController
-  def show
-    @extension_id = params[:id]
+class ExtensionAnalyzer
+  include ActiveModel::Model
+  
+  attr_reader :extension_id, :extension_details, :extension_name, 
+              :extension_image, :manifest, :security_findings, :error
+
+  def initialize(extension_id)
+    @extension_id = extension_id
   end
 
-  def analyze
-    @extension_id = params[:id]&.strip
+  def perform
+    validate_extension_id
+    return self if error?
 
-    # Validate extension ID format
-    unless @extension_id =~ /^[a-zA-Z0-9]{32}$/
-      flash[:error] = "Invalid extension ID: Must be 32 alphanumeric characters long."
-      render :index, layout: false
-      return
-    end
-
-    # Fetch Chrome store data
     fetch_chrome_store_data
+    return self if error?
 
-    # Download and analyze extension
     download_and_analyze_extension
-
-    if @error
-      flash[:error] = @error
-      render :index
-    else
-      render :show, layout: false
-    end
+    self
   end
 
-  def stats
-    # Add any statistics logic here
-    render :stats
+  def error?
+    @error.present?
   end
 
   private
+
+  def validate_extension_id
+    unless @extension_id =~ /^[a-zA-Z0-9]{32}$/
+      @error = "Invalid extension ID: Must be 32 alphanumeric characters long."
+    end
+  end
 
   def fetch_chrome_store_data
     @extension_details = {}
@@ -143,7 +140,7 @@ class WelcomeController < ApplicationController
       Turbo::StreamsChannel.broadcast_update_to(
         "analysis_#{@extension_id}",
         target: "analysis_status",
-        partial: "welcome/loading_status",
+        partial: "scan/loading_status",
         locals: { message: "Downloading extension..." }
       )
 
@@ -155,12 +152,12 @@ class WelcomeController < ApplicationController
         Turbo::StreamsChannel.broadcast_update_to(
           "analysis_#{@extension_id}",
           target: "analysis_status",
-          partial: "welcome/loading_status",
+          partial: "scan/loading_status",
           locals: { message: "Analyzing security..." }
         )
 
-        analysis_service = ExtensionAnalysisService.new(@manifest)
-        @security_findings = analysis_service.analyze
+        analyzer = ExtensionSecurityAnalyzer.new(@manifest)
+        @security_findings = analyzer.analyze
       end
     rescue OpenURI::HTTPError => e
       @error = "Failed to download extension. Please check the ID and try again."
@@ -240,4 +237,4 @@ class WelcomeController < ApplicationController
     Rails.logger.error "Error extracting manifest: #{e.message}"
     nil
   end
-end
+end 

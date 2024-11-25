@@ -1,5 +1,5 @@
-class ExtensionAnalysisService
-  include ExtensionAnalyzer
+class ExtensionSecurityAnalyzer
+  include ExtensionAnalyzerData
   
   def initialize(manifest)
     @manifest = manifest
