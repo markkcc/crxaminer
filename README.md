@@ -21,7 +21,7 @@ Some extensions benignly need access to all websites to be able to function prop
 
 It depends on your risk appetite and threat model. It is worth putting into perspective the purpose of an extension in relation to its apparent risk. 
 
-The overall risk rating of an extension is not meant to be a blanket judgement of worthiness. Rather, it should be used to understand, in the worst case, the impact of the extension authors or associated infrastructure becoming malicious (including via compromise). 
+A high risk rating doesn't mean an extension is bad or untrustworthy. It just shows what damage could be done if the extension or its creators were to become malicious in the future (or get compromised).
 
 ### What is a CRX3 file?
 
@@ -31,4 +31,5 @@ It is a ZIP archive with a prepended header. The binary format is as follows:
 - [4 octets]: N, little-endian, the length of the header section.
 - [N octets]: The header (the binary encoding of a CrxFileHeader).
 - [M octets]: The ZIP archive.
+
 More details [here](https://chromium.googlesource.com/chromium/src/+/refs/tags/127.0.6483.0/components/crx_file/crx3.proto).
