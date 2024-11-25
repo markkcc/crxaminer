@@ -1,0 +1,29 @@
+<div class="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
+  <div class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow overflow-y-auto">
+    <!-- Logo -->
+    <div class="flex justify-center mb-8">
+      <%= render "shared/logo" %>
+    </div>
+
+    <!-- Navigation -->
+    <div class="w-full bg-gray-100 dark:bg-gray-900 py-2 text-center mb-8">
+      <span class="space-x-4">
+        <%= link_to "[ new scan ]", root_path, class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
+        <%= link_to "[ statistics ]", stats_scan_index_path, class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
+        <%= link_to "[ github ]", "https://github.com/markkcc/crxaminer", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
+      </span>
+    </div>
+
+    <!-- Error Message -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+      <div class="text-center">
+        <div class="text-red-500 text-lg mb-4">
+          <%= @error %>
+        </div>
+        <div class="text-gray-600 dark:text-gray-400">
+          Please check the extension ID and try again.
+        </div>
+      </div>
+    </div>
+  </div>
+</div> 

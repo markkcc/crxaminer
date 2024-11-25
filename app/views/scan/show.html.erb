@@ -1,6 +1,17 @@
 <div class="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
   <div class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow overflow-y-auto">
-    
+    <!-- Logo and navigation -->
+    <div class="flex justify-center mb-8">
+      <%= render "shared/logo" %>
+    </div>
+
+    <div class="w-full bg-gray-100 dark:bg-gray-900 py-2 text-center mb-8">
+      <span class="space-x-4">
+        <%= link_to "[ new scan ]", root_path, class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
+        <%= link_to "[ statistics ]", stats_scan_index_path, class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
+        <%= link_to "[ github ]", "https://github.com/markkcc/crxaminer", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
+      </span>
+    </div>
 
     <!-- Analysis Status -->
     <div id="analysis_status">
@@ -9,7 +20,7 @@
       <% end %>
     </div>
 
-    <!-- Results container - Make sure this exists -->
+    <!-- Results container -->
     <div id="analysis_results" class="mt-4"></div>
 
     <script>
@@ -58,7 +69,14 @@
           },
           credentials: 'same-origin'
         })
-        .then(response => response.json())
+        .then(response => {
+          if (!response.ok) {
+            return response.json().then(data => {
+              throw new Error(data.error || 'Analysis failed');
+            });
+          }
+          return response.json();
+        })
         .then(data => {
           if (data.error) {
             throw new Error(data.error);
@@ -71,10 +89,8 @@
           
           // Short delay before showing results
           setTimeout(() => {
-            // Hide the loading status
             analysisStatus.style.display = 'none';
             
-            // Fetch and render the results partial with proper string handling
             fetch(`/scan/<%= @extension_id %>`, {
               headers: {
                 'Accept': 'text/html',
@@ -89,33 +105,36 @@
             })
             .then(html => {
               analysisResults.innerHTML = html;
-              // Initialize pagination if needed
               if (typeof initializeUrlsPagination === 'function') {
                 initializeUrlsPagination();
               }
             })
             .catch(error => {
-              console.error('Error loading results:', error);
-              analysisResults.innerHTML = '<div class="text-red-500 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg">Error loading results. Please try again.</div>';
+              showError(error.message);
             });
           }, 500);
         })
         .catch(error => {
           clearInterval(progressInterval);
-          progressMessage.textContent = error.message || 'Error during analysis. Please try again.';
-          progressBar.style.backgroundColor = '#EF4444'; // Red color for error
+          showError(error.message);
         });
 
-        function getSeverityColor(severity) {
-          const colors = {
-            'Critical': 'text-red-700',
-            'High': 'text-red-600',
-            'Medium': 'text-yellow-600',
-            'Low': 'text-yellow-500',
-            'Info': 'text-blue-500',
-            'Minimal': 'text-green-500'
-          };
-          return colors[severity] || 'text-gray-600';
+        function showError(message) {
+          // Hide the loading status
+          analysisStatus.style.display = 'none';
+          
+          // Show error message with link to go back
+          analysisResults.innerHTML = `
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+              <div class="text-center">
+                <div class="text-red-500 mb-4">${message}</div>
+                <div class="text-gray-600 dark:text-gray-400">
+                  Please check the extension ID and try again or 
+                  <a href="/" class="text-[#9370DB] hover:text-[#7851c5] underline">return to home</a>
+                </div>
+              </div>
+            </div>
+          `;
         }
       });
     </script>

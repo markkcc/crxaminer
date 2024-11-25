@@ -2,6 +2,16 @@ class ScanController < ApplicationController
   def show
     @extension_id = params[:id]
     
+    unless valid_extension_id?(@extension_id)
+      if request.xhr?
+        render json: { error: "Invalid extension ID format" }, status: :unprocessable_entity
+      else
+        flash[:error] = "Invalid extension ID format"
+        redirect_to root_path
+      end
+      return
+    end
+
     if request.xhr?
       @cached_results = Rails.cache.read("extension_#{@extension_id}")
       
@@ -11,12 +21,10 @@ class ScanController < ApplicationController
         @extension_image = @cached_results[:extension_image]
         @extension_details = @cached_results[:extension_details]
         @security_findings = @cached_results[:security_findings]
+        render partial: 'results'
       else
         render json: { error: "Analysis results not found" }, status: :not_found
-        return
       end
-      
-      render partial: 'results'
     else
       render :show
     end
@@ -24,6 +32,11 @@ class ScanController < ApplicationController
 
   def analyze
     @extension_id = params[:id]&.strip
+
+    unless valid_extension_id?(@extension_id)
+      render json: { error: "Invalid extension ID format" }, status: :unprocessable_entity
+      return
+    end
 
     analyzer = ExtensionAnalyzer.new(@extension_id)
     result = analyzer.perform
@@ -51,5 +64,11 @@ class ScanController < ApplicationController
 
   def stats
     render :stats
+  end
+
+  private
+
+  def valid_extension_id?(id)
+    id.present? && id.match?(/\A[a-zA-Z0-9]{32}\z/)
   end
 end 

@@ -4,54 +4,7 @@
 
   <!-- Logo -->
         <div class="flex justify-center mb-8">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40">
-                <!-- Shield -->
-                <path d="M20 5 L35 10 L35 25 L20 32 L5 25 L5 10 Z" 
-                        fill="#E6E6FA" 
-                        stroke="#9370DB" 
-                        stroke-width="1.5"/>
-                
-                <!-- Magnifying glass -->
-                <circle cx="17" cy="17" r="6" 
-                        fill="none" 
-                        stroke="#9370DB" 
-                        stroke-width="2"/>
-                <line x1="21" y1="21" x2="26" y2="26" 
-                        stroke="#9370DB" 
-                        stroke-width="2" 
-                        stroke-linecap="round"/>
-                
-                <!-- Puzzle piece suggestion -->
-                <path d="M15 14 Q13 14 13 16 L13 18 Q13 20 11 20 L15 20 L15 14" 
-                        fill="#9370DB"/>
-                
-                <!-- Text with consistent spacing and clear separation -->
-                <text x="45" y="25" 
-                        font-family="Arial Black, sans-serif" 
-                        font-size="20" 
-                        fill="#9370DB"
-                        letter-spacing="1">CRX</text>
-                <text x="94" y="25" 
-                        font-family="Arial, sans-serif" 
-                        font-size="20" 
-                        fill="#B19CD9"
-                        letter-spacing="1">aminer</text>
-                
-                <!-- Scanning line -->
-                <line x1="8" y1="12" x2="18" y2="12" 
-                        stroke="#B19CD9" 
-                        stroke-width="0.75" 
-                        opacity="0.6">
-                    <animate attributeName="y1" 
-                            values="12;22;12" 
-                            dur="3s" 
-                            repeatCount="indefinite"/>
-                    <animate attributeName="y2" 
-                            values="12;22;12" 
-                            dur="3s" 
-                            repeatCount="indefinite"/>
-                </line>
-            </svg>
+            <%= render "shared/logo" %>
         </div>
 
     <div class="w-full bg-gray-100 dark:bg-gray-900 py-2 text-center -mt-8">
