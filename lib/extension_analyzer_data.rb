@@ -16,7 +16,7 @@ module ExtensionAnalyzerData
     "debugger" => "Can debug and manipulate other extensions/apps",
     "privacy" => "Can modify privacy settings",
     "identity" => "Can access your identity information"
-  }
+  }.freeze
 
   MEDIUM_RISK_PERMISSIONS = {
     "storage" => "Can store data locally",
@@ -26,7 +26,7 @@ module ExtensionAnalyzerData
     "activeTab" => "Can access the active tab when clicking the extension icon",
     "contextMenus" => "Can add items to the context menu",
     "webview" => "Can embed web content in the extension"
-  }
+  }.freeze
 
   RISKY_HOST_PATTERNS = [
     "*://*/*",      # All URLs
@@ -34,14 +34,23 @@ module ExtensionAnalyzerData
     "*://*",        # All URLs
     "file:///*",    # Local file access
     "*"             # Wildcard
-  ]
+  ].freeze
 
   SEVERITY_COLORS = {
-    "Critical" => "text-red-700",
-    "High" => "text-red-600",
-    "Medium" => "text-yellow-600",
-    "Low" => "text-yellow-500",
-    "Info" => "text-blue-500",
-    "Minimal" => "text-green-500"
-  }
+    "Critical" => "bg-violet-600 text-white",
+    "High" => "bg-red-600 text-white",
+    "Medium" => "bg-orange-500 text-white",
+    "Low" => "bg-yellow-500 text-white",
+    "Minimal" => "bg-green-500 text-white",
+    "Info" => "bg-blue-500 text-white"
+  }.freeze
+
+  SEVERITY_ORDER = {
+    'critical' => 0,
+    'high' => 1,
+    'medium' => 2,
+    'low' => 3,
+    'minimal' => 4,
+    'info' => 5
+  }.freeze
 end 

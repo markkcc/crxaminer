@@ -1,0 +1,17 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  extension_id: MyString
+  extension_name: MyString
+  extension_image: MyString
+  manifest: 
+  extension_details: 
+  security_findings: 
+
+two:
+  extension_id: MyString
+  extension_name: MyString
+  extension_image: MyString
+  manifest: 
+  extension_details: 
+  security_findings: 

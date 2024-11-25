@@ -1,44 +1,91 @@
 <div class="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
   <div class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow overflow-y-auto">
-    
-
-  <!-- Logo -->
-        <div class="flex justify-center mb-8">
-            <%= render "shared/logo" %>
-        </div>
+    <!-- Logo -->
+    <div class="flex justify-center mb-8">
+      <%= render "shared/logo" %>
+    </div>
 
     <div class="w-full bg-gray-100 dark:bg-gray-900 py-2 text-center -mt-8">
-    <span class="space-x-4">
+      <span class="space-x-4">
         <%= link_to "[ new scan ]", root_path, class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
         <%= link_to "[ statistics ]", stats_scan_index_path, class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
         <%= link_to "[ github ]", "https://github.com/markkcc/crxaminer", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
-    </span>
+      </span>
     </div>
 
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-        <div class="flex items-center space-x-4 mb-4">
-         <div>
-            <h1 class="text-2xl font-bold text-gray-700 dark:text-gray-200">
+      <div class="flex items-center space-x-4 mb-4">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-700 dark:text-gray-200">
             Statistics
-            </h1>
-            
-            <p class="text-gray-600 dark:text-gray-300">
-                <%= Time.current.strftime("%B %d, %Y %I:%M %p") %>
-            </p>
-
-         </div>
+          </h1>
+          
+          <p class="text-gray-600 dark:text-gray-300">
+            Total Scans: <%= @total_scans %> | Last Updated: <%= Time.current.strftime("%B %d, %Y %I:%M %p") %>
+          </p>
         </div>
+      </div>
+      
+      <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
+        <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Recent Scans</h2>
         
-        <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mb-6">
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <p class="text-gray-600 dark:text-gray-300">
-            Coming soon: Statistics table.
-            </p>
+        <div class="overflow-x-auto w-full">
+          <table class="w-full">
+            <thead class="bg-gray-50 dark:bg-gray-900">
+              <tr>
+                <th scope="col" class="w-5/12 px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b-2 border-gray-300 dark:border-gray-600">
+                  Extension
+                </th>
+                <th scope="col" class="w-2/12 px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b-2 border-gray-300 dark:border-gray-600">
+                  Risk Level
+                </th>
+                <th scope="col" class="w-3/12 px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b-2 border-gray-300 dark:border-gray-600">
+                  Scan Date
+                </th>
+                <th scope="col" class="w-2/12 px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b-2 border-gray-300 dark:border-gray-600">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody class="bg-white dark:bg-gray-800">
+              <% @recent_scans.each do |scan| %>
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 border-t dark:border-gray-700">
+                  <td class="px-6 py-4">
+                    <div class="flex items-center">
+                      <div class="flex-shrink-0 w-12">
+                        <% if scan.extension_image.present? %>
+                          <img src="<%= scan.extension_image %>" alt="Extension icon" class="w-10 h-10 rounded-lg">
+                        <% end %>
+                      </div>
+                      <div class="ml-4 flex-1 min-w-0">
+                        <div class="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
+                          <%= scan.extension_name || "Unknown Extension" %>
+                        </div>
+                        <div class="text-sm text-gray-500 dark:text-gray-400 mt-1 truncate">
+                          ID: <%= scan.extension_id %>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4">
+                    <% overall_risk = scan.security_findings.find { |f| f[:title]&.downcase&.include?('overall risk') } %>
+                    <div class="<%= ExtensionAnalyzerData::SEVERITY_COLORS[overall_risk[:severity]&.capitalize] %> px-2 py-0.5 rounded text-xs font-semibold">
+                      <%= overall_risk[:severity]&.upcase || 'UNKNOWN' %>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                    <%= scan.created_at.strftime("%Y-%m-%d %H:%M") %>
+                  </td>
+                  <td class="px-6 py-4 text-sm">
+                    <%= link_to "View Results", scan_path(scan.extension_id), 
+                        class: "text-violet-600 hover:text-violet-900 dark:text-violet-400 dark:hover:text-violet-300" %>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
         </div>
-        </div>
+      </div>
     </div>
-
-
   </div>
 </div>

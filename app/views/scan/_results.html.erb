@@ -87,34 +87,33 @@
       
       <div class="space-y-3">
         <% # First, display the overall risk assessment %>
-        <% overall_finding = @security_findings.find { |f| f[:title].downcase.include?('overall risk') } %>
+        <% overall_finding = @security_findings.find { |f| f[:title]&.downcase&.include?('overall risk') } %>
         <% if overall_finding %>
-          <div class="<%= severity_color_class(overall_finding[:severity]) %> rounded-lg p-3">
+          <div class="<%= ExtensionAnalyzerData::SEVERITY_COLORS[overall_finding[:severity]&.capitalize] %> rounded-lg p-3">
             <div class="flex items-center gap-2">
-              <div class="px-2 py-0.5 rounded text-white font-semibold text-sm">
-                <%= overall_finding[:severity].upcase %>
+              <div class="font-semibold text-sm">
+                <%= overall_finding[:severity]&.upcase %>
               </div>
-              <div class="font-medium text-white text-sm">
+              <div class="font-medium text-sm">
                 Overall Risk
               </div>
             </div>
-            <div class="text-white text-sm mt-1">
+            <div class="text-sm mt-1">
               <%= overall_finding[:description] %>
             </div>
           </div>
         <% end %>
 
         <% # Then, sort and display the rest of the findings %>
-        <% severity_order = { 'critical' => 0, 'high' => 1, 'medium' => 2, 'low' => 3 } %>
         <% other_findings = @security_findings
-             .reject { |f| f[:title].downcase.include?('overall risk') }
-             .sort_by { |f| [severity_order.fetch(f[:severity].downcase, 999), f[:title]] } %>
+             .reject { |f| f[:title]&.downcase&.include?('overall risk') }
+             .sort_by { |f| [ExtensionAnalyzerData::SEVERITY_ORDER.fetch(f[:severity]&.downcase, 999), f[:title]] } %>
         
         <% other_findings.each do |finding| %>
           <div class="border dark:border-gray-700 rounded-lg p-3">
             <div class="flex items-center gap-2">
-              <div class="<%= severity_color_class(finding[:severity]) %> px-2 py-0.5 rounded text-white font-semibold text-sm">
-                <%= finding[:severity].upcase %>
+              <div class="<%= ExtensionAnalyzerData::SEVERITY_COLORS[finding[:severity]&.capitalize] %> px-2 py-0.5 rounded font-semibold text-sm">
+                <%= finding[:severity]&.upcase %>
               </div>
               <div class="font-medium text-gray-700 dark:text-gray-200 text-sm">
                 <%= finding[:title] %>
@@ -127,7 +126,6 @@
         <% end %>
       </div>
     </div>
-
 
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
     <h2 class="text-xl font-semibold text-violet-600 dark:text-violet-600 mb-4">Security Analysis Details</h2>

@@ -18,5 +18,13 @@ module.exports = {
     require('@tailwindcss/forms'),
     require('@tailwindcss/typography'),
     require('@tailwindcss/container-queries'),
-  ]
+  ],
+  safelist: [
+    'bg-green-500',
+    'bg-red-600',
+    'bg-orange-500',
+    'bg-yellow-500',
+    'bg-blue-500',
+    'bg-violet-600',
+  ],
 }
