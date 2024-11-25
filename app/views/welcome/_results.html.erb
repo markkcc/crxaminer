@@ -232,19 +232,41 @@
 
             <% if @manifest[:embedded_urls]&.any? %>
               <div>
-                <h4 class="text-sm font-medium text-gray-600 dark:text-gray-400">Embedded URLs:</h4>
+                <h4 class="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Embedded URLs (<%= @manifest[:embedded_urls].size %> total):
+                </h4>
                 <div class="mt-2 overflow-x-auto w-full">
-                  <table class="w-full table-fixed text-sm">
-                    <tbody>
-                      <% @manifest[:embedded_urls].each_slice(3) do |url_pair| %>
-                        <tr class="border-t dark:border-gray-700">
-                          <td class="w-1/2 px-4 py-2 text-gray-600 dark:text-gray-300 truncate"><%= url_pair[0] %></td>
-                          <td class="w-1/2 px-4 py-2 text-gray-600 dark:text-gray-300 truncate"><%= url_pair[1] %></td>
-                          <td class="w-1/2 px-4 py-2 text-gray-600 dark:text-gray-300 truncate"><%= url_pair[2] %></td>
-                        </tr>
-                      <% end %>
-                    </tbody>
-                  </table>
+                  <div id="embedded-urls-container" data-urls="<%= @manifest[:embedded_urls].to_json %>">
+                    <table class="w-full table-fixed text-sm">
+                      <tbody id="embedded-urls-tbody">
+                        <% @manifest[:embedded_urls].first(75).each_slice(3) do |url_group| %>
+                          <tr class="border-t dark:border-gray-700">
+                            <td class="w-1/3 px-4 py-2 text-gray-600 dark:text-gray-300 truncate"><%= url_group[0] %></td>
+                            <td class="w-1/3 px-4 py-2 text-gray-600 dark:text-gray-300 truncate"><%= url_group[1] %></td>
+                            <td class="w-1/3 px-4 py-2 text-gray-600 dark:text-gray-300 truncate"><%= url_group[2] %></td>
+                          </tr>
+                        <% end %>
+                      </tbody>
+                    </table>
+
+                    <% if @manifest[:embedded_urls].size > 75 %>
+                      <div class="flex items-center justify-center space-x-2 mt-4">
+                        <button id="prev-page"
+                                class="hidden px-3 py-1 text-sm text-white border border-purple-600 rounded">
+                          &nbsp;Previous&nbsp;
+                        </button>
+                        &nbsp;
+                        <span class="text-sm text-gray-600 dark:text-gray-400">
+                          Page <span id="current-page">1</span> of <span id="total-pages"><%= (@manifest[:embedded_urls].size.to_f / 75).ceil %></span>
+                        </span>
+                        &nbsp;
+                        <button id="next-page"
+                                class="hidden px-3 py-1 text-sm text-white border border-purple-600 rounded">
+                          &nbsp;Next&nbsp;
+                        </button>
+                      </div>
+                    <% end %>
+                  </div>
                 </div>
               </div>
             <% end %>
