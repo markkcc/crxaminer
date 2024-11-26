@@ -196,9 +196,9 @@ class ExtensionAnalyzer
       Zip::File.open(zip_path) do |zip_file|
         manifest_entry = zip_file.glob('manifest.json').first
         raise "manifest.json not found in extension" unless manifest_entry
-
         manifest_content = manifest_entry.get_input_stream.read
         manifest = JSON.parse(manifest_content)
+        Rails.logger.debug "Extension manifest: #{manifest_content.inspect}"
 
         # Scan all files in the ZIP for URLs
         zip_file.each do |entry|
@@ -218,6 +218,18 @@ class ExtensionAnalyzer
           end
         end
 
+        # Extract content security policy values
+        content_security_policy = []
+        if manifest['content_security_policy']
+          if manifest['content_security_policy'].is_a?(Hash)
+            manifest['content_security_policy'].each do |key, value|
+              content_security_policy << "#{key}: #{value}"
+            end
+          else
+            content_security_policy << manifest['content_security_policy']
+          end
+        end
+
         return {
           manifest_version: manifest['manifest_version'],
           name: manifest['name'],
@@ -226,7 +238,8 @@ class ExtensionAnalyzer
           optional_permissions: manifest['optional_permissions'] || [],
           host_permissions: manifest['host_permissions'] || [],
           content_scripts: manifest['content_scripts'],
-          embedded_urls: urls.uniq
+          embedded_urls: urls.uniq,
+          content_security_policy: content_security_policy
         }
       end
     ensure

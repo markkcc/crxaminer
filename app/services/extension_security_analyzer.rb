@@ -20,6 +20,7 @@ class ExtensionSecurityAnalyzer
     analyze_host_permission_risks
     analyze_content_script_risks
     analyze_manifest_version_risks
+    analyze_csp_risks
     calculate_overall_risk
   end
 
@@ -83,6 +84,15 @@ class ExtensionSecurityAnalyzer
       pattern.include?("amazon") || pattern.include?("shopify") || pattern.include?("ebay") ||
       pattern.include?("walmart") || pattern.include?("bestbuy") || pattern.include?("target") ||
       
+      # Code Repositories & Development
+      pattern.include?("github") || pattern.include?("gitlab") || pattern.include?("bitbucket") ||
+      pattern.include?("stackoverflow") || pattern.include?("npmjs") || pattern.include?("pypi") ||
+      
+      # CI/CD & Package Management
+      pattern.include?("circleci") || pattern.include?("jenkins") || pattern.include?("travis-ci") ||
+      pattern.include?("dockerhub") || pattern.include?("nuget") || pattern.include?("maven") ||
+      pattern.include?("rubygems") || pattern.include?("packagist") || pattern.include?("crates.io") ||
+      
       # Generic Financial Terms
       pattern.include?("banking") || pattern.include?("invest") || pattern.include?("wallet") ||
       pattern.include?("finance") || pattern.include?("credit") || pattern.include?("debit") ||
@@ -115,6 +125,23 @@ class ExtensionSecurityAnalyzer
       add_finding("Medium", "Older Manifest Version",
         "This extension uses Manifest Version #{@manifest[:manifest_version]}, which has fewer " +
         "security restrictions than Manifest V3. Consider using extensions that have upgraded to V3.")
+    end
+  end
+
+  def analyze_csp_risks
+    puts "Content Security Policy: #{@manifest[:content_security_policy].inspect}"
+    
+    csp_array = Array(@manifest[:content_security_policy])
+    if csp_array.any? { |policy| policy.include?("'wasm-unsafe-eval'") }
+      add_finding("High", "Unsafe WebAssembly Execution",
+        "This extension's Content Security Policy allows 'wasm-unsafe-eval', which permits " +
+        "potentially dangerous WebAssembly code execution. This could be used to hide malicious " +
+        "code or perform CPU-intensive operations.")
+    elsif csp_array.any? { |policy| policy.include?("'unsafe-eval'") }
+      add_finding("High", "Unsafe JavaScript Evaluation",
+        "This extension's Content Security Policy allows 'unsafe-eval', which permits " +
+        "dynamic JavaScript code execution using eval() and similar functions. This is a " +
+        "significant security risk as it could allow execution of malicious code.")
     end
   end
 
