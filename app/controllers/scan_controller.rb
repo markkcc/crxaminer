@@ -14,23 +14,27 @@ class ScanController < ApplicationController
 
     if request.xhr?
       @scan_result = ScanResult.find_by(extension_id: @extension_id)
-      
       if @scan_result
         @manifest = @scan_result.manifest
         @extension_name = @scan_result.extension_name
         @extension_image = @scan_result.extension_image
         @extension_details = @scan_result.extension_details
         @security_findings = @scan_result.security_findings
-        
-        Rails.logger.debug "Loaded scan result: #{@scan_result.attributes.inspect}"
-        Rails.logger.debug "Manifest: #{@manifest.inspect}"
-        Rails.logger.debug "Security Findings: #{@security_findings.inspect}"
-        
+        @last_scanned = @scan_result.updated_at
         render partial: 'results'
       else
         render json: { error: "Analysis results not found" }, status: :not_found
       end
     else
+      @scan_result = ScanResult.find_by(extension_id: @extension_id)
+      if @scan_result
+        @manifest = @scan_result.manifest
+        @extension_name = @scan_result.extension_name
+        @extension_image = @scan_result.extension_image
+        @extension_details = @scan_result.extension_details
+        @security_findings = @scan_result.security_findings
+        @last_scanned = @scan_result.updated_at
+      end
       render :show
     end
   end
@@ -48,7 +52,7 @@ class ScanController < ApplicationController
     
     if existing_scan
       Rails.logger.info "Found existing scan for extension #{@extension_id}"
-      render json: existing_scan.as_json(except: [:created_at, :updated_at, :id])
+      render json: existing_scan.as_json(except: [:id]).merge(last_scanned: existing_scan.updated_at)
       return
     end
 
@@ -70,7 +74,7 @@ class ScanController < ApplicationController
 
       if scan_result.save
         Rails.logger.debug "Saved new scan result: #{scan_result.attributes.inspect}"
-        render json: scan_result.as_json(except: [:created_at, :updated_at, :id])
+        render json: scan_result.as_json(except: [:id]).merge(last_scanned: scan_result.updated_at)
       else
         render json: { error: scan_result.errors.full_messages.join(", ") }, status: :unprocessable_entity
       end

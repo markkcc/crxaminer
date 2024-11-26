@@ -7,4 +7,6 @@ Rails.application.routes.draw do
       get :stats
     end
   end
+
+  match "*path", to: "application#not_found", via: :all
 end

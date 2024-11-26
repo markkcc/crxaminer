@@ -20,7 +20,11 @@
                     target: "_blank", 
                     class: "text-[#9370DB] hover:text-[#7851c5] underline" %>
             <% end %>
-
+            <% if @last_scanned %>
+              <div class="text-xs mt-2 text-gray-600 dark:text-gray-400">
+                Last scanned: <%= time_ago_in_words(@last_scanned) %> ago
+              </div>
+            <% end %>
           </p>
         <% end %>
 
@@ -76,6 +80,7 @@
             <span class="text-gray-700 dark:text-gray-200 break-words max-w-[30ch]"><%= @extension_details[:developer_info] %></span>
           </div>
         <% end %>
+
       </div>
     </div>
   </div>
