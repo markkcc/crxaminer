@@ -23,6 +23,11 @@
             <% if @last_scanned %>
               <div class="text-xs mt-2 text-gray-600 dark:text-gray-400">
                 Last scanned: <%= time_ago_in_words(@last_scanned) %> ago
+                <% if @last_scanned < 12.hours.ago %>
+                  | <%= link_to "force re-scan", 
+                        scan_path(@extension_id, force: true),
+                        class: "text-[#9370DB] hover:text-[#7851c5]" %>
+                <% end %>
               </div>
             <% end %>
           </p>

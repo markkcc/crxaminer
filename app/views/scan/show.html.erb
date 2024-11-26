@@ -62,7 +62,7 @@
         }, 800);
 
         // Start the analysis
-        fetch('/scan/analyze?id=<%= @extension_id %>', {
+        fetch('/scan/analyze?id=<%= @extension_id %>&force=<%= params[:force] %>', {
           headers: {
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest'
