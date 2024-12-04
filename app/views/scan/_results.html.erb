@@ -95,7 +95,7 @@
     <% ai_analysis = @security_findings.find { |f| f[:severity] == "Info" && f[:title] == "AI Context Analysis" } %>
 
   <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-    <div class="flex items-center space-x-4 mb-4">
+    <div class="flex items-center space-x-4 mb-4 relative">
       <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200">Context-Aware Verdict</h2>
       <button type="button" 
               class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-xl"
@@ -103,7 +103,7 @@
         <span>ⓘ</span>
       </button>
       <div id="info-popup" 
-           class="hidden absolute bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm shadow-lg p-4 rounded-lg text-[#9370DB] top-1/4 left-1/2 transform -translate-x-1/2 z-50 text-sm">
+           class="hidden absolute bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm shadow-lg p-4 rounded-lg text-[#9370DB] right-0 top-full mt-2 z-50 text-sm">
         This section provides a Claude-based AI analysis that applies additional context to the risk. Results are not guaranteed to be accurate.
       </div>
     </div>
@@ -142,7 +142,7 @@
     </div>
 
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-      <div class="flex items-center space-x-4 mb-4">
+      <div class="flex items-center space-x-4 mb-4 relative">
         <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200">Security Analysis</h2>
         <button type="button" 
                 class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-xl"
@@ -150,7 +150,7 @@
           <span>ⓘ</span>
         </button>
         <div id="security-info-popup" 
-             class="hidden absolute bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm shadow-lg p-4 rounded-lg text-[#9370DB] top-1/4 left-1/2 transform -translate-x-1/2 z-50 text-sm">
+             class="hidden absolute bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm shadow-lg p-4 rounded-lg text-[#9370DB] right-0 top-full mt-2 z-50 text-sm">
           This section provides a detailed analysis of the extension's security posture, without broader context. Assumes worst-case impact.
         </div>
       </div>
