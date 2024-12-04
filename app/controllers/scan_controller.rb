@@ -51,10 +51,10 @@ class ScanController < ApplicationController
     
     # Return existing scan if either:
     # 1. force is not true and scan exists, OR
-    # 2. force is true and scan exists and is less than 12 hours old
+    # 2. force is true and scan exists and is less than 24 hours old
     if existing_scan && (
          params[:force] != 'true' || 
-         existing_scan.updated_at > 12.hours.ago
+         existing_scan.updated_at > 24.hours.ago
        )
       Rails.logger.info "Found recent scan for extension #{@extension_id}"
       render json: existing_scan.as_json(except: [:id]).merge(last_scanned: existing_scan.updated_at)

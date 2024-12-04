@@ -23,7 +23,7 @@
             <% if @last_scanned %>
               <div class="text-xs mt-2 text-gray-600 dark:text-gray-400">
                 Last scanned: <%= time_ago_in_words(@last_scanned) %> ago
-                <% if @last_scanned < 12.hours.ago %>
+                <% if @last_scanned < 24.hours.ago %>
                   | <%= link_to "force re-scan", 
                         scan_path(@extension_id, force: true),
                         class: "text-[#9370DB] hover:text-[#7851c5]" %>
@@ -92,9 +92,68 @@
 
   <!-- Security findings section -->
   <% if @security_findings&.any? %>
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-      <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">Security Analysis</h2>
+    <% ai_analysis = @security_findings.find { |f| f[:severity] == "Info" && f[:title] == "AI Context Analysis" } %>
+
+  <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+    <div class="flex items-center space-x-4 mb-4">
+      <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200">Context-Aware Verdict</h2>
+      <button type="button" 
+              class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-xl"
+              onclick="document.getElementById('info-popup').classList.toggle('hidden')">
+        <span>ⓘ</span>
+      </button>
+      <div id="info-popup" 
+           class="hidden absolute bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm shadow-lg p-4 rounded-lg text-[#9370DB] top-1/4 left-1/2 transform -translate-x-1/2 z-50 text-sm">
+        This section provides a Claude-based AI analysis that applies additional context to the risk. Results are not guaranteed to be accurate.
+      </div>
+    </div>
       
+      <div class="space-y-3 text-gray-600 dark:text-gray-300">
+        <% if ai_analysis %>
+          <% ai_analysis[:description].split("\n").each_with_index do |line, index| %>
+            <% if index == 0 && line.start_with?("Risk Level:") %>
+              <% risk_level = line.split("Risk Level:").last.strip %>
+              <div class="flex items-center gap-2">
+                <div class="<%= ExtensionAnalyzerData::SEVERITY_COLORS[risk_level&.capitalize] %> px-2 py-0.5 rounded font-semibold text-sm">
+                  <%= risk_level.upcase %>
+                </div>
+                <div class="font-medium text-gray-700 dark:text-gray-200 text-sm">
+                  Risk Level
+                </div>
+              </div>
+            <% else %>
+              <% if line.present? %>
+                <% if line.start_with?("Trust Factors:", "Concerns:", "Recommendations:") %>
+                  <div class="font-medium text-gray-700 dark:text-gray-200 mt-4 mb-2">
+                    <%= line %>
+                  </div>
+                <% elsif line.start_with?("- ") %>
+                  <div class="ml-4 text-sm">
+                    <%= line %>
+                  </div>
+                <% else %>
+                  <p><%= line %></p>
+                <% end %>
+              <% end %>
+            <% end %>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+      <div class="flex items-center space-x-4 mb-4">
+        <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200">Security Analysis</h2>
+        <button type="button" 
+                class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-xl"
+                onclick="document.getElementById('security-info-popup').classList.toggle('hidden')">
+          <span>ⓘ</span>
+        </button>
+        <div id="security-info-popup" 
+             class="hidden absolute bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm shadow-lg p-4 rounded-lg text-[#9370DB] top-1/4 left-1/2 transform -translate-x-1/2 z-50 text-sm">
+          This section provides a detailed analysis of the extension's security posture, without broader context. Assumes worst-case impact.
+        </div>
+      </div>
       <div class="space-y-3">
         <% # First, display the overall risk assessment %>
         <% overall_finding = @security_findings.find { |f| f[:title]&.downcase&.include?('overall risk') } %>
@@ -114,9 +173,9 @@
           </div>
         <% end %>
 
-        <% # Then, sort and display the rest of the findings %>
+        <% # Then, sort and display the rest of the findings, excluding AI analysis %>
         <% other_findings = @security_findings
-             .reject { |f| f[:title]&.downcase&.include?('overall risk') }
+             .reject { |f| f[:title]&.downcase&.include?('overall risk') || (f[:severity] == "Info" && f[:title] == "AI Context Analysis") }
              .sort_by { |f| [ExtensionAnalyzerData::SEVERITY_ORDER.fetch(f[:severity]&.downcase, 999), f[:title]] } %>
         
         <% other_findings.each do |finding| %>

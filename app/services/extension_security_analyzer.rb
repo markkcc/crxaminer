@@ -1,15 +1,25 @@
 class ExtensionSecurityAnalyzer
   include ExtensionAnalyzerData
   
-  def initialize(manifest)
+  def initialize(manifest, extension_details = nil, extension_name = nil)
     @manifest = manifest
+    @extension_details = extension_details
+    @extension_name = extension_name
     @security_findings = []
+    begin
+      @client = Anthropic::Client.new
+    rescue => e
+      Rails.logger.error "Failed to initialize Anthropic client: #{e.message}"
+      Rails.logger.error e.backtrace.join("\n")
+      @client = nil
+    end
   end
 
   def analyze
     return [] unless @manifest
     
     analyze_security_risks
+    analyze_with_claude
     @security_findings
   end
 
@@ -172,7 +182,80 @@ class ExtensionSecurityAnalyzer
     @security_findings.unshift({
       severity: "#{overall_risk}",
       title: "Overall Risk: #{overall_risk}",
-      description: "Based on #{high_findings} high-risk and #{medium_findings} medium-risk findings."
+      description: "Based on #{@security_findings.size} total findings, ranked without considering overall context, including #{high_findings} high-risk and #{medium_findings} medium-risk findings."
     })
+  end
+
+  def analyze_with_claude
+    begin
+      return unless @client
+      
+      prompt = format_prompt
+      Rails.logger.info "AI analysis prompt: #{prompt}"
+      
+      response = @client.messages(
+        parameters: {
+          model: "claude-3-sonnet-20240229",
+          system: "You are a security analysis tool called CRXaminer that assesses Chrome Extensions for risk. Given metrics that are visible to the user, analyze the risk of the chrome extension, and provide a short summary under 200 words adding context to the findings that the user can already see (do not repeat the extension's permissions). Some example recommendations include: If an extension is very high risk, the user can run it in a separate chrome profile. The response should be formatted as follows: Include your own risk level (Critical, High, Medium, Low, or Minimal). include trust factors based on the extension's description, downloads, company reputation, etc. include a list of concerns, including unnecessary permissions given the nature of the extension etc. finally include some recommendations.",
+          messages: [
+            {
+              role: "user",
+              content: prompt
+            }
+          ],
+          max_tokens: 400,
+          temperature: 0.3
+        }
+      )
+
+      Rails.logger.info "AI analysis response: #{response.inspect}"
+      response_text = response["content"].first["text"]
+
+      add_finding(
+        "Info",
+        "AI Context Analysis",
+        response_text
+      )
+    rescue => e
+      Rails.logger.error "AI analysis failed: #{e.message}"
+      Rails.logger.error e.backtrace.join("\n")
+    end
+  end
+
+  def format_prompt
+    Rails.logger.info "Manifest data: #{@manifest.inspect}"
+    Rails.logger.info "Extension details: #{@extension_details.inspect}"
+
+    prompt = """
+    Analyze this Chrome extension:
+  
+    Extension Details:
+    Name: #{@extension_name}
+    Version: #{@manifest[:version]}
+    Description: #{@manifest[:description]}
+    Manifest Version: #{@manifest[:manifest_version]}
+    Size: #{@extension_details[:size]}
+    Users: #{@extension_details[:users]}
+    Last Updated: #{@extension_details[:last_updated]}
+    Rating: #{@extension_details[:rating]} (#{@extension_details[:rating_count]} reviews)
+    Author: #{@extension_details[:author]}
+    Developer Info: #{@extension_details[:developer_info]}
+  
+    Technical Details:
+    Permissions: #{@manifest[:permissions].join(', ')}
+    Host Permissions: #{@manifest[:host_permissions]&.join(', ')}
+    Content Scripts: #{@manifest[:content_scripts]&.map { |cs| cs['matches']&.join(', ') }&.join('; ')}
+    Background Scripts: #{@manifest[:background]&.[](:service_worker) || @manifest[:background]&.[](:scripts)&.join(', ')}
+    Web Accessible Resources: #{@manifest[:web_accessible_resources]&.map { |r| r['resources']&.join(', ') }&.join('; ')}
+    CSP: #{@manifest[:content_security_policy]}
+  
+    Security Findings:
+    #{@security_findings.map { |f| 
+      "#{f[:severity]}: #{f[:title]}\n#{f[:description].gsub(/https?:\/\/[^\s]+/, '[URL]')}"
+    }.join("\n\n")}
+    """
+
+    Rails.logger.info "Generated prompt: #{prompt}"
+    prompt
   end
 end 

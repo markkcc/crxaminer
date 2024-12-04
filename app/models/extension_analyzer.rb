@@ -156,7 +156,7 @@ class ExtensionAnalyzer
           locals: { message: "Analyzing security..." }
         )
 
-        analyzer = ExtensionSecurityAnalyzer.new(@manifest)
+        analyzer = ExtensionSecurityAnalyzer.new(@manifest, @extension_details, @extension_name)
         @security_findings = analyzer.analyze
       end
     rescue OpenURI::HTTPError => e

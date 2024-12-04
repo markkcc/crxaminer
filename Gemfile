@@ -68,3 +68,6 @@ end
 
 gem 'rubyzip', require: 'zip'
 gem 'nokogiri'
+
+gem "anthropic", "~> 0.3.2"
+gem 'dotenv-rails', groups: [:development, :test]
