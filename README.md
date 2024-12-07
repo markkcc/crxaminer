@@ -4,6 +4,8 @@ Rails app that examines Chrome extensions for security issues.
 
 Hosted at: https://crxaminer.tech/
 
+![CRXaminer](app/assets/images/crx-title-cover.jpg)
+
 Chrome extensions can pose a risk to our data. They run within the context of our browser, and can request permissions to read and manipulate data.
 
 Since a lot of sensitive data is handled by our web browsers, including banking and medical data, it is worth considering the risk posed by Chrome extensions to ourselves and our organizations. 
