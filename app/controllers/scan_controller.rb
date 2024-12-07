@@ -56,7 +56,7 @@ class ScanController < ApplicationController
          params[:force] != 'true' || 
          existing_scan.updated_at > 24.hours.ago
        )
-      Rails.logger.info "Found recent scan for extension #{@extension_id}"
+      Rails.logger.debug "Found recent scan for extension #{@extension_id}"
       render json: existing_scan.as_json(except: [:id]).merge(last_scanned: existing_scan.updated_at)
       return
     end
@@ -80,7 +80,7 @@ class ScanController < ApplicationController
       )
 
       if scan_result.save
-        Rails.logger.debug "Saved new scan result: #{scan_result.attributes.inspect}"
+        Rails.logger.debug "Saved new scan result"
         render json: scan_result.as_json(except: [:id]).merge(last_scanned: scan_result.updated_at)
       else
         render json: { error: scan_result.errors.full_messages.join(", ") }, status: :unprocessable_entity

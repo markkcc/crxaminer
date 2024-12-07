@@ -10,6 +10,20 @@
     <%= favicon_link_tag 'favicon.svg' %>
     <%= stylesheet_link_tag "tailwind", "data-turbo-track": "reload" %>
     <%= javascript_include_tag "application", "data-turbo-track": "reload", defer: true %>
+
+    <!-- Basic Open Graph tags -->
+    <meta property="og:title" content="CRXaminer">
+    <meta property="og:description" content="Web application for examining Chrome extensions and identifying potential security issues">
+    <meta property="og:image" content="<%= image_url('crx-title-cover.jpg') %>">
+    <meta property="og:url" content="<%= request.original_url %>">
+    
+    <!-- Optional but recommended -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="CRXaminer">
+    
+    <!-- Twitter Card tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="<%= image_url('crx-title-cover.jpg') %>">
   </head>
 
   <body class="h-full bg-gray-100 dark:bg-gray-900">
