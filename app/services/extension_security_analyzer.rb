@@ -191,7 +191,6 @@ class ExtensionSecurityAnalyzer
       return unless @client
       
       prompt = format_prompt
-      Rails.logger.info "AI analysis prompt: #{prompt}"
       
       response = @client.messages(
         parameters: {
@@ -208,7 +207,6 @@ class ExtensionSecurityAnalyzer
         }
       )
 
-      Rails.logger.info "AI analysis response: #{response.inspect}"
       response_text = response["content"].first["text"]
 
       add_finding(
@@ -223,8 +221,6 @@ class ExtensionSecurityAnalyzer
   end
 
   def format_prompt
-    Rails.logger.info "Manifest data: #{@manifest.inspect}"
-    Rails.logger.info "Extension details: #{@extension_details.inspect}"
 
     prompt = """
     Analyze this Chrome extension:
@@ -255,7 +251,6 @@ class ExtensionSecurityAnalyzer
     }.join("\n\n")}
     """
 
-    Rails.logger.info "Generated prompt: #{prompt}"
     prompt
   end
 end 

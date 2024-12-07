@@ -78,7 +78,6 @@ class ExtensionAnalyzer
         end
 
         redirect_uri = URI.parse(redirect_location)
-        Rails.logger.info "Parsed redirect URI: #{redirect_uri.inspect}"
 
         http = Net::HTTP.new(redirect_uri.host, redirect_uri.port)
         http.use_ssl = true
@@ -118,7 +117,6 @@ class ExtensionAnalyzer
         developer_info: doc.css('.Fm8Cnb').first&.text&.strip.to_s
                        .gsub('&amp;', '&')
       }
-      Rails.logger.info "Fetched details: #{@extension_details.inspect}"
 
     rescue Net::HTTPError => e
       Rails.logger.error "HTTP Error fetching store data: #{e.message}"
@@ -198,7 +196,6 @@ class ExtensionAnalyzer
         raise "manifest.json not found in extension" unless manifest_entry
         manifest_content = manifest_entry.get_input_stream.read
         manifest = JSON.parse(manifest_content)
-        Rails.logger.debug "Extension manifest: #{manifest_content.inspect}"
 
         # Scan all files in the ZIP for URLs
         zip_file.each do |entry|
