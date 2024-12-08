@@ -1,10 +1,11 @@
 class ExtensionSecurityAnalyzer
   include ExtensionAnalyzerData
   
-  def initialize(manifest, extension_details = nil, extension_name = nil)
+  def initialize(manifest, extension_details = nil, extension_name = nil, extension_id = nil)
     @manifest = manifest
     @extension_details = extension_details
     @extension_name = extension_name
+    @extension_id = extension_id
     @security_findings = []
     begin
       @client = Anthropic::Client.new
@@ -20,6 +21,7 @@ class ExtensionSecurityAnalyzer
     
     analyze_security_risks
     analyze_with_claude
+    tweet_results
     @security_findings
   end
 
@@ -139,7 +141,6 @@ class ExtensionSecurityAnalyzer
   end
 
   def analyze_csp_risks
-    puts "Content Security Policy: #{@manifest[:content_security_policy].inspect}"
     
     csp_array = Array(@manifest[:content_security_policy])
     if csp_array.any? { |policy| policy.include?("'wasm-unsafe-eval'") }
@@ -216,7 +217,6 @@ class ExtensionSecurityAnalyzer
       )
     rescue => e
       Rails.logger.error "AI analysis failed: #{e.message}"
-      Rails.logger.error e.backtrace.join("\n")
     end
   end
 
@@ -253,4 +253,42 @@ class ExtensionSecurityAnalyzer
 
     prompt
   end
+
+  def tweet_results
+    tweet_text = format_tweet_text
+    Rails.logger.info "#{tweet_text}"
+    TwitterClient.new.post_tweet(tweet_text)
+  rescue => e
+    Rails.logger.error "Failed to tweet scan results: #{e.message}"
+  end
+
+  def format_tweet_text
+    ai_analysis = @security_findings.find { |f| f[:severity] == "Info" && f[:title] == "AI Context Analysis" }
+    
+    risk_level = if ai_analysis&.[](:description)&.start_with?("Risk Level:")
+      ai_analysis[:description].split("\n").first.split("Risk Level:").last&.strip
+    else
+      "N/A"
+    end
+    
+    overall_risk = @security_findings.find { |f| f[:title]&.downcase&.include?('overall risk') }&.[](:severity) || "N/A"
+    
+    combined_risk = if risk_level == overall_risk
+      "Risk: #{risk_level}"
+    else
+      "Risk: #{risk_level} / #{overall_risk}"
+    end
+  
+    [
+      @extension_name.presence || "Unknown Extension",
+      "#{(@extension_details[:rating].present? && @extension_details[:rating_count].present?) ? 
+        "#{@extension_details[:rating]} ★ (#{@extension_details[:rating_count]})" : "? ★"}, #{@extension_details[:size].presence || "?KiB"}",
+      combined_risk,
+      "https://crxaminer.tech/scan/#{@extension_id}"
+    ].join("\n")
+  rescue StandardError => e
+    Rails.logger.error "Error formatting tweet text: #{e.message}"
+    "Scan complete! https://crxaminer.tech/scan/#{@extension_id}"
+  end
+
 end 
