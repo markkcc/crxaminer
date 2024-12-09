@@ -154,7 +154,7 @@
           </button>
           <div id="security-info-popup" 
                class="hidden absolute bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm shadow-lg p-4 rounded-lg text-[#9370DB] left-0 mt-2 z-50 text-sm w-96">
-            This section provides a detailed analysis of the extension's security posture, without broader context. Assumes worst-case impact.
+            This section provides a detailed analysis of the extension&apos;s security posture, without broader context. Assumes worst-case impact.
           </div>
         </div>
       </div>
@@ -249,6 +249,15 @@
                     <li><%= policy %></li>
                   <% end %>
                 </ul>
+              </div>
+            <% end %>
+
+            <% if @manifest[:raw].present? %>
+              <div class="mt-6">
+                <h4 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Raw Manifest:</h4>
+                <div class="relative">
+                  <pre class="highlight bg-gray-100 dark:bg-gray-900 p-4 rounded-lg overflow-x-auto text-sm text-gray-800 dark:text-gray-200"><%= raw(rouge_highlight(JSON.pretty_generate(@manifest[:raw]))) %></pre>
+                </div>
               </div>
             <% end %>
 

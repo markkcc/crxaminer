@@ -74,3 +74,6 @@ gem 'dotenv-rails', groups: [:development, :test]
 
 # for the twitter client
 gem 'oauth'
+
+# server-side syntax highlighting
+gem 'rouge'

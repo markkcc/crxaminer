@@ -236,7 +236,8 @@ class ExtensionAnalyzer
           host_permissions: manifest['host_permissions'] || [],
           content_scripts: manifest['content_scripts'],
           embedded_urls: urls.uniq,
-          content_security_policy: content_security_policy
+          content_security_policy: content_security_policy,
+          raw: manifest
         }
       end
     ensure

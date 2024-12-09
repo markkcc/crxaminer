@@ -270,6 +270,7 @@ GEM
     reline (0.5.12)
       io-console (~> 0.5)
     rexml (3.3.9)
+    rouge (4.5.1)
     rubocop (1.69.1)
       json (~> 2.3)
       language_server-protocol (>= 3.17.0)
@@ -399,6 +400,7 @@ DEPENDENCIES
   propshaft
   puma (>= 5.0)
   rails (~> 8.0.0)
+  rouge
   rubocop-rails-omakase
   rubyzip
   selenium-webdriver
