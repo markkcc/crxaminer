@@ -1,0 +1,40 @@
+{
+  "ignored_warnings": [
+    {
+      "warning_type": "Cross-Site Scripting",
+      "warning_code": 2,
+      "fingerprint": "ff4f7685f51fffa8f3d7640e6078850276e9635bf8b8569794319569fc1f631d",
+      "check_name": "CrossSiteScripting",
+      "message": "Unescaped model attribute",
+      "file": "app/views/scan/_results.html.erb",
+      "line": 260,
+      "link": "https://brakemanscanner.org/docs/warning_types/cross_site_scripting",
+      "code": "rouge_highlight(JSON.pretty_generate(ScanResult.find_by(:extension_id => params[:id]).manifest[:raw]))",
+      "render_path": [
+        {
+          "type": "controller",
+          "class": "ScanController",
+          "method": "show",
+          "line": 24,
+          "file": "app/controllers/scan_controller.rb",
+          "rendered": {
+            "name": "scan/_results",
+            "file": "app/views/scan/_results.html.erb"
+          }
+        }
+      ],
+      "location": {
+        "type": "template",
+        "template": "scan/_results"
+      },
+      "user_input": "ScanResult.find_by(:extension_id => params[:id]).manifest",
+      "confidence": "Weak",
+      "cwe_id": [
+        79
+      ],
+      "note": ""
+    }
+  ],
+  "updated": "2024-12-09 00:48:22 -0500",
+  "brakeman_version": "6.2.2"
+}
