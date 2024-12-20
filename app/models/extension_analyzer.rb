@@ -130,7 +130,7 @@ class ExtensionAnalyzer
   def download_and_analyze_extension
     download_url = "https://clients2.google.com/service/update2/crx?" +
                   "response=redirect&" +
-                  "prodversion=102&" +
+                  "prodversion=130.0&" +
                   "acceptformat=crx2,crx3&" +
                   "x=id%3D#{@extension_id}%26installsource%3Dondemand%26uc"
 
@@ -142,9 +142,45 @@ class ExtensionAnalyzer
         locals: { message: "Downloading extension..." }
       )
 
-      response = URI.open(download_url)
-      crx_data = response.read
+      uri = URI(download_url)
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = true
+      request = Net::HTTP::Get.new(uri.request_uri)
+      request['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+      request['Accept'] = '*/*'
+      
+      response = http.request(request)
+      
+      Rails.logger.debug "Download response code: #{response.code}"
+      Rails.logger.debug "Download response headers: #{response.to_hash.inspect}"
+      Rails.logger.debug "Download URL: #{download_url}"
+      
+      if response.code == "204"
+        @error = "No content from Chrome Web Store."
+        return
+      end
+      
+      if response.code == "302" || response.code == "301"
+        redirect_url = response['location']
+        redirect_uri = URI(redirect_url)
+        http = Net::HTTP.new(redirect_uri.host, redirect_uri.port)
+        http.use_ssl = true
+        request = Net::HTTP::Get.new(redirect_uri.request_uri)
+        request['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+        request['Accept'] = '*/*'
+        response = http.request(request)
+      end
+
+      crx_data = response.body
+      Rails.logger.debug "Downloaded bytes: #{crx_data&.bytesize || 0}"
+
+      if crx_data.nil? || crx_data.empty?
+        @error = "Failed to download extension (empty response)"
+        return
+      end
+
       @manifest = extract_manifest(crx_data)
+      Rails.logger.debug "Download URL: #{download_url}"
 
       if @manifest
         Turbo::StreamsChannel.broadcast_update_to(
@@ -169,6 +205,7 @@ class ExtensionAnalyzer
     temp_dir = Rails.root.join('tmp', 'extensions')
     FileUtils.mkdir_p(temp_dir)
     zip_path = temp_dir.join("extension_#{@extension_id}.zip")
+    raise "Downloaded extension file is empty" if crx_data.empty?
 
     begin
       if crx_data.start_with?('Cr24')
@@ -189,7 +226,7 @@ class ExtensionAnalyzer
 
       # Read manifest from ZIP
       urls = []
-      url_pattern = /((?:https?|ftp|file):\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6})/
+      url_pattern = /(?:https?|ftp|file):\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9]{1,6}[-a-zA-Z0-9@:%_\+.~#?&\/=]*/
 
       Zip::File.open(zip_path) do |zip_file|
         manifest_entry = zip_file.glob('manifest.json').first

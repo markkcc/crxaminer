@@ -70,14 +70,21 @@ class ScanController < ApplicationController
       # Delete existing scan if it exists
       existing_scan&.destroy
 
-      scan_result = ScanResult.new(
-        extension_id: @extension_id,
-        extension_name: result.extension_name,
-        extension_image: result.extension_image,
-        manifest: result.manifest.deep_symbolize_keys,
-        extension_details: result.extension_details.deep_symbolize_keys,
-        security_findings: result.security_findings.map(&:deep_symbolize_keys)
-      )
+      begin
+        scan_result = ScanResult.new(
+          extension_id: @extension_id,
+          extension_name: result.extension_name,
+          extension_image: result.extension_image,
+          manifest: result.manifest.deep_symbolize_keys,
+          extension_details: result.extension_details.deep_symbolize_keys,
+          security_findings: result.security_findings.map(&:deep_symbolize_keys)
+        )
+      rescue => e
+        Rails.logger.error "Failed to create scan result: #{e.message}"
+        Rails.logger.error "Backtrace: #{e.backtrace.join("\n")}"
+        render json: { error: "Failed to process scan results" }, status: :internal_server_error
+        return
+      end
 
       if scan_result.save
         Rails.logger.debug "Saved new scan result"
