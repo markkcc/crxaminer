@@ -13,7 +13,7 @@ class ExtensionAnalyzer
               :extension_image, :manifest, :security_findings, :error
 
   def initialize(extension_id)
-    @extension_id = extension_id
+    @extension_id = extension_id.downcase
   end
 
   def perform
@@ -34,7 +34,7 @@ class ExtensionAnalyzer
   private
 
   def validate_extension_id
-    unless @extension_id =~ /^[a-zA-Z0-9]{32}$/
+    unless @extension_id =~ /^[a-z0-9]{32}$/
       @error = "Invalid extension ID: Must be 32 alphanumeric characters long."
     end
   end
@@ -47,7 +47,7 @@ class ExtensionAnalyzer
       extension_id = @extension_id.to_s
                                 .split('/')
                                 .last
-                                .gsub(/[^a-zA-Z0-9]/, '') # Remove any non-alphanumeric characters
+                                .gsub(/[^a-z0-9]/, '') # Remove any non-alphanumeric characters
 
       store_url = "https://chromewebstore.google.com/detail/#{extension_id}"
 

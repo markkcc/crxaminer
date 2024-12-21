@@ -57,7 +57,7 @@ window.addEventListener('load', function() {
       errorContainer.innerHTML = '';
       input.classList.remove('border-red-500');
       // Replace the placeholder ID with the actual ID and submit
-      window.location.href = form.action.replace(':id', extensionId);
+      window.location.href = form.action.replace(':id', extensionId.toLowerCase());
     }
   });
 

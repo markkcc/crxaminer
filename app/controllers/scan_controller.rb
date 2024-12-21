@@ -1,6 +1,6 @@
 class ScanController < ApplicationController
   def show
-    @extension_id = params[:id]
+    @extension_id = params[:id]&.downcase
     
     unless valid_extension_id?(@extension_id)
       if request.xhr?
