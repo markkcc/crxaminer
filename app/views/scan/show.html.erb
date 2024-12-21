@@ -16,13 +16,17 @@
 
     <!-- Analysis Status -->
     <div id="analysis_status">
-      <% if @extension_id %>
+      <% if @extension_id && (!ScanResult.exists?(extension_id: @extension_id) || params[:force] == 'true') %>
         <%= render "loading_status", message: "Starting analysis..." %>
       <% end %>
     </div>
 
     <!-- Results container -->
-    <div id="analysis_results" class="mt-4"></div>
+    <div id="analysis_results" class="mt-4">
+      <% if @scan_result %>
+        <%= render "results" %>
+      <% end %>
+    </div>
 
     <script>
       document.addEventListener('DOMContentLoaded', function() {
