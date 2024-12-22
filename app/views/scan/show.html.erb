@@ -30,105 +30,121 @@
 
     <script>
       document.addEventListener('DOMContentLoaded', function() {
-        const progressBar = document.getElementById('progress-bar');
-        const progressMessage = document.getElementById('progress-message');
-        const analysisStatus = document.getElementById('analysis_status');
-        const analysisResults = document.getElementById('analysis_results');
-
-        if (!progressBar || !progressMessage || !analysisStatus || !analysisResults) {
-          console.error('Required elements not found');
-          return;
+        // Only check for loading bar elements if we're starting a new scan
+        const isNewScan = <%= @extension_id && (!ScanResult.exists?(extension_id: @extension_id) || params[:force] == 'true') %>;
+        const isForceRefresh = '<%= params[:force] %>' === 'true';
+        
+        console.log('Is new scan:', isNewScan);
+        console.log('Is force refresh:', isForceRefresh);
+        console.log('Just completed flag:', sessionStorage.getItem('justCompleted'));
+        
+        // Clear the flag if we're not doing a force refresh
+        if (!isForceRefresh) {
+          sessionStorage.removeItem('justCompleted');
         }
+        
+        if (isNewScan || isForceRefresh) {
+          const progressBar = document.getElementById('progress-bar');
+          const progressMessage = document.getElementById('progress-message');
+          const analysisStatus = document.getElementById('analysis_status');
+          const analysisResults = document.getElementById('analysis_results');
 
-        const messages = [
-          'Starting analysis...',
-          'Fetching extension details...',
-          'Downloading extension...',
-          'Analyzing permissions...',
-          'Checking security...',
-          'Finalizing analysis...'
-        ];
-        let currentProgress = 0;
-        let messageIndex = 0;
+          // Check if we need to start analysis
+          if (!progressBar || !progressMessage || !analysisStatus || !analysisResults) {
+            console.log('Loading bar elements not found, skipping analysis');
+            return;
+          }
 
-        // Update progress every 800ms
-        const progressInterval = setInterval(() => {
-          if (currentProgress < 90) {
-            currentProgress += Math.random() * 15;
-            currentProgress = Math.min(currentProgress, 90);
-            progressBar.style.width = currentProgress + '%';
-            
-            // Update message periodically
-            if (currentProgress > (messageIndex + 1) * 15 && messageIndex < messages.length - 1) {
-              messageIndex++;
-              progressMessage.textContent = messages[messageIndex];
+          // If this is a force refresh and we've just completed, don't start again
+          if (isForceRefresh && sessionStorage.getItem('justCompleted')) {
+            console.log('Force refresh just completed, clearing flag and skipping analysis');
+            sessionStorage.removeItem('justCompleted');
+            return;
+          }
+
+          console.log('Starting analysis for extension:', '<%= @extension_id %>');
+
+          const messages = [
+            'Starting analysis...',
+            'Fetching extension details...',
+            'Downloading extension...',
+            'Analyzing permissions...',
+            'Checking security...',
+            'Finalizing analysis...'
+          ];
+          let currentProgress = 0;
+          let messageIndex = 0;
+
+          // Update progress every 300ms
+          const progressInterval = setInterval(() => {
+            if (currentProgress < 90) {
+              currentProgress += Math.random() * 15;
+              currentProgress = Math.min(currentProgress, 90);
+              progressBar.style.width = currentProgress + '%';
+              
+              // Update message periodically
+              if (currentProgress > (messageIndex + 1) * 15 && messageIndex < messages.length - 1) {
+                messageIndex++;
+                progressMessage.textContent = messages[messageIndex];
+              }
             }
-          }
-        }, 800);
+          }, 300);
 
-        // Start the analysis
-        fetch('/scan/analyze?id=<%= @extension_id %>&force=<%= params[:force] %>', {
-          headers: {
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
-          },
-          credentials: 'same-origin'
-        })
-        .then(response => {
-          if (!response.ok) {
-            return response.json().then(data => {
-              throw new Error(data.error || 'Analysis failed');
-            });
-          }
-          return response.json();
-        })
-        .then(data => {
-          if (data.error) {
-            throw new Error(data.error);
-          }
-          
-          // Complete the progress bar
-          clearInterval(progressInterval);
-          progressBar.style.width = '100%';
-          progressMessage.textContent = 'Analysis complete!';
-          
-          // Short delay before showing results
-          setTimeout(() => {
-            analysisStatus.style.display = 'none';
+          // Start the analysis immediately
+          fetch('/scan/analyze?id=<%= @extension_id %>&force=<%= params[:force] %>', {
+            headers: {
+              'Accept': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin'
+          })
+          .then(response => {
+            if (!response.ok) {
+              return response.json().then(data => {
+                throw new Error(data.error || 'Analysis failed');
+              });
+            }
+            return response.json();
+          })
+          .then(data => {
+            if (data.error) {
+              throw new Error(data.error);
+            }
             
-            fetch(`/scan/<%= @extension_id %>`, {
-              headers: {
-                'Accept': 'text/html',
-                'X-Requested-With': 'XMLHttpRequest'
-              }
-            })
-            .then(response => {
-              if (!response.ok) {
-                throw new Error('Failed to load results');
-              }
-              return response.text();
-            })
-            .then(html => {
-              analysisResults.innerHTML = html;
-              if (typeof initializeUrlsPagination === 'function') {
-                initializeUrlsPagination();
-              }
-            })
-            .catch(error => {
-              showError(error.message);
-            });
-          }, 500);
-        })
-        .catch(error => {
-          clearInterval(progressInterval);
-          showError(error.message);
-        });
+            // Complete the progress bar
+            clearInterval(progressInterval);
+            progressBar.style.width = '100%';
+            progressMessage.textContent = 'Analysis complete!';
+            
+            // Set flag before reloading
+            sessionStorage.setItem('justCompleted', 'true');
+            
+            // Short delay before reloading
+            setTimeout(() => {
+              // Remove force parameter from URL when reloading
+              const url = new URL(window.location.href);
+              url.searchParams.delete('force');
+              window.location.href = url.toString();
+            }, 500);
+          })
+          .catch(error => {
+            console.error('Analysis failed:', error);
+            clearInterval(progressInterval);
+            showError(error.message);
+          });
+        }
+      });
 
-        function showError(message) {
-          // Hide the loading status
+      function showError(message) {
+        // Hide the loading status
+        const analysisStatus = document.getElementById('analysis_status');
+        if (analysisStatus) {
           analysisStatus.style.display = 'none';
-          
-          // Show error message with link to go back
+        }
+        
+        // Show error message with link to go back
+        const analysisResults = document.getElementById('analysis_results');
+        if (analysisResults) {
           analysisResults.innerHTML = `
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
               <div class="text-center">
@@ -141,7 +157,7 @@
             </div>
           `;
         }
-      });
+      }
     </script>
   </div>
 </div>
@@ -149,6 +165,14 @@
 <% content_for :page_scripts do %>
   <script>
     function initializeUrlsPagination() {
+      // // Check if we're coming from a completed analysis
+      // if (!sessionStorage.getItem('justCompleted')) {
+      //   console.log('Skipping pagination initialization until page refresh');
+      //   return;
+      // }
+      
+      // // Clear the flag
+      // sessionStorage.removeItem('justCompleted');
       
       const container = document.getElementById('embedded-urls-container');
       if (!container) {
@@ -164,8 +188,8 @@
       const prevButton = document.getElementById('prev-page');
       const nextButton = document.getElementById('next-page');
       
-      const ROWS_PER_PAGE = 25;
-      const URLS_PER_ROW = 3;
+      const ROWS_PER_PAGE = 40;
+      const URLS_PER_ROW = 2;
       const URLS_PER_PAGE = ROWS_PER_PAGE * URLS_PER_ROW;
       const totalPages = Math.ceil(urls.length / URLS_PER_PAGE);
       let currentPage = 1;

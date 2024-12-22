@@ -1,0 +1,97 @@
+<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+<h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200">Security Analysis Details</h2>
+<div class="space-y-3 text-gray-600 dark:text-gray-300">
+  <!-- Permissions List -->
+  <% if @manifest %>
+    <div class="mt-4">
+      <div class="space-y-2">
+        <% if @manifest[:permissions]&.any? %>
+          <div>
+            <h4 class="text-sm font-medium text-gray-600 dark:text-gray-400">Required Permissions:</h4>
+            <ul class="list-disc list-inside ml-4 text-sm">
+              <% @manifest[:permissions].each do |permission| %>
+                <li><%= permission %></li>
+              <% end %>
+            </ul>
+          </div>
+        <% end %>
+
+        <% if @manifest[:optional_permissions]&.any? %>
+          <div>
+            <h4 class="text-sm font-medium text-gray-600 dark:text-gray-400">Optional Permissions:</h4>
+            <ul class="list-disc list-inside ml-4 text-sm">
+              <% @manifest[:optional_permissions].each do |permission| %>
+                <li><%= permission %></li>
+              <% end %>
+            </ul>
+          </div>
+        <% end %>
+
+        <% if @manifest[:host_permissions]&.any? %>
+          <div>
+            <h4 class="text-sm font-medium text-gray-600 dark:text-gray-400">Host Permissions:</h4>
+            <ul class="list-disc list-inside ml-4 text-sm">
+              <% @manifest[:host_permissions].each do |permission| %>
+                <li><%= permission %></li>
+              <% end %>
+            </ul>
+          </div>
+        <% end %>
+
+        <% if @manifest[:content_security_policy]&.any? %>
+          <div>
+            <h4 class="text-sm font-medium text-gray-600 dark:text-gray-400">Content Security Policy:</h4>
+            <ul class="list-disc list-inside ml-4 text-sm">
+              <% @manifest[:content_security_policy].each do |policy| %>
+                <li><%= policy %></li>
+              <% end %>
+            </ul>
+          </div>
+        <% end %>
+
+        <% if @manifest[:embedded_urls]&.any? %>
+          <div> <br />
+            <h4 class="text-sm font-medium text-gray-600 dark:text-gray-400">
+              Embedded URLs (<%= @manifest[:embedded_urls].size %> total):
+            </h4>
+            <div class="mt-2 overflow-x-auto w-full">
+              <div id="embedded-urls-container" data-urls="<%= @manifest[:embedded_urls].to_json %>">
+                <table class="w-full table-fixed text-sm">
+                  <tbody id="embedded-urls-tbody">
+                    <% @manifest[:embedded_urls].first(80).each_slice(2) do |url_group| %>
+                      <tr class="border-t dark:border-gray-700">
+                        <td class="w-1/3 px-4 py-2 text-gray-600 dark:text-gray-300 truncate"><%= url_group[0] %></td>
+                        <td class="w-1/3 px-4 py-2 text-gray-600 dark:text-gray-300 truncate"><%= url_group[1] %></td>
+                        <td class="w-1/3 px-4 py-2 text-gray-600 dark:text-gray-300 truncate"><%= url_group[2] %></td>
+                      </tr>
+                    <% end %>
+                  </tbody>
+                </table>
+
+                <% if @manifest[:embedded_urls].size > 80 %>
+                  <div class="flex items-center justify-center space-x-2 mt-4">
+                    <button id="prev-page"
+                            class="hidden px-3 py-1 text-sm text-white border border-purple-600 rounded">
+                      &nbsp;Previous&nbsp;
+                    </button>
+                    &nbsp;
+                    <span class="text-sm text-gray-600 dark:text-gray-400">
+                      Page <span id="current-page">1</span> of <span id="total-pages"><%= (@manifest[:embedded_urls].size.to_f / 80).ceil %></span>
+                    </span>
+                    &nbsp;
+                    <button id="next-page"
+                            class="hidden px-3 py-1 text-sm text-white border border-purple-600 rounded">
+                      &nbsp;Next&nbsp;
+                    </button>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          </div>
+        <% end %>
+
+      </div>
+    </div>
+  <% end %>
+</div>
+</div>
