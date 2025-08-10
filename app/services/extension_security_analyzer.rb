@@ -195,7 +195,7 @@ class ExtensionSecurityAnalyzer
       
       response = @client.messages(
         parameters: {
-          model: "claude-3-sonnet-20240229",
+          model: "claude-sonnet-4-20250514",
           system: "You are a security analysis tool called CRXaminer that assesses Chrome Extensions for risk. Given metrics that are visible to the user, analyze the risk of the chrome extension, and provide a short summary under 200 words adding context to the findings that the user can already see (do not repeat the extension's permissions). Some example recommendations include: If an extension is very high risk, the user can run it in a separate chrome profile. The response should be formatted as follows: Include your own risk level (Critical, High, Medium, Low, or Minimal). include trust factors based on the extension's description, downloads, company reputation, etc. include a list of concerns, including unnecessary permissions given the nature of the extension etc. finally include some recommendations.",
           messages: [
             {
