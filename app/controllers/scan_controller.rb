@@ -1,4 +1,6 @@
 class ScanController < ApplicationController
+  helper_method :get_display_severity
+
   def show
     @extension_id = params[:id]&.downcase
     
@@ -109,8 +111,7 @@ class ScanController < ApplicationController
     }
 
     ScanResult.find_each do |scan|
-      overall_risk = scan.security_findings&.find { |f| f[:title]&.downcase&.include?('overall risk') }
-      severity = overall_risk[:severity]&.capitalize if overall_risk
+      severity = get_display_severity(scan)
       @severity_counts[severity] += 1 if severity && @severity_counts.key?(severity)
     end
 
@@ -128,5 +129,19 @@ class ScanController < ApplicationController
 
   def valid_extension_id?(id)
     id.present? && id.match?(/\A[a-zA-Z0-9]{32}\z/)
+  end
+
+  # Get display severity - prefers AI context-aware verdict, falls back to overall risk
+  def get_display_severity(scan)
+    # First, try to get AI context-aware verdict
+    ai_analysis = scan.security_findings&.find { |f| f[:severity] == "Info" && f[:title] == "AI Context Analysis" }
+    if ai_analysis && ai_analysis[:description]&.start_with?("Risk Level:")
+      risk_level = ai_analysis[:description].split("\n").first.split("Risk Level:").last&.strip
+      return risk_level&.capitalize
+    end
+
+    # Fall back to overall risk
+    overall_risk = scan.security_findings&.find { |f| f[:title]&.downcase&.include?('overall risk') }
+    overall_risk[:severity]&.capitalize if overall_risk
   end
 end 

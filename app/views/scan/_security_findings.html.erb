@@ -5,30 +5,34 @@
       <div class="flex items-center space-x-4 mb-4 relative">
         <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200">Context-Aware Verdict</h2>
         <div class="relative">
-          <button type="button" 
+          <button type="button"
                   class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-xl"
                   onclick="document.getElementById('info-popup').classList.toggle('hidden')">
             <span>ⓘ</span>
           </button>
-          <div id="info-popup" 
+          <div id="info-popup"
                class="hidden absolute bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm shadow-lg p-4 rounded-lg text-[#9370DB] left-0 mt-2 z-50 text-sm w-96">
             This section provides a Claude-based AI analysis that applies additional context to the risk. Results are not guaranteed to be accurate.
           </div>
         </div>
       </div>
-      
+
       <div class="space-y-3 text-gray-600 dark:text-gray-300">
         <% ai_analysis = @security_findings.find { |f| f[:severity] == "Info" && f[:title] == "AI Context Analysis" } %>
+        <% overall_finding = @security_findings.find { |f| f[:title]&.downcase&.include?('overall risk') } %>
+
         <% if ai_analysis %>
           <% ai_analysis[:description].split("\n").each_with_index do |line, index| %>
             <% if index == 0 && line.start_with?("Risk Level:") %>
               <% risk_level = line.split("Risk Level:").last.strip %>
-              <div class="flex items-center gap-2">
-                <div class="<%= ExtensionAnalyzerData::SEVERITY_COLORS[risk_level&.capitalize] %> px-2 py-0.5 rounded font-semibold text-sm">
-                  <%= risk_level.upcase %>
-                </div>
-                <div class="font-medium text-gray-700 dark:text-gray-200 text-sm">
-                  Risk Level
+              <div class="<%= ExtensionAnalyzerData::SEVERITY_COLORS[risk_level&.capitalize] %> rounded-lg p-3 mb-3">
+                <div class="flex items-center gap-2">
+                  <div class="font-semibold text-sm">
+                    <%= risk_level.upcase %>
+                  </div>
+                  <div class="font-medium text-sm">
+                    Overall Risk
+                  </div>
                 </div>
               </div>
             <% else %>
@@ -47,31 +51,7 @@
               <% end %>
             <% end %>
           <% end %>
-        <% end %>
-      </div>
-    </div>
-
-    <!-- Security Analysis section -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-      <div class="flex items-center space-x-4 mb-4 relative">
-        <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200">Security Analysis</h2>
-        <div class="relative">
-          <button type="button" 
-                  class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-xl"
-                  onclick="document.getElementById('security-info-popup').classList.toggle('hidden')">
-            <span>ⓘ</span>
-          </button>
-          <div id="security-info-popup" 
-               class="hidden absolute bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm shadow-lg p-4 rounded-lg text-[#9370DB] left-0 mt-2 z-50 text-sm w-96">
-            This section provides a detailed analysis of the extension's security posture, without broader context. Assumes worst-case impact.
-          </div>
-        </div>
-      </div>
-
-      <div class="space-y-3">
-        <% # First, display the overall risk assessment %>
-        <% overall_finding = @security_findings.find { |f| f[:title]&.downcase&.include?('overall risk') } %>
-        <% if overall_finding %>
+        <% elsif overall_finding %>
           <div class="<%= ExtensionAnalyzerData::SEVERITY_COLORS[overall_finding[:severity]&.capitalize] %> rounded-lg p-3">
             <div class="flex items-center gap-2">
               <div class="font-semibold text-sm">
@@ -86,12 +66,32 @@
             </div>
           </div>
         <% end %>
+      </div>
+    </div>
 
-        <% # Then, sort and display the rest of the findings, excluding AI analysis %>
+    <!-- Findings section -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+      <div class="flex items-center space-x-4 mb-4 relative">
+        <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200">Findings</h2>
+        <div class="relative">
+          <button type="button"
+                  class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-xl"
+                  onclick="document.getElementById('security-info-popup').classList.toggle('hidden')">
+            <span>ⓘ</span>
+          </button>
+          <div id="security-info-popup"
+               class="hidden absolute bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm shadow-lg p-4 rounded-lg text-[#9370DB] left-0 mt-2 z-50 text-sm w-96">
+            This section provides a detailed analysis of the extension's security posture, without broader context. Assumes worst-case impact.
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-3">
+        <% # Sort and display findings, excluding AI analysis and overall risk %>
         <% other_findings = @security_findings
              .reject { |f| f[:title]&.downcase&.include?('overall risk') || (f[:severity] == "Info" && f[:title] == "AI Context Analysis") }
              .sort_by { |f| [ExtensionAnalyzerData::SEVERITY_ORDER.fetch(f[:severity]&.downcase, 999), f[:title]] } %>
-        
+
         <% other_findings.each do |finding| %>
           <div class="border dark:border-gray-700 rounded-lg p-3">
             <div class="flex items-center gap-2">

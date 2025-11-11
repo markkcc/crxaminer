@@ -8,8 +8,8 @@ require 'open-uri'
 
 class ExtensionAnalyzer
   include ActiveModel::Model
-  
-  attr_reader :extension_id, :extension_details, :extension_name, 
+
+  attr_reader :extension_id, :extension_details, :extension_name,
               :extension_image, :manifest, :security_findings, :error
 
   def initialize(extension_id)

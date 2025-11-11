@@ -166,8 +166,9 @@ class ExtensionSecurityAnalyzer
 
   def calculate_overall_risk
     high_findings = @security_findings.count { |f| f[:severity] == "High" }
+    critical_findings = @security_findings.count { |f| f[:severity] == "Critical" }
     medium_findings = @security_findings.count { |f| f[:severity] == "Medium" }
-    
+
     overall_risk = if high_findings > 3
       "Critical"
     elsif high_findings > 1
@@ -180,10 +181,21 @@ class ExtensionSecurityAnalyzer
       "Minimal"
     end
 
+    # Build description with only critical and high-risk counts
+    description = if critical_findings > 0 && high_findings > 0
+      "Based on #{@security_findings.size} total findings, including #{critical_findings} critical and #{high_findings} high-risk findings."
+    elsif critical_findings > 0
+      "Based on #{@security_findings.size} total findings, including #{critical_findings} critical #{critical_findings == 1 ? 'finding' : 'findings'}."
+    elsif high_findings > 0
+      "Based on #{@security_findings.size} total findings, including #{high_findings} high-risk #{high_findings == 1 ? 'finding' : 'findings'}."
+    else
+      "Based on #{@security_findings.size} total findings."
+    end
+
     @security_findings.unshift({
       severity: "#{overall_risk}",
       title: "Overall Risk: #{overall_risk}",
-      description: "Based on #{@security_findings.size} total findings, ranked without considering overall context, including #{high_findings} high-risk and #{medium_findings} medium-risk findings."
+      description: description
     })
   end
 
