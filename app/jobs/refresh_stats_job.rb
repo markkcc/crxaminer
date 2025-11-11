@@ -31,9 +31,14 @@ class RefreshStatsJob < ApplicationJob
     scans_last_30_days = ScanResult.where("created_at >= ?", 30.days.ago).count
 
     # Calculate extensions with <all_urls> permissions
-    all_urls_count = ScanResult.where("manifest -> 'permissions' @> ?", '["<all_urls>"]'.to_json)
-      .or(ScanResult.where("manifest -> 'host_permissions' @> ?", '["<all_urls>"]'.to_json))
-      .count
+    # Use PostgreSQL to check if '<all_urls>' exists in either permissions or host_permissions arrays
+    all_urls_count = ScanResult.where(
+      "EXISTS (
+        SELECT 1 FROM jsonb_array_elements_text(manifest->'permissions') AS perm WHERE perm = '<all_urls>'
+      ) OR EXISTS (
+        SELECT 1 FROM jsonb_array_elements_text(manifest->'host_permissions') AS perm WHERE perm = '<all_urls>'
+      )"
+    ).count
 
     # Save to cache (only keep one record)
     StatCache.destroy_all
