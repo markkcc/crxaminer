@@ -21,8 +21,13 @@ default: &default
 
 
 development:
-  <<: *default
-  database: crxaminer_development
+  primary:
+    <<: *default
+    database: crxaminer_development
+  queue:
+    <<: *default
+    database: crxaminer_development
+    migrations_paths: db/queue_migrate
 
   # The specified database role being used to connect to PostgreSQL.
   # To create additional roles in PostgreSQL see `$ createuser --help`.
@@ -55,8 +60,13 @@ development:
 # re-generated from your development database when you run "rake".
 # Do not set this db to the same as development or production.
 test:
-  <<: *default
-  database: crxaminer_test
+  primary:
+    <<: *default
+    database: crxaminer_test
+  queue:
+    <<: *default
+    database: crxaminer_test
+    migrations_paths: db/queue_migrate
 
 # As with config/credentials.yml, you never want to store sensitive information,
 # like your database password, in your source code. If your source code is
@@ -79,5 +89,10 @@ test:
 # for a full overview on how database connection configuration can be specified.
 #
 production:
-  <<: *default
-  url: <%= ENV["DATABASE_URL"] %>
+  primary:
+    <<: *default
+    url: <%= ENV["DATABASE_URL"] %>
+  queue:
+    <<: *default
+    url: <%= ENV["DATABASE_URL"] %>
+    migrations_paths: db/queue_migrate
