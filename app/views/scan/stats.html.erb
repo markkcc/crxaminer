@@ -64,11 +64,11 @@
                   max_count = @severity_counts.values.max || 1
                   percentage = (count.to_f / max_count * 100).round
                   color_classes = case severity
-                    when 'Critical' then 'bg-red-500'
-                    when 'High' then 'bg-orange-500'
-                    when 'Medium' then 'bg-yellow-500'
-                    when 'Low' then 'bg-blue-500'
-                    when 'Minimal' then 'bg-green-500'
+                    when 'Critical' then 'bg-purple-500'
+                    when 'High' then 'bg-red-500'
+                    when 'Medium' then 'bg-orange-500'
+                    when 'Low' then 'bg-yellow-500'
+                    when 'Minimal' then 'bg-blue-500'
                   end
                 %>
                 <div>

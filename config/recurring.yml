@@ -1,0 +1,9 @@
+production:
+  refresh_stats:
+    class: RefreshStatsJob
+    schedule: "*/5 * * * *"  # Every 5 minutes
+
+development:
+  refresh_stats:
+    class: RefreshStatsJob
+    schedule: "*/5 * * * *"  # Every 5 minutes

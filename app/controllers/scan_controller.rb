@@ -101,28 +101,38 @@ class ScanController < ApplicationController
     @total_scans = ScanResult.count
     @recent_scans = ScanResult.order(created_at: :desc).limit(10)
 
-    # Calculate severity counts
-    @severity_counts = {
-      'Critical' => 0,
-      'High' => 0,
-      'Medium' => 0,
-      'Low' => 0,
-      'Minimal' => 0
-    }
-
-    ScanResult.find_each do |scan|
-      severity = get_display_severity(scan)
-      @severity_counts[severity] += 1 if severity && @severity_counts.key?(severity)
-    end
-
-    # Get top 5 "spiciest" extensions (most findings)
-    @spiciest_extensions = ScanResult.all.map do |scan|
-      finding_count = scan.security_findings&.count { |f| !f[:title]&.downcase&.include?('overall risk') } || 0
-      {
-        scan: scan,
-        finding_count: finding_count
+    # Load cached stats or trigger refresh if cache is empty
+    cache = StatCache.first
+    if cache.nil?
+      # No cache exists, trigger a job to create it and use defaults
+      RefreshStatsJob.perform_later
+      # Ordered from most to least severe
+      @severity_counts = {
+        'Critical' => 0,
+        'High' => 0,
+        'Medium' => 0,
+        'Low' => 0,
+        'Minimal' => 0
       }
-    end.sort_by { |e| -e[:finding_count] }.take(5)
+      @spiciest_extensions = []
+    else
+      # Ensure correct order (most to least severe) when loading from cache
+      stored_counts = cache.severity_counts
+      @severity_counts = {
+        'Critical' => stored_counts['Critical'] || 0,
+        'High' => stored_counts['High'] || 0,
+        'Medium' => stored_counts['Medium'] || 0,
+        'Low' => stored_counts['Low'] || 0,
+        'Minimal' => stored_counts['Minimal'] || 0
+      }
+      # Convert spiciest_extensions from stored hashes back to the format expected by the view
+      @spiciest_extensions = cache.spiciest_extensions.map do |ext_data|
+        {
+          scan: ScanResult.find_by(extension_id: ext_data['extension_id']),
+          finding_count: ext_data['finding_count']
+        }
+      end.compact # Remove any nil scans (in case an extension was deleted)
+    end
   end
 
   private

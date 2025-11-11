@@ -1,0 +1,2 @@
+class StatCache < ApplicationRecord
+end
