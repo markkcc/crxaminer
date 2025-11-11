@@ -1,9 +1,9 @@
 production:
   refresh_stats:
     class: RefreshStatsJob
-    schedule: "*/5 * * * *"  # Every 5 minutes
+    schedule: "0 */6 * * *"  # Every 6 hours
 
 development:
   refresh_stats:
     class: RefreshStatsJob
-    schedule: "*/5 * * * *"  # Every 5 minutes
+    schedule: "0 */6 * * *"  # Every 6 hours

@@ -61,8 +61,8 @@
             <div class="space-y-3">
               <% @severity_counts.each do |severity, count| %>
                 <%
-                  max_count = @severity_counts.values.max || 1
-                  percentage = (count.to_f / max_count * 100).round
+                  total_count = @severity_counts.values.sum
+                  percentage = total_count > 0 ? (count.to_f / total_count * 100).round : 0
                   color_classes = case severity
                     when 'Critical' then 'bg-purple-500'
                     when 'High' then 'bg-red-500'
@@ -76,10 +76,9 @@
                     <span class="text-gray-700 dark:text-gray-300"><%= severity %></span>
                     <span class="text-gray-600 dark:text-gray-400"><%= number_with_delimiter(count) %></span>
                   </div>
-                  <div class="w-full bg-purple-200 dark:bg-gray-600 rounded-full h-4">
-                    <div class="<%= color_classes %> h-4 rounded-full flex items-center justify-end pr-2" style="width: <%= percentage %>%;">
-                      <span class="text-xs text-white font-medium" style="<%= percentage < 15 ? 'display: none;' : '' %>"><%= percentage %>%</span>
-                    </div>
+                  <div class="w-full bg-purple-200 dark:bg-gray-600 rounded-full h-6 relative">
+                    <div class="<%= color_classes %> h-6 rounded-full" style="width: <%= percentage %>%;"></div>
+                    <span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium <%= percentage > 15 ? 'text-white' : 'text-gray-700 dark:text-gray-300' %>"><%= percentage %>%</span>
                   </div>
                 </div>
               <% end %>
