@@ -24,38 +24,51 @@
         </h1>
 
         <!-- Metrics Dashboard -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <!-- Left Column -->
-          <div class="space-y-6">
-            <!-- Total Scans Card -->
-            <div class="bg-purple-50 dark:bg-gray-700 rounded-lg p-6 border border-purple-200 dark:border-gray-600">
-              <h2 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Total unique extensions scanned</h2>
-              <p class="text-4xl font-bold text-purple-600 dark:text-purple-400"><%= number_with_delimiter(@total_scans) %></p>
-            </div>
+        <!-- Top Metrics Row -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <!-- Unique Extensions Scanned -->
+          <div class="bg-purple-50 dark:bg-gray-700 rounded-lg p-6 border border-purple-200 dark:border-gray-600">
+            <h2 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Unique ext. scanned</h2>
+            <p class="text-4xl font-bold text-purple-600 dark:text-purple-400"><%= number_with_delimiter(@total_scans) %></p>
+          </div>
 
-            <!-- Top 5 Spiciest Card -->
-            <div class="bg-purple-50 dark:bg-gray-700 rounded-lg p-6 border border-purple-200 dark:border-gray-600">
-              <h2 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-4">Top 5 spiciest</h2>
-              <div class="space-y-3">
-                <% @spiciest_extensions.each do |ext_data| %>
-                  <% scan = ext_data[:scan] %>
-                  <%= link_to scan_path(scan.extension_id), class: "flex items-center justify-between p-2 hover:bg-purple-100 dark:hover:bg-gray-600 rounded transition-colors" do %>
-                    <div class="flex items-center space-x-3 min-w-0 flex-1">
-                      <% if scan.extension_image.present? %>
-                        <img src="<%= scan.extension_image %>" alt="<%= scan.extension_name %>" class="w-8 h-8 rounded flex-shrink-0">
-                      <% else %>
-                        <div class="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded flex-shrink-0"></div>
-                      <% end %>
-                      <span class="text-sm text-gray-700 dark:text-gray-200 truncate"><%= scan.extension_name || "Unknown Extension" %></span>
-                    </div>
-                    <span class="text-sm font-semibold text-purple-600 dark:text-purple-400 ml-2 flex-shrink-0"><%= ext_data[:finding_count] %> findings</span>
-                  <% end %>
+          <!-- Scans Last 30 Days -->
+          <div class="bg-purple-50 dark:bg-gray-700 rounded-lg p-6 border border-purple-200 dark:border-gray-600">
+            <h2 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Scans in last 30 days</h2>
+            <p class="text-4xl font-bold text-purple-600 dark:text-purple-400"><%= number_with_delimiter(@scans_last_30_days) %></p>
+          </div>
+
+          <!-- Extensions with <all_urls> -->
+          <div class="bg-purple-50 dark:bg-gray-700 rounded-lg p-6 border border-purple-200 dark:border-gray-600">
+            <h2 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Ext. with &lt;all_urls&gt;</h2>
+            <p class="text-4xl font-bold text-purple-600 dark:text-purple-400"><%= number_with_delimiter(@all_urls_count) %></p>
+          </div>
+        </div>
+
+        <!-- Bottom Tables Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <!-- Top 5 Spiciest Card -->
+          <div class="bg-purple-50 dark:bg-gray-700 rounded-lg p-6 border border-purple-200 dark:border-gray-600">
+            <h2 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-4">Top 5 spiciest</h2>
+            <div class="space-y-3">
+              <% @spiciest_extensions.each do |ext_data| %>
+                <% scan = ext_data[:scan] %>
+                <%= link_to scan_path(scan.extension_id), class: "flex items-center justify-between p-2 hover:bg-purple-100 dark:hover:bg-gray-600 rounded transition-colors" do %>
+                  <div class="flex items-center space-x-3 min-w-0 flex-1">
+                    <% if scan.extension_image.present? %>
+                      <img src="<%= scan.extension_image %>" alt="<%= scan.extension_name %>" class="w-8 h-8 rounded flex-shrink-0">
+                    <% else %>
+                      <div class="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded flex-shrink-0"></div>
+                    <% end %>
+                    <span class="text-sm text-gray-700 dark:text-gray-200 truncate"><%= scan.extension_name || "Unknown Extension" %></span>
+                  </div>
+                  <span class="text-sm font-semibold text-purple-600 dark:text-purple-400 ml-2 flex-shrink-0"><%= ext_data[:finding_count] %> findings</span>
                 <% end %>
-              </div>
+              <% end %>
             </div>
           </div>
 
-          <!-- Right Column - Severity Distribution Card -->
+          <!-- Severity Distribution Card -->
           <div class="bg-purple-50 dark:bg-gray-700 rounded-lg p-6 border border-purple-200 dark:border-gray-600">
             <h2 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-4">Severity Distribution</h2>
             <div class="space-y-3">
@@ -76,8 +89,8 @@
                     <span class="text-gray-700 dark:text-gray-300"><%= severity %></span>
                     <span class="text-gray-600 dark:text-gray-400"><%= number_with_delimiter(count) %></span>
                   </div>
-                  <div class="w-full bg-purple-200 dark:bg-gray-600 rounded-full h-6 relative">
-                    <div class="<%= color_classes %> h-6 rounded-full" style="width: <%= percentage %>%;"></div>
+                  <div class="w-full bg-purple-200 dark:bg-gray-600 rounded-full h-4 relative">
+                    <div class="<%= color_classes %> h-4 rounded-full" style="width: <%= percentage %>%;"></div>
                     <span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium <%= percentage > 15 ? 'text-white' : 'text-gray-700 dark:text-gray-300' %>"><%= percentage %>%</span>
                   </div>
                 </div>

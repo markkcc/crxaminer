@@ -27,11 +27,21 @@ class RefreshStatsJob < ApplicationJob
       }
     end.sort_by { |e| -e[:finding_count] }.take(5)
 
+    # Calculate scans in last 30 days
+    scans_last_30_days = ScanResult.where("created_at >= ?", 30.days.ago).count
+
+    # Calculate extensions with <all_urls> permissions
+    all_urls_count = ScanResult.where("manifest -> 'permissions' @> ?", '["<all_urls>"]'.to_json)
+      .or(ScanResult.where("manifest -> 'host_permissions' @> ?", '["<all_urls>"]'.to_json))
+      .count
+
     # Save to cache (only keep one record)
     StatCache.destroy_all
     StatCache.create!(
       severity_counts: severity_counts,
-      spiciest_extensions: spiciest_extensions
+      spiciest_extensions: spiciest_extensions,
+      scans_last_30_days: scans_last_30_days,
+      all_urls_count: all_urls_count
     )
 
     Rails.logger.info "Stats cache refreshed: #{severity_counts.inspect}"

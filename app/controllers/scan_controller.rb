@@ -115,6 +115,8 @@ class ScanController < ApplicationController
         'Minimal' => 0
       }
       @spiciest_extensions = []
+      @scans_last_30_days = 0
+      @all_urls_count = 0
     else
       # Ensure correct order (most to least severe) when loading from cache
       stored_counts = cache.severity_counts
@@ -132,6 +134,8 @@ class ScanController < ApplicationController
           finding_count: ext_data['finding_count']
         }
       end.compact # Remove any nil scans (in case an extension was deleted)
+      @scans_last_30_days = cache.scans_last_30_days || 0
+      @all_urls_count = cache.all_urls_count || 0
     end
   end
 
