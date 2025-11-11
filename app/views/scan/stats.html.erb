@@ -11,19 +11,78 @@
         <%= link_to "[ statistics ]", stats_scan_index_path, class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
         <%= link_to "[ github ]", "https://github.com/markkcc/crxaminer", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
         <%= link_to "[ twitter ]", "https://x.com/CRXaminer", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
+        <%= link_to "[ help ]", "https://astarte.security/docs/tools/crxaminer", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
       </span>
     </div>
 
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-      <div class="flex items-center space-x-4 mb-4">
-        <div>
-          <h1 class="text-2xl font-bold text-gray-700 dark:text-gray-200">
-            Statistics
-          </h1>
-          
-          <p class="text-gray-600 dark:text-gray-300">
-            Total Scans: <%= @total_scans %> | Last Updated: <%= Time.current.strftime("%B %d, %Y %I:%M %p") %>
-          </p>
+      <div class="mb-6">
+        <h1 class="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-6">
+          Statistics Dashboard
+        </h1>
+
+        <!-- Metrics Dashboard -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <!-- Left Column -->
+          <div class="space-y-6">
+            <!-- Total Scans Card -->
+            <div class="bg-purple-50 dark:bg-gray-700 rounded-lg p-6 border border-purple-200 dark:border-gray-600">
+              <h2 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Total unique extensions scanned</h2>
+              <p class="text-4xl font-bold text-purple-600 dark:text-purple-400"><%= number_with_delimiter(@total_scans) %></p>
+            </div>
+
+            <!-- Top 5 Spiciest Card -->
+            <div class="bg-purple-50 dark:bg-gray-700 rounded-lg p-6 border border-purple-200 dark:border-gray-600">
+              <h2 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-4">Top 5 spiciest</h2>
+              <div class="space-y-3">
+                <% @spiciest_extensions.each do |ext_data| %>
+                  <% scan = ext_data[:scan] %>
+                  <%= link_to scan_path(scan.extension_id), class: "flex items-center justify-between p-2 hover:bg-purple-100 dark:hover:bg-gray-600 rounded transition-colors" do %>
+                    <div class="flex items-center space-x-3 min-w-0 flex-1">
+                      <% if scan.extension_image.present? %>
+                        <img src="<%= scan.extension_image %>" alt="<%= scan.extension_name %>" class="w-8 h-8 rounded flex-shrink-0">
+                      <% else %>
+                        <div class="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded flex-shrink-0"></div>
+                      <% end %>
+                      <span class="text-sm text-gray-700 dark:text-gray-200 truncate"><%= scan.extension_name || "Unknown Extension" %></span>
+                    </div>
+                    <span class="text-sm font-semibold text-purple-600 dark:text-purple-400 ml-2 flex-shrink-0"><%= ext_data[:finding_count] %> findings</span>
+                  <% end %>
+                <% end %>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column - Severity Distribution Card -->
+          <div class="bg-purple-50 dark:bg-gray-700 rounded-lg p-6 border border-purple-200 dark:border-gray-600">
+            <h2 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-4">Severity Distribution</h2>
+            <div class="space-y-3">
+              <% @severity_counts.each do |severity, count| %>
+                <%
+                  max_count = @severity_counts.values.max || 1
+                  percentage = (count.to_f / max_count * 100).round
+                  color_classes = case severity
+                    when 'Critical' then 'bg-red-500'
+                    when 'High' then 'bg-orange-500'
+                    when 'Medium' then 'bg-yellow-500'
+                    when 'Low' then 'bg-blue-500'
+                    when 'Minimal' then 'bg-green-500'
+                  end
+                %>
+                <div>
+                  <div class="flex justify-between text-xs mb-1">
+                    <span class="text-gray-700 dark:text-gray-300"><%= severity %></span>
+                    <span class="text-gray-600 dark:text-gray-400"><%= number_with_delimiter(count) %></span>
+                  </div>
+                  <div class="w-full bg-purple-200 dark:bg-gray-600 rounded-full h-4">
+                    <div class="<%= color_classes %> h-4 rounded-full flex items-center justify-end pr-2" style="width: <%= percentage %>%;">
+                      <span class="text-xs text-white font-medium" style="<%= percentage < 15 ? 'display: none;' : '' %>"><%= percentage %>%</span>
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          </div>
         </div>
       </div>
       
@@ -87,6 +146,13 @@
           </table>
         </div>
       </div>
+    </div>
+
+    <!-- Attribution link -->
+    <div class="text-center mt-8 mb-4">
+      <%= link_to "https://astarte.security/", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:opacity-80" do %>
+        by <span style="color: #ffbc00;">✦</span> <span style="color: #52448d;">Astarte</span>
+      <% end %>
     </div>
   </div>
 </div>

@@ -98,6 +98,30 @@ class ScanController < ApplicationController
   def stats
     @total_scans = ScanResult.count
     @recent_scans = ScanResult.order(created_at: :desc).limit(10)
+
+    # Calculate severity counts
+    @severity_counts = {
+      'Critical' => 0,
+      'High' => 0,
+      'Medium' => 0,
+      'Low' => 0,
+      'Minimal' => 0
+    }
+
+    ScanResult.find_each do |scan|
+      overall_risk = scan.security_findings&.find { |f| f[:title]&.downcase&.include?('overall risk') }
+      severity = overall_risk[:severity]&.capitalize if overall_risk
+      @severity_counts[severity] += 1 if severity && @severity_counts.key?(severity)
+    end
+
+    # Get top 5 "spiciest" extensions (most findings)
+    @spiciest_extensions = ScanResult.all.map do |scan|
+      finding_count = scan.security_findings&.count { |f| !f[:title]&.downcase&.include?('overall risk') } || 0
+      {
+        scan: scan,
+        finding_count: finding_count
+      }
+    end.sort_by { |e| -e[:finding_count] }.take(5)
   end
 
   private

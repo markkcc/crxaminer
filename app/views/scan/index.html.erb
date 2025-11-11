@@ -5,6 +5,7 @@
     <%= link_to "[ statistics ]", stats_scan_index_path, class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
     <%= link_to "[ github ]", "https://github.com/markkcc/crxaminer", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
     <%= link_to "[ twitter ]", "https://x.com/CRXaminer", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
+    <%= link_to "[ help ]", "https://astarte.security/docs/tools/crxaminer", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
   </span>
 </div>
     <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg">
@@ -33,6 +34,13 @@
           <div class="text-red-500 text-sm"><%= flash[:error] %></div>
         <% end %>
       </div>
+    </div>
+
+    <!-- Attribution link -->
+    <div class="text-center mt-4">
+      <%= link_to "https://astarte.security/", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:opacity-80" do %>
+        by <span style="color: #ffbc00;">✦</span> <span style="color: #52448d;">Astarte</span>
+      <% end %>
     </div>
   </div>
 </div>
