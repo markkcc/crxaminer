@@ -103,9 +103,29 @@ class ScanController < ApplicationController
     # Filter recent scans by severity if specified
     severity_filter = params[:severity]
     if severity_filter.present?
-      # Get all scans and filter by display severity
-      all_scans = ScanResult.order(created_at: :desc)
-      @recent_scans = all_scans.select { |scan| get_display_severity(scan) == severity_filter }.take(10)
+      @recent_scans = ScanResult.where(
+        "EXISTS (
+          SELECT 1 FROM jsonb_array_elements(security_findings) AS finding
+          WHERE finding->>'title' = 'AI Context Analysis'
+          AND finding->>'severity' = 'Info'
+          AND finding->>'description' LIKE ?
+        )",
+        "Risk Level: #{severity_filter}%"
+      ).or(
+        ScanResult.where(
+          "NOT EXISTS (
+            SELECT 1 FROM jsonb_array_elements(security_findings) AS finding
+            WHERE finding->>'title' = 'AI Context Analysis'
+            AND finding->>'severity' = 'Info'
+          )
+          AND EXISTS (
+            SELECT 1 FROM jsonb_array_elements(security_findings) AS finding
+            WHERE LOWER(finding->>'title') LIKE '%overall risk%'
+            AND finding->>'severity' = ?
+          )",
+          severity_filter
+        )
+      ).order(created_at: :desc).limit(10)
     else
       @recent_scans = ScanResult.order(created_at: :desc).limit(10)
     end
