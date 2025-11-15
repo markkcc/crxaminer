@@ -8,5 +8,5 @@ Rails.application.routes.draw do
     end
   end
 
-  match "*path", to: "application#not_found", via: :all
+  match "*path", to: "application#handle_not_found", via: :all, constraints: ->(req) { !req.path.start_with?('/assets') }
 end

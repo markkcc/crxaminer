@@ -1,15 +1,242 @@
+<!-- Partnership Info Card -->
 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-<h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200">Secure Annex (beta)</h2>
-<div class="space-y-3 text-gray-600 dark:text-gray-300">
-  <!-- Permissions List -->
-  <% if @manifest %>
-    <div class="mt-4">
-      <div class="space-y-2">
-        
-        Coming soon...
+  <div class="text-gray-600 dark:text-gray-300">
+    <p class="text-sm leading-relaxed">
+      <span class="text-gray-500 dark:text-gray-400">ⓘ</span>
+      <span class="text-[#9370DB] font-medium">CRXaminer</span> has partnered with our friends at
+      <%= link_to "Secure Annex", "https://secureannex.com/", target: "_blank", class: "bg-gradient-to-r from-pink-400 to-pink-600 bg-clip-text text-transparent font-semibold hover:from-pink-500 hover:to-pink-700" %>
+      to provide additional findings unique to their platform.
+    </p>
+    <p class="text-sm leading-relaxed mt-2">
+      <%= link_to "Secure Annex", "https://secureannex.com/", target: "_blank", class: "bg-gradient-to-r from-pink-400 to-pink-600 bg-clip-text text-transparent font-semibold hover:from-pink-500 hover:to-pink-700" %>
+      also analyzes extensions from other browsers, IDEs, and can continuously monitor.
+    </p>
+  </div>
+</div>
 
+<!-- Secure Annex Results Section -->
+<div id="secure-annex-container">
+  <!-- Loading State -->
+  <div id="secure-annex-loading" class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+    <div class="flex items-center justify-center space-x-3 text-gray-600 dark:text-gray-300">
+      <svg class="animate-spin h-5 w-5 text-[#9370DB]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      <span>Loading Secure Annex data...</span>
+    </div>
+  </div>
+
+  <!-- Error State (hidden by default) -->
+  <div id="secure-annex-error" class="hidden bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+    <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4">
+      <div class="flex items-start">
+        <div class="text-yellow-800 dark:text-yellow-200 text-sm">
+          <span class="font-medium">Unable to load Secure Annex data.</span>
+          <p class="mt-1" id="secure-annex-error-message">This extension may not yet be analyzed by Secure Annex.</p>
+        </div>
       </div>
     </div>
-  <% end %>
+  </div>
+
+  <!-- Results Content (hidden by default) -->
+  <div id="secure-annex-results" class="hidden">
+    <!-- Detections Card -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+      <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">Security Detections</h2>
+
+      <div class="space-y-3">
+        <!-- Total Detections -->
+        <div class="border dark:border-gray-700 rounded-lg p-4">
+          <div class="flex items-center justify-between">
+            <span class="text-gray-600 dark:text-gray-300 font-medium">Total Detections</span>
+            <span id="sa-total-detections" class="text-2xl font-bold text-gray-700 dark:text-gray-200">0</span>
+          </div>
+        </div>
+
+        <!-- Detections by Severity -->
+        <div class="border dark:border-gray-700 rounded-lg p-4">
+          <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">Detections by Severity</h3>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-3">
+              <div class="text-xs text-red-800 dark:text-red-200 font-medium mb-1">Critical</div>
+              <div id="sa-critical" class="text-xl font-bold text-red-800 dark:text-red-200">0</div>
+            </div>
+            <div class="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg p-3">
+              <div class="text-xs text-orange-800 dark:text-orange-200 font-medium mb-1">High</div>
+              <div id="sa-high" class="text-xl font-bold text-orange-800 dark:text-orange-200">0</div>
+            </div>
+            <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-3">
+              <div class="text-xs text-yellow-800 dark:text-yellow-200 font-medium mb-1">Medium</div>
+              <div id="sa-medium" class="text-xl font-bold text-yellow-800 dark:text-yellow-200">0</div>
+            </div>
+            <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3">
+              <div class="text-xs text-blue-800 dark:text-blue-200 font-medium mb-1">Low</div>
+              <div id="sa-low" class="text-xl font-bold text-blue-800 dark:text-blue-200">0</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Verdicts -->
+        <div id="sa-verdicts-container" class="hidden border dark:border-gray-700 rounded-lg p-4">
+          <div class="flex items-center justify-between">
+            <span class="text-gray-600 dark:text-gray-300 font-medium">Has Verdicts</span>
+            <span id="sa-has-verdicts" class="px-3 py-1 rounded-full text-sm font-medium bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200">Yes</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Manifest Findings Card -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+      <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">Manifest Findings</h2>
+
+      <div class="space-y-3">
+        <!-- Total Manifest Findings -->
+        <div class="border dark:border-gray-700 rounded-lg p-4">
+          <div class="flex items-center justify-between">
+            <span class="text-gray-600 dark:text-gray-300 font-medium">Total Findings</span>
+            <span id="sa-manifest-total" class="text-2xl font-bold text-gray-700 dark:text-gray-200">0</span>
+          </div>
+        </div>
+
+        <!-- Manifest Findings by Severity -->
+        <div class="border dark:border-gray-700 rounded-lg p-4">
+          <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">Findings by Severity</h3>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-3">
+              <div class="text-xs text-red-800 dark:text-red-200 font-medium mb-1">Critical</div>
+              <div id="sa-manifest-critical" class="text-xl font-bold text-red-800 dark:text-red-200">0</div>
+            </div>
+            <div class="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg p-3">
+              <div class="text-xs text-orange-800 dark:text-orange-200 font-medium mb-1">High</div>
+              <div id="sa-manifest-high" class="text-xl font-bold text-orange-800 dark:text-orange-200">0</div>
+            </div>
+            <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-3">
+              <div class="text-xs text-yellow-800 dark:text-yellow-200 font-medium mb-1">Medium</div>
+              <div id="sa-manifest-medium" class="text-xl font-bold text-yellow-800 dark:text-yellow-200">0</div>
+            </div>
+            <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3">
+              <div class="text-xs text-blue-800 dark:text-blue-200 font-medium mb-1">Low</div>
+              <div id="sa-manifest-low" class="text-xl font-bold text-blue-800 dark:text-blue-200">0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Extension Version Info -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+      <div class="text-sm text-gray-600 dark:text-gray-300">
+        Secure Annex analyzed version: <span id="sa-version" class="font-medium text-gray-700 dark:text-gray-200">-</span>
+      </div>
+    </div>
+
+    <!-- Link to Full Results -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+      <div class="text-center">
+        <%= link_to "Login to Secure Annex to view the full results",
+                    "https://app.secureannex.com/extensions/search/#{@extension_id}",
+                    target: "_blank",
+                    class: "inline-flex items-center text-[#9370DB] hover:text-[#7851c5] font-medium text-sm" %>
+        <svg class="w-4 h-4 ml-1 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+        </svg>
+      </div>
+    </div>
+  </div>
 </div>
-</div>
+
+<script>
+(function() {
+  // Get the extension ID from the URL or view data
+  const extensionId = '<%= @extension_id %>';
+
+  async function fetchSecureAnnexData() {
+    const loadingEl = document.getElementById('secure-annex-loading');
+    const errorEl = document.getElementById('secure-annex-error');
+    const resultsEl = document.getElementById('secure-annex-results');
+    const errorMessageEl = document.getElementById('secure-annex-error-message');
+
+    try {
+      const response = await fetch(`https://api.secureannex.com/v0/stats?extension_id=${extensionId}`);
+
+      if (!response.ok) {
+        throw new Error(response.status === 404 ? 'Extension not found' : 'Failed to fetch data');
+      }
+
+      const data = await response.json();
+
+      // Check if there's an error in the response
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // Populate the results
+      if (data.result) {
+        const result = data.result;
+
+        // Detections
+        if (result.detections) {
+          document.getElementById('sa-total-detections').textContent = result.detections.total || 0;
+          if (result.detections.by_severity) {
+            document.getElementById('sa-critical').textContent = result.detections.by_severity.critical || 0;
+            document.getElementById('sa-high').textContent = result.detections.by_severity.high || 0;
+            document.getElementById('sa-medium').textContent = result.detections.by_severity.medium || 0;
+            document.getElementById('sa-low').textContent = result.detections.by_severity.low || 0;
+          }
+        }
+
+        // Verdicts
+        if (result.verdicts && result.verdicts.has_verdicts) {
+          document.getElementById('sa-verdicts-container').classList.remove('hidden');
+        }
+
+        // Manifest findings
+        if (result.manifest) {
+          document.getElementById('sa-manifest-total').textContent = result.manifest.total || 0;
+          if (result.manifest.by_severity) {
+            document.getElementById('sa-manifest-critical').textContent = result.manifest.by_severity.critical || 0;
+            document.getElementById('sa-manifest-high').textContent = result.manifest.by_severity.high || 0;
+            document.getElementById('sa-manifest-medium').textContent = result.manifest.by_severity.medium || 0;
+            document.getElementById('sa-manifest-low').textContent = result.manifest.by_severity.low || 0;
+          }
+        }
+
+        // Version
+        if (result.version) {
+          document.getElementById('sa-version').textContent = result.version;
+        }
+
+        // Show results, hide loading
+        loadingEl.classList.add('hidden');
+        resultsEl.classList.remove('hidden');
+      } else {
+        throw new Error('Invalid response format');
+      }
+    } catch (error) {
+      console.error('Secure Annex fetch error:', error);
+
+      // Update error message
+      errorMessageEl.textContent = error.message === 'Extension not found'
+        ? 'This extension has not yet been analyzed by Secure Annex.'
+        : 'Unable to load data from Secure Annex. Please try again later.';
+
+      // Show error, hide loading
+      loadingEl.classList.add('hidden');
+      errorEl.classList.remove('hidden');
+    }
+  }
+
+  // Fetch data when the page loads
+  if (extensionId) {
+    fetchSecureAnnexData();
+  } else {
+    const loadingEl = document.getElementById('secure-annex-loading');
+    const errorEl = document.getElementById('secure-annex-error');
+    document.getElementById('secure-annex-error-message').textContent = 'Extension ID not found.';
+    loadingEl.classList.add('hidden');
+    errorEl.classList.remove('hidden');
+  }
+})();
+</script>
