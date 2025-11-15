@@ -41,85 +41,68 @@
 
   <!-- Results Content (hidden by default) -->
   <div id="secure-annex-results" class="hidden">
-    <!-- Detections Card -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-      <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">Security Detections</h2>
-
-      <div class="space-y-3">
-        <!-- Total Detections -->
-        <div class="border dark:border-gray-700 rounded-lg p-4">
-          <div class="flex items-center justify-between">
-            <span class="text-gray-600 dark:text-gray-300 font-medium">Total Detections</span>
-            <span id="sa-total-detections" class="text-2xl font-bold text-gray-700 dark:text-gray-200">0</span>
-          </div>
+    <!-- Two column grid for Detections and Manifest Findings -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <!-- Detections Card -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200">Detections</h2>
+          <span id="sa-total-detections" class="text-2xl font-bold text-gray-700 dark:text-gray-200">0</span>
         </div>
 
         <!-- Detections by Severity -->
-        <div class="border dark:border-gray-700 rounded-lg p-4">
-          <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">Detections by Severity</h3>
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-3">
-              <div class="text-xs text-red-800 dark:text-red-200 font-medium mb-1">Critical</div>
-              <div id="sa-critical" class="text-xl font-bold text-red-800 dark:text-red-200">0</div>
-            </div>
-            <div class="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg p-3">
-              <div class="text-xs text-orange-800 dark:text-orange-200 font-medium mb-1">High</div>
-              <div id="sa-high" class="text-xl font-bold text-orange-800 dark:text-orange-200">0</div>
-            </div>
-            <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-3">
-              <div class="text-xs text-yellow-800 dark:text-yellow-200 font-medium mb-1">Medium</div>
-              <div id="sa-medium" class="text-xl font-bold text-yellow-800 dark:text-yellow-200">0</div>
-            </div>
-            <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3">
-              <div class="text-xs text-blue-800 dark:text-blue-200 font-medium mb-1">Low</div>
-              <div id="sa-low" class="text-xl font-bold text-blue-800 dark:text-blue-200">0</div>
-            </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div id="sa-critical-card" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-3 transition-opacity">
+            <div class="text-xs text-red-800 dark:text-red-200 font-medium mb-1">Critical</div>
+            <div id="sa-critical" class="text-xl font-bold text-red-800 dark:text-red-200">0</div>
+          </div>
+          <div id="sa-high-card" class="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg p-3 transition-opacity">
+            <div class="text-xs text-orange-800 dark:text-orange-200 font-medium mb-1">High</div>
+            <div id="sa-high" class="text-xl font-bold text-orange-800 dark:text-orange-200">0</div>
+          </div>
+          <div id="sa-medium-card" class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-3 transition-opacity">
+            <div class="text-xs text-yellow-800 dark:text-yellow-200 font-medium mb-1">Medium</div>
+            <div id="sa-medium" class="text-xl font-bold text-yellow-800 dark:text-yellow-200">0</div>
+          </div>
+          <div id="sa-low-card" class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3 transition-opacity">
+            <div class="text-xs text-blue-800 dark:text-blue-200 font-medium mb-1">Low</div>
+            <div id="sa-low" class="text-xl font-bold text-blue-800 dark:text-blue-200">0</div>
           </div>
         </div>
 
         <!-- Verdicts -->
-        <div id="sa-verdicts-container" class="hidden border dark:border-gray-700 rounded-lg p-4">
+        <div id="sa-verdicts-container" class="hidden mt-4 border-t dark:border-gray-700 pt-4">
           <div class="flex items-center justify-between">
             <span class="text-gray-600 dark:text-gray-300 font-medium">Has Verdicts</span>
             <span id="sa-has-verdicts" class="px-3 py-1 rounded-full text-sm font-medium bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200">Yes</span>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Manifest Findings Card -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-      <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">Manifest Findings</h2>
-
-      <div class="space-y-3">
-        <!-- Total Manifest Findings -->
-        <div class="border dark:border-gray-700 rounded-lg p-4">
-          <div class="flex items-center justify-between">
-            <span class="text-gray-600 dark:text-gray-300 font-medium">Total Findings</span>
-            <span id="sa-manifest-total" class="text-2xl font-bold text-gray-700 dark:text-gray-200">0</span>
-          </div>
+      <!-- Manifest Findings Card -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200">Manifest Findings</h2>
+          <span id="sa-manifest-total" class="text-2xl font-bold text-gray-700 dark:text-gray-200">0</span>
         </div>
 
         <!-- Manifest Findings by Severity -->
-        <div class="border dark:border-gray-700 rounded-lg p-4">
-          <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">Findings by Severity</h3>
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-3">
-              <div class="text-xs text-red-800 dark:text-red-200 font-medium mb-1">Critical</div>
-              <div id="sa-manifest-critical" class="text-xl font-bold text-red-800 dark:text-red-200">0</div>
-            </div>
-            <div class="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg p-3">
-              <div class="text-xs text-orange-800 dark:text-orange-200 font-medium mb-1">High</div>
-              <div id="sa-manifest-high" class="text-xl font-bold text-orange-800 dark:text-orange-200">0</div>
-            </div>
-            <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-3">
-              <div class="text-xs text-yellow-800 dark:text-yellow-200 font-medium mb-1">Medium</div>
-              <div id="sa-manifest-medium" class="text-xl font-bold text-yellow-800 dark:text-yellow-200">0</div>
-            </div>
-            <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3">
-              <div class="text-xs text-blue-800 dark:text-blue-200 font-medium mb-1">Low</div>
-              <div id="sa-manifest-low" class="text-xl font-bold text-blue-800 dark:text-blue-200">0</div>
-            </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div id="sa-manifest-critical-card" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-3 transition-opacity">
+            <div class="text-xs text-red-800 dark:text-red-200 font-medium mb-1">Critical</div>
+            <div id="sa-manifest-critical" class="text-xl font-bold text-red-800 dark:text-red-200">0</div>
+          </div>
+          <div id="sa-manifest-high-card" class="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg p-3 transition-opacity">
+            <div class="text-xs text-orange-800 dark:text-orange-200 font-medium mb-1">High</div>
+            <div id="sa-manifest-high" class="text-xl font-bold text-orange-800 dark:text-orange-200">0</div>
+          </div>
+          <div id="sa-manifest-medium-card" class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-3 transition-opacity">
+            <div class="text-xs text-yellow-800 dark:text-yellow-200 font-medium mb-1">Medium</div>
+            <div id="sa-manifest-medium" class="text-xl font-bold text-yellow-800 dark:text-yellow-200">0</div>
+          </div>
+          <div id="sa-manifest-low-card" class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3 transition-opacity">
+            <div class="text-xs text-blue-800 dark:text-blue-200 font-medium mb-1">Low</div>
+            <div id="sa-manifest-low" class="text-xl font-bold text-blue-800 dark:text-blue-200">0</div>
           </div>
         </div>
       </div>
@@ -176,14 +159,26 @@
       if (data.result) {
         const result = data.result;
 
+        // Helper function to set count and apply gray-out if 0
+        function setCount(elementId, cardId, value) {
+          const count = value || 0;
+          document.getElementById(elementId).textContent = count;
+          const card = document.getElementById(cardId);
+          if (count === 0) {
+            card.classList.add('opacity-40');
+          } else {
+            card.classList.remove('opacity-40');
+          }
+        }
+
         // Detections
         if (result.detections) {
           document.getElementById('sa-total-detections').textContent = result.detections.total || 0;
           if (result.detections.by_severity) {
-            document.getElementById('sa-critical').textContent = result.detections.by_severity.critical || 0;
-            document.getElementById('sa-high').textContent = result.detections.by_severity.high || 0;
-            document.getElementById('sa-medium').textContent = result.detections.by_severity.medium || 0;
-            document.getElementById('sa-low').textContent = result.detections.by_severity.low || 0;
+            setCount('sa-critical', 'sa-critical-card', result.detections.by_severity.critical);
+            setCount('sa-high', 'sa-high-card', result.detections.by_severity.high);
+            setCount('sa-medium', 'sa-medium-card', result.detections.by_severity.medium);
+            setCount('sa-low', 'sa-low-card', result.detections.by_severity.low);
           }
         }
 
@@ -196,10 +191,10 @@
         if (result.manifest) {
           document.getElementById('sa-manifest-total').textContent = result.manifest.total || 0;
           if (result.manifest.by_severity) {
-            document.getElementById('sa-manifest-critical').textContent = result.manifest.by_severity.critical || 0;
-            document.getElementById('sa-manifest-high').textContent = result.manifest.by_severity.high || 0;
-            document.getElementById('sa-manifest-medium').textContent = result.manifest.by_severity.medium || 0;
-            document.getElementById('sa-manifest-low').textContent = result.manifest.by_severity.low || 0;
+            setCount('sa-manifest-critical', 'sa-manifest-critical-card', result.manifest.by_severity.critical);
+            setCount('sa-manifest-high', 'sa-manifest-high-card', result.manifest.by_severity.high);
+            setCount('sa-manifest-medium', 'sa-manifest-medium-card', result.manifest.by_severity.medium);
+            setCount('sa-manifest-low', 'sa-manifest-low-card', result.manifest.by_severity.low);
           }
         }
 
