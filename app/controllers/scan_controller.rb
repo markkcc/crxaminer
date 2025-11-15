@@ -99,7 +99,22 @@ class ScanController < ApplicationController
 
   def stats
     @total_scans = ScanResult.count
-    @recent_scans = ScanResult.order(created_at: :desc).limit(10)
+
+    # Filter recent scans by severity if specified
+    severity_filter = params[:severity]
+    if severity_filter.present?
+      # Get all scans and filter by display severity
+      all_scans = ScanResult.order(created_at: :desc)
+      @recent_scans = all_scans.select { |scan| get_display_severity(scan) == severity_filter }.take(10)
+    else
+      @recent_scans = ScanResult.order(created_at: :desc).limit(10)
+    end
+
+    # If this is an AJAX request, only render the table partial
+    if request.xhr?
+      render partial: 'recent_scans_table', locals: { recent_scans: @recent_scans }
+      return
+    end
 
     # Load cached stats or trigger refresh if cache is empty
     cache = StatCache.first

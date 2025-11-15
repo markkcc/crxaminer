@@ -1,0 +1,34 @@
+<% recent_scans.each do |scan| %>
+  <% display_severity = get_display_severity(scan) %>
+  <tr class="scan-row hover:bg-gray-50 dark:hover:bg-gray-700 border-t dark:border-gray-700" data-severity="<%= display_severity %>">
+    <td class="px-6 py-4">
+      <div class="flex items-center">
+        <div class="flex-shrink-0 w-12">
+          <% if scan.extension_image.present? %>
+            <img src="<%= scan.extension_image %>" alt="Extension icon" class="w-10 h-10 rounded-lg">
+          <% end %>
+        </div>
+        <div class="ml-4 flex-1 min-w-0">
+          <div class="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
+            <%= scan.extension_name || "Unknown Extension" %>
+          </div>
+          <div class="text-sm text-gray-500 dark:text-gray-400 mt-1 truncate">
+            ID: <%= scan.extension_id %>
+          </div>
+        </div>
+      </div>
+    </td>
+    <td class="px-6 py-4">
+      <div class="<%= ExtensionAnalyzerData::SEVERITY_COLORS[display_severity] %> px-2 py-0.5 rounded text-xs font-semibold">
+        <%= display_severity&.upcase || 'UNKNOWN' %>
+      </div>
+    </td>
+    <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+      <%= scan.created_at.strftime("%Y-%m-%d %H:%M") %>
+    </td>
+    <td class="px-6 py-4 text-sm">
+      <%= link_to "View Results", scan_path(scan.extension_id),
+          class: "text-violet-600 hover:text-violet-900 dark:text-violet-400 dark:hover:text-violet-300" %>
+    </td>
+  </tr>
+<% end %>
