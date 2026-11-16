@@ -1,9 +1,12 @@
 <!-- Security findings section -->
   <% if @security_findings&.any? %>
-    <!-- Context-Aware Verdict section -->
+    <!-- Context-Aware Verdict section (falls back to the rule-based rating when no AI analysis exists) -->
+    <% ai_analysis = @security_findings.find { |f| f[:severity] == "Info" && f[:title] == "AI Context Analysis" } %>
+    <% overall_finding = @security_findings.find { |f| f[:title]&.downcase&.include?('overall risk') } %>
+    <% ai_data = ai_analysis && ai_analysis[:ai].is_a?(Hash) ? ai_analysis[:ai] : nil %>
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
       <div class="flex items-center space-x-4 mb-4 relative">
-        <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200">Context-Aware Verdict</h2>
+        <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200"><%= ai_analysis ? "Context-Aware Verdict" : "Rule-based rating" %></h2>
         <div class="relative">
           <button type="button"
                   class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-xl"
@@ -12,17 +15,49 @@
           </button>
           <div id="info-popup"
                class="hidden absolute bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm shadow-lg p-4 rounded-lg text-[#9370DB] left-0 mt-2 z-50 text-sm w-96">
-            This section provides a Claude-based AI analysis that applies additional context to the risk. Results are not guaranteed to be accurate.
+            <% if ai_analysis %>
+              This section provides a Claude-based AI analysis that applies additional context to the risk. Results are not guaranteed to be accurate.
+            <% else %>
+              This rating comes only from CRXaminer's rule-based checks of the manifest. AI context is unavailable for this scan.
+            <% end %>
           </div>
         </div>
       </div>
 
       <div class="space-y-3 text-gray-600 dark:text-gray-300">
-        <% ai_analysis = @security_findings.find { |f| f[:severity] == "Info" && f[:title] == "AI Context Analysis" } %>
-        <% overall_finding = @security_findings.find { |f| f[:title]&.downcase&.include?('overall risk') } %>
-
-        <% if ai_analysis %>
-          <% ai_analysis[:description].split("\n").each_with_index do |line, index| %>
+        <% if ai_data %>
+          <% risk_level = ai_data[:risk_level].to_s %>
+          <div class="<%= ExtensionAnalyzerData::SEVERITY_COLORS[risk_level.capitalize] %> rounded-lg p-3 mb-3">
+            <div class="flex items-center gap-2">
+              <div class="font-semibold text-sm">
+                <%= risk_level.upcase %>
+              </div>
+              <div class="font-medium text-sm">
+                Overall Risk
+              </div>
+            </div>
+          </div>
+          <% if ai_data[:summary].present? %>
+            <p><%= ai_data[:summary] %></p>
+          <% end %>
+          <% [["Trust Factors", :trust_factors], ["Concerns", :concerns], ["Recommendations", :recommendations]].each do |heading, key| %>
+            <% items = Array(ai_data[key]) %>
+            <% next if items.empty? %>
+            <div class="font-medium text-gray-700 dark:text-gray-200 mt-4 mb-2">
+              <%= heading %>
+            </div>
+            <ul class="ml-4 text-sm list-disc list-inside space-y-1">
+              <% items.each do |item| %>
+                <li><%= item %></li>
+              <% end %>
+            </ul>
+          <% end %>
+          <% analyzed_at = (Time.zone.parse(ai_data[:analyzed_at].to_s) rescue nil) %>
+          <div class="text-xs text-gray-500 dark:text-gray-400 mt-4">
+            AI analysis by <%= ai_data[:model].presence || "unknown model" %><% if analyzed_at %> on <%= analyzed_at.utc.strftime("%Y-%m-%d %H:%M UTC") %><% end %>
+          </div>
+        <% elsif ai_analysis %>
+          <% ai_analysis[:description].to_s.split("\n").each_with_index do |line, index| %>
             <% if index == 0 && line.start_with?("Risk Level:") %>
               <% risk_level = line.split("Risk Level:").last.strip %>
               <div class="<%= ExtensionAnalyzerData::SEVERITY_COLORS[risk_level&.capitalize] %> rounded-lg p-3 mb-3">
@@ -51,20 +86,23 @@
               <% end %>
             <% end %>
           <% end %>
-        <% elsif overall_finding %>
-          <div class="<%= ExtensionAnalyzerData::SEVERITY_COLORS[overall_finding[:severity]&.capitalize] %> rounded-lg p-3">
-            <div class="flex items-center gap-2">
-              <div class="font-semibold text-sm">
-                <%= overall_finding[:severity]&.upcase %>
+        <% else %>
+          <% if overall_finding %>
+            <div class="<%= ExtensionAnalyzerData::SEVERITY_COLORS[overall_finding[:severity]&.capitalize] %> rounded-lg p-3">
+              <div class="flex items-center gap-2">
+                <div class="font-semibold text-sm">
+                  <%= overall_finding[:severity]&.upcase %>
+                </div>
+                <div class="font-medium text-sm">
+                  Overall Risk
+                </div>
               </div>
-              <div class="font-medium text-sm">
-                Overall Risk
+              <div class="text-sm mt-1">
+                <%= overall_finding[:description] %>
               </div>
             </div>
-            <div class="text-sm mt-1">
-              <%= overall_finding[:description] %>
-            </div>
-          </div>
+          <% end %>
+          <p class="text-sm">AI context is unavailable for this scan. This rating is based on rule-based checks only.</p>
         <% end %>
       </div>
     </div>
