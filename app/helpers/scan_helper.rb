@@ -1,16 +1,10 @@
 module ScanHelper
-  def severity_color_class(severity)
-    case severity.to_s.downcase
-    when 'critical'
-      'bg-violet-600'
-    when 'high'
-      'bg-red-600'
-    when 'medium'
-      'bg-yellow-500'
-    when 'low'
-      'bg-blue-500'
-    else
-      'bg-gray-500'
+  # Background and text classes for a severity level ("high", "High", :high...).
+  # Used for the verdict banner, finding chips, stats chips and bars, and the
+  # Secure Annex count cards, so every place shows the same colours.
+  def severity_classes(severity)
+    ExtensionAnalyzerData::SEVERITY_COLORS.fetch(severity.to_s.strip.capitalize) do
+      ExtensionAnalyzerData::SEVERITY_FALLBACK_COLOR
     end
   end
 end

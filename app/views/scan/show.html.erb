@@ -1,21 +1,7 @@
+<% content_for :title, @extension_name.presence || "Scan of #{@extension_id}" %>
 <div class="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
   <div class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow overflow-y-auto">
-    <!-- Logo and navigation -->
-    <div class="flex justify-center mb-2">
-      <div style="width: 350px;">
-        <%= render "shared/logo" %>
-      </div>
-    </div>
-
-    <div class="w-full bg-gray-100 dark:bg-gray-900 py-2 text-center mb-2">
-      <span class="space-x-4">
-        <%= link_to "[ new scan ]", root_path, class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
-        <%= link_to "[ statistics ]", stats_scan_index_path, class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
-        <%= link_to "[ github ]", "https://github.com/markkcc/crxaminer", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
-        <%= link_to "[ twitter ]", "https://x.com/CRXaminer", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
-        <%= link_to "[ help ]", "https://astarte.security/docs/tools/crxaminer", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
-      </span>
-    </div>
+    <%= render "shared/header" %>
 
     <!-- Analysis Status -->
     <div id="analysis_status">
@@ -37,10 +23,6 @@
         const isNewScan = <%= @extension_id && (!ScanResult.exists?(extension_id: @extension_id) || params[:force] == 'true') %>;
         const isForceRefresh = '<%= params[:force] %>' === 'true';
         
-        console.log('Is new scan:', isNewScan);
-        console.log('Is force refresh:', isForceRefresh);
-        console.log('Just completed flag:', sessionStorage.getItem('justCompleted'));
-        
         // Clear the flag if we're not doing a force refresh
         if (!isForceRefresh) {
           sessionStorage.removeItem('justCompleted');
@@ -54,18 +36,14 @@
 
           // Check if we need to start analysis
           if (!progressBar || !progressMessage || !analysisStatus || !analysisResults) {
-            console.log('Loading bar elements not found, skipping analysis');
             return;
           }
 
           // If this is a force refresh and we've just completed, don't start again
           if (isForceRefresh && sessionStorage.getItem('justCompleted')) {
-            console.log('Force refresh just completed, clearing flag and skipping analysis');
             sessionStorage.removeItem('justCompleted');
             return;
           }
-
-          console.log('Starting analysis for extension:', '<%= @extension_id %>');
 
           const messages = [
             'Starting analysis...',
@@ -145,136 +123,102 @@
           analysisStatus.style.display = 'none';
         }
         
-        // Show error message with link to go back
+        // Show error message with link to go back (built with textContent: the message comes from the server)
         const analysisResults = document.getElementById('analysis_results');
         if (analysisResults) {
-          analysisResults.innerHTML = `
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-              <div class="text-center">
-                <div class="text-red-500 mb-4">${message}</div>
-                <div class="text-gray-600 dark:text-gray-400">
-                  Please check the extension ID and try again or 
-                  <a href="/" class="text-[#9370DB] hover:text-[#7851c5] underline">return to home</a>
-                </div>
-              </div>
-            </div>
-          `;
+          const card = document.createElement('div');
+          card.className = 'bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6';
+          const inner = document.createElement('div');
+          inner.className = 'text-center';
+          const errorLine = document.createElement('div');
+          errorLine.className = 'text-red-700 dark:text-red-400 mb-4';
+          errorLine.textContent = message;
+          const help = document.createElement('div');
+          help.className = 'text-gray-600 dark:text-gray-400';
+          help.append('Please check the extension ID and try again or ');
+          const homeLink = document.createElement('a');
+          homeLink.href = '/';
+          homeLink.className = 'text-brand-600 hover:text-brand-700 dark:text-brand-300 dark:hover:text-brand-200 underline';
+          homeLink.textContent = 'return to home';
+          help.append(homeLink);
+          inner.append(errorLine, help);
+          card.append(inner);
+          analysisResults.replaceChildren(card);
         }
       }
     </script>
 
-    <!-- Attribution link -->
-    <div class="text-center mt-8 mb-4">
-      <%= link_to "https://astarte.security/", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:opacity-80" do %>
-        by <span style="color: #ffbc00;">✦</span> <span style="color: #52448d;">Astarte</span>
-      <% end %>
-    </div>
+    <%= render "shared/footer" %>
   </div>
 </div>
 
 <% content_for :page_scripts do %>
   <script>
-    function initializeUrlsPagination() {
-      // // Check if we're coming from a completed analysis
-      // if (!sessionStorage.getItem('justCompleted')) {
-      //   console.log('Skipping pagination initialization until page refresh');
-      //   return;
-      // }
-      
-      // // Clear the flag
-      // sessionStorage.removeItem('justCompleted');
-      
+    // Embedded URL pager. The panels are server-rendered, so this runs once.
+    (function initializeUrlsPagination() {
       const container = document.getElementById('embedded-urls-container');
-      if (!container) {
-        console.log('No pagination container found, trying again in 1000ms');
-        setTimeout(initializeUrlsPagination, 1000);
-        return;
-      }
+      const pager = document.getElementById('embedded-urls-pager');
+      if (!container || !pager) return;
 
       const urls = JSON.parse(container.dataset.urls);
-
-      const tbody = document.getElementById('embedded-urls-tbody');
+      const list = document.getElementById('embedded-urls-list');
       const currentPageEl = document.getElementById('current-page');
+      const totalPagesEl = document.getElementById('total-pages');
       const prevButton = document.getElementById('prev-page');
       const nextButton = document.getElementById('next-page');
-      
-      const ROWS_PER_PAGE = 40;
-      const URLS_PER_ROW = 2;
-      const URLS_PER_PAGE = ROWS_PER_PAGE * URLS_PER_ROW;
-      const totalPages = Math.ceil(urls.length / URLS_PER_PAGE);
+
+      // Same breakpoint as Tailwind's md (48rem).
+      const wide = window.matchMedia('(min-width: 48rem)');
+      let pageSize = 0;
+      let totalPages = 1;
       let currentPage = 1;
 
-      if (totalPages === 1) return;
+      function render() {
+        const startIdx = (currentPage - 1) * pageSize;
+        const pageUrls = urls.slice(startIdx, startIdx + pageSize);
 
-      function updateTable() {
-        const startIdx = (currentPage - 1) * URLS_PER_PAGE;
-        const endIdx = startIdx + URLS_PER_PAGE;
-        const pageUrls = urls.slice(startIdx, endIdx);
+        // Rebuild the list; URLs stay plain text
+        list.replaceChildren(...pageUrls.map(url => {
+          const item = document.createElement('li');
+          item.className = list.dataset.itemClass;
+          item.textContent = url;
+          return item;
+        }));
 
-        // Clear existing rows
-        tbody.innerHTML = '';
-        
-        // Create new rows
-        for (let i = 0; i < pageUrls.length; i += URLS_PER_ROW) {
-          const row = document.createElement('tr');
-          row.className = 'border-t dark:border-gray-700';
-          
-          for (let j = 0; j < URLS_PER_ROW; j++) {
-            const cell = document.createElement('td');
-            cell.className = 'w-1/3 px-4 py-2 text-gray-600 dark:text-gray-300 truncate';
-            const url = pageUrls[i + j];
-            cell.textContent = url || '';
-            row.appendChild(cell);
-          }
-          
-          tbody.appendChild(row);
-        }
-
-        // Update UI state
         currentPageEl.textContent = currentPage;
-        
-        // Handle prev button
-        if (currentPage === 1) {
-          prevButton.classList.add('hidden');
-          prevButton.disabled = true;
-        } else {
-          prevButton.classList.remove('hidden');
-          prevButton.disabled = false;
-        }
-
-        // Handle next button
-        if (currentPage === totalPages) {
-          nextButton.classList.add('hidden');
-          nextButton.disabled = true;
-        } else {
-          nextButton.classList.remove('hidden');
-          nextButton.disabled = false;
-        }
+        totalPagesEl.textContent = totalPages;
+        prevButton.disabled = currentPage === 1;
+        nextButton.disabled = currentPage === totalPages;
+        prevButton.classList.toggle('invisible', prevButton.disabled);
+        nextButton.classList.toggle('invisible', nextButton.disabled);
+        pager.classList.toggle('hidden', totalPages <= 1);
+        pager.classList.toggle('flex', totalPages > 1);
       }
 
-      // Add event listeners
-      prevButton?.addEventListener('click', () => {
+      function applyPageSize() {
+        const firstShown = (currentPage - 1) * pageSize;
+        pageSize = Number(wide.matches ? container.dataset.pageSizeWide : container.dataset.pageSizeNarrow);
+        totalPages = Math.max(1, Math.ceil(urls.length / pageSize));
+        currentPage = Math.min(totalPages, Math.floor(firstShown / pageSize) + 1);
+        render();
+      }
+
+      prevButton.addEventListener('click', () => {
         if (currentPage > 1) {
           currentPage--;
-          updateTable();
+          render();
         }
       });
 
-      nextButton?.addEventListener('click', () => {
+      nextButton.addEventListener('click', () => {
         if (currentPage < totalPages) {
           currentPage++;
-          updateTable();
+          render();
         }
       });
 
-      // Initialize the table
-      updateTable();
-    }
-
-    // Listen for both initial load and Turbo navigation
-    document.addEventListener('DOMContentLoaded', initializeUrlsPagination);
-    document.addEventListener('turbo:load', initializeUrlsPagination);
-    document.addEventListener('turbo:render', initializeUrlsPagination);
+      wide.addEventListener('change', applyPageSize);
+      applyPageSize();
+    })();
   </script>
 <% end %>
-

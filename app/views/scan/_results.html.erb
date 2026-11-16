@@ -3,10 +3,10 @@
   <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
     <div class="flex items-center space-x-4 mb-4">
       <% if @extension_image %>
-        <img src="<%= @extension_image %>" alt="Extension icon" class="w-16 h-16 rounded-lg">
+        <img src="<%= @extension_image %>" alt="Extension icon" class="w-16 h-16 rounded-lg shrink-0">
       <% end %>
-      <div>
-        <h1 class="text-2xl font-bold text-gray-700 dark:text-gray-200">
+      <div class="min-w-0">
+        <h1 class="text-2xl font-bold text-gray-700 dark:text-gray-200 break-words">
           <%= @extension_name || "Unknown Extension" %>
         </h1>
         <% if @manifest[:version] %>
@@ -18,7 +18,7 @@
                 <%= link_to "View in Chrome Web Store", 
                     "https://chrome.google.com/webstore/detail/#{@extension_id}", 
                     target: "_blank", 
-                    class: "text-[#9370DB] hover:text-[#7851c5] underline" %>
+                    class: "text-brand-600 hover:text-brand-700 dark:text-brand-300 dark:hover:text-brand-200 underline" %>
             <% end %>
             <% if @last_scanned %>
               <div class="text-xs mt-2 text-gray-600 dark:text-gray-400">
@@ -26,7 +26,7 @@
                 <% if @last_scanned < 24.hours.ago %>
                   | <%= link_to "force re-scan", 
                         scan_path(@extension_id, force: true),
-                        class: "text-[#9370DB] hover:text-[#7851c5]" %>
+                        class: "text-brand-600 hover:text-brand-700 dark:text-brand-300 dark:hover:text-brand-200" %>
                 <% end %>
               </div>
             <% end %>
@@ -80,7 +80,7 @@
         <% end %>
         
         <% if @extension_details[:developer_info].present? %>
-          <div class="flex items-start col-span-2">
+          <div class="flex items-start md:col-span-2">
             <span class="text-gray-500 dark:text-gray-400 w-32">Developer Info:</span>
             <span class="text-gray-700 dark:text-gray-200 break-words max-w-[30ch]"><%= @extension_details[:developer_info] %></span>
           </div>
@@ -90,96 +90,144 @@
     </div>
   </div>
 
-  <!-- Tabs navigation -->
-  <div class="mb-4 flex space-x-2">
-    <button class="px-4 py-2 rounded-lg bg-[#9370DB] text-white font-medium hover:bg-[#7B5DD1] transition-colors" 
-            id="analysis-tab" 
-            data-tabs-target="analysis"
-            type="button"
-            role="tab"
-            aria-selected="true">
-      Analysis
-    </button>
-    <button class="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 font-medium hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors" 
-            id="details-tab"
-            data-tabs-target="details"
-            type="button"
-            role="tab"
-            aria-selected="false">
-      Details
-    </button>
-    <button class="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 font-medium hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors" 
-            id="manifest-tab"
-            data-tabs-target="manifest"
-            type="button"
-            role="tab"
-            aria-selected="false">
-      Raw Manifest
-    </button>
-    <button class="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 font-medium hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors" 
-            id="secure-annex-tab"
-            data-tabs-target="secure-annex"
-            type="button"
-            role="tab"
-            aria-selected="false">
-      Secure Annex
-    </button>
+  <!-- Tabs navigation. The active tab is kept in the URL hash (#analysis, #details, #manifest, #secure-annex). -->
+  <%# The two class lists below are swapped whole by the script, so no hover class is left behind. %>
+  <div class="mb-4 -mx-1 overflow-x-auto">
+    <div class="flex gap-2 p-1 w-max"
+         role="tablist"
+         aria-label="Scan results"
+         id="scan-tabs"
+         data-active-class="bg-brand-600 text-white hover:bg-brand-700"
+         data-inactive-class="bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">
+      <button class="shrink-0 whitespace-nowrap px-4 py-2 rounded-lg font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900 bg-brand-600 text-white hover:bg-brand-700"
+              id="analysis-tab"
+              data-tabs-target="analysis"
+              type="button"
+              role="tab"
+              aria-controls="analysis"
+              aria-selected="true"
+              tabindex="0">
+        Analysis
+      </button>
+      <button class="shrink-0 whitespace-nowrap px-4 py-2 rounded-lg font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900 bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+              id="details-tab"
+              data-tabs-target="details"
+              type="button"
+              role="tab"
+              aria-controls="details"
+              aria-selected="false"
+              tabindex="-1">
+        Details
+      </button>
+      <button class="shrink-0 whitespace-nowrap px-4 py-2 rounded-lg font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900 bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+              id="manifest-tab"
+              data-tabs-target="manifest"
+              type="button"
+              role="tab"
+              aria-controls="manifest"
+              aria-selected="false"
+              tabindex="-1">
+        Raw Manifest
+      </button>
+      <button class="shrink-0 whitespace-nowrap px-4 py-2 rounded-lg font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900 bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+              id="secure-annex-tab"
+              data-tabs-target="secure-annex"
+              type="button"
+              role="tab"
+              aria-controls="secure-annex"
+              aria-selected="false"
+              tabindex="-1">
+        Secure Annex
+      </button>
+    </div>
   </div>
 
   <!-- Tab content -->
-  <div id="tab-content"> 
+  <div id="tab-content">
     <!-- Analysis tab -->
-    <div id="analysis" class="block" role="tabpanel">
+    <div id="analysis" class="block" role="tabpanel" aria-labelledby="analysis-tab" tabindex="0">
       <%= render "security_findings" %>
     </div>
 
     <!-- Details tab -->
-    <div id="details" class="hidden" role="tabpanel">
+    <div id="details" class="hidden" role="tabpanel" aria-labelledby="details-tab" tabindex="0">
       <%= render "security_details" %>
-    </div> 
+    </div>
 
-    <!-- Manifest tab -->
-    <div id="manifest" class="hidden" role="tabpanel"> 
+    <!-- Raw Manifest tab -->
+    <div id="manifest" class="hidden" role="tabpanel" aria-labelledby="manifest-tab" tabindex="0">
       <%= render "manifest" %>
-    </div> 
+    </div>
 
     <!-- Secure Annex tab -->
-    <div id="secure-annex" class="hidden" role="tabpanel">
+    <div id="secure-annex" class="hidden" role="tabpanel" aria-labelledby="secure-annex-tab" tabindex="0">
       <%= render "secure_annex" %>
     </div>
   </div>
 <% end %>
 
 <%= javascript_tag do %>
-  document.addEventListener('DOMContentLoaded', function() {
-    const tabs = document.querySelectorAll('[role="tab"]');
-    
+  (function() {
+    const tablist = document.getElementById('scan-tabs');
+    if (!tablist) return;
+
+    const tabs = Array.from(tablist.querySelectorAll('[role="tab"]'));
+    const activeClasses = tablist.dataset.activeClass.split(' ');
+    const inactiveClasses = tablist.dataset.inactiveClass.split(' ');
+    const TAB_IDS = ['analysis', 'details', 'manifest', 'secure-annex'];
+
+    function tabFromHash() {
+      const id = window.location.hash.slice(1);
+      return TAB_IDS.includes(id) ? id : 'analysis';
+    }
+
+    function selectTab(targetId, options = {}) {
+      tabs.forEach(tab => {
+        const selected = tab.dataset.tabsTarget === targetId;
+        tab.setAttribute('aria-selected', selected ? 'true' : 'false');
+        tab.setAttribute('tabindex', selected ? '0' : '-1');
+        tab.classList.remove(...(selected ? inactiveClasses : activeClasses));
+        tab.classList.add(...(selected ? activeClasses : inactiveClasses));
+
+        const panel = document.getElementById(tab.dataset.tabsTarget);
+        if (panel) {
+          panel.classList.toggle('hidden', !selected);
+          panel.classList.toggle('block', selected);
+        }
+        if (selected && options.focus) tab.focus();
+      });
+
+      // Record the tab in the URL without scrolling, so links and Back work.
+      if (options.updateHash && tabFromHash() !== targetId) {
+        history.pushState(null, '', '#' + targetId);
+      }
+    }
+
     tabs.forEach(tab => {
       tab.addEventListener('click', function() {
-        const targetId = this.getAttribute('data-tabs-target');
-        
-        // First, hide all panels using the hidden class
-        document.querySelectorAll('[role="tabpanel"]').forEach(panel => {
-          panel.classList.add('hidden');
-          panel.classList.remove('block');
-        });
-        
-        // Then show the target panel using block class
-        const targetPanel = document.getElementById(targetId);
-        if (targetPanel) {
-          targetPanel.classList.remove('hidden');
-          targetPanel.classList.add('block');
-        }
-        
-        // Update tab styles
-        tabs.forEach(t => {
-          t.classList.remove('bg-[#9370DB]', 'text-white');
-          t.classList.add('bg-gray-200', 'text-gray-700', 'dark:bg-gray-700', 'dark:text-gray-300');
-        });
-        
-        this.classList.remove('bg-gray-200', 'text-gray-700', 'dark:bg-gray-700', 'dark:text-gray-300');
-        this.classList.add('bg-[#9370DB]', 'text-white');
+        selectTab(this.dataset.tabsTarget, { updateHash: true });
       });
     });
-  });
-<% end %> 
+
+    tablist.addEventListener('keydown', function(e) {
+      const current = tabs.indexOf(document.activeElement);
+      if (current === -1) return;
+
+      let next = null;
+      if (e.key === 'ArrowRight') next = (current + 1) % tabs.length;
+      else if (e.key === 'ArrowLeft') next = (current - 1 + tabs.length) % tabs.length;
+      else if (e.key === 'Home') next = 0;
+      else if (e.key === 'End') next = tabs.length - 1;
+      if (next === null) return;
+
+      e.preventDefault();
+      selectTab(tabs[next].dataset.tabsTarget, { focus: true, updateHash: true });
+      tabs[next].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    });
+
+    window.addEventListener('popstate', () => selectTab(tabFromHash()));
+    window.addEventListener('hashchange', () => selectTab(tabFromHash()));
+
+    selectTab(tabFromHash());
+  })();
+<% end %>

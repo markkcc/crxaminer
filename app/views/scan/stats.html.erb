@@ -1,21 +1,7 @@
+<% content_for :title, "Statistics" %>
 <div class="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
   <div class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow overflow-y-auto">
-    <!-- Logo -->
-    <div class="flex justify-center mb-2">
-      <div style="width: 350px;">
-        <%= render "shared/logo" %>
-      </div>
-    </div>
-
-    <div class="w-full bg-gray-100 dark:bg-gray-900 py-2 text-center mb-2">
-      <span class="space-x-4">
-        <%= link_to "[ new scan ]", root_path, class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
-        <%= link_to "[ statistics ]", stats_scan_index_path, class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
-        <%= link_to "[ github ]", "https://github.com/markkcc/crxaminer", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
-        <%= link_to "[ twitter ]", "https://x.com/CRXaminer", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
-        <%= link_to "[ help ]", "https://astarte.security/docs/tools/crxaminer", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
-      </span>
-    </div>
+    <%= render "shared/header" %>
 
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
       <div class="mb-6">
@@ -27,33 +13,33 @@
         <!-- Top Metrics Row -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <!-- Unique Extensions Scanned -->
-          <div class="bg-purple-50 dark:bg-gray-700 rounded-lg p-6 border border-purple-200 dark:border-gray-600">
+          <div class="bg-brand-50 dark:bg-gray-700 rounded-lg p-6 border border-brand-200 dark:border-gray-600">
             <h2 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Unique ext. scanned</h2>
-            <p class="text-4xl font-bold text-purple-600 dark:text-purple-400"><%= number_with_delimiter(@total_scans) %></p>
+            <p class="text-4xl font-bold text-brand-700 dark:text-brand-200"><%= number_with_delimiter(@total_scans) %></p>
           </div>
 
           <!-- Scans Last 30 Days -->
-          <div class="bg-purple-50 dark:bg-gray-700 rounded-lg p-6 border border-purple-200 dark:border-gray-600">
+          <div class="bg-brand-50 dark:bg-gray-700 rounded-lg p-6 border border-brand-200 dark:border-gray-600">
             <h2 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Scans in last 30 days</h2>
-            <p class="text-4xl font-bold text-purple-600 dark:text-purple-400"><%= number_with_delimiter(@scans_last_30_days) %></p>
+            <p class="text-4xl font-bold text-brand-700 dark:text-brand-200"><%= number_with_delimiter(@scans_last_30_days) %></p>
           </div>
 
           <!-- Extensions with <all_urls> -->
-          <div class="bg-purple-50 dark:bg-gray-700 rounded-lg p-6 border border-purple-200 dark:border-gray-600">
+          <div class="bg-brand-50 dark:bg-gray-700 rounded-lg p-6 border border-brand-200 dark:border-gray-600">
             <h2 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Ext. with &lt;all_urls&gt;</h2>
-            <p class="text-4xl font-bold text-purple-600 dark:text-purple-400"><%= number_with_delimiter(@all_urls_count) %></p>
+            <p class="text-4xl font-bold text-brand-700 dark:text-brand-200"><%= number_with_delimiter(@all_urls_count) %></p>
           </div>
         </div>
 
         <!-- Bottom Tables Row -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <!-- Top 5 Spiciest Card -->
-          <div class="bg-purple-50 dark:bg-gray-700 rounded-lg p-6 border border-purple-200 dark:border-gray-600">
+          <div class="bg-brand-50 dark:bg-gray-700 rounded-lg p-6 border border-brand-200 dark:border-gray-600">
             <h2 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-4">Top 5 spiciest</h2>
             <div class="space-y-3">
               <% @spiciest_extensions.each do |ext_data| %>
                 <% scan = ext_data[:scan] %>
-                <%= link_to scan_path(scan.extension_id), class: "flex items-center justify-between p-2 hover:bg-purple-100 dark:hover:bg-gray-600 rounded transition-colors" do %>
+                <%= link_to scan_path(scan.extension_id), class: "flex items-center justify-between p-2 hover:bg-brand-100 dark:hover:bg-gray-600 rounded transition-colors" do %>
                   <div class="flex items-center space-x-3 min-w-0 flex-1">
                     <% if scan.extension_image.present? %>
                       <img src="<%= scan.extension_image %>" alt="<%= scan.extension_name %>" class="w-8 h-8 rounded flex-shrink-0">
@@ -62,40 +48,36 @@
                     <% end %>
                     <span class="text-sm text-gray-700 dark:text-gray-200 truncate"><%= scan.extension_name || "Unknown Extension" %></span>
                   </div>
-                  <span class="text-sm font-semibold text-purple-600 dark:text-purple-400 ml-2 flex-shrink-0"><%= ext_data[:finding_count] %> findings</span>
+                  <span class="text-sm font-semibold text-brand-700 dark:text-brand-200 ml-2 flex-shrink-0"><%= ext_data[:finding_count] %> findings</span>
                 <% end %>
               <% end %>
             </div>
           </div>
 
           <!-- Severity Distribution Card -->
-          <div class="bg-purple-50 dark:bg-gray-700 rounded-lg p-6 border border-purple-200 dark:border-gray-600">
+          <div class="bg-brand-50 dark:bg-gray-700 rounded-lg p-6 border border-brand-200 dark:border-gray-600">
             <h2 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-4">Severity Distribution</h2>
-            <div class="space-y-2">
+            <div class="space-y-2" role="group" aria-label="Filter recent scans by risk level">
               <% @severity_counts.each do |severity, count| %>
                 <%
                   total_count = @severity_counts.values.sum
                   percentage = total_count > 0 ? (count.to_f / total_count * 100).round : 0
-                  color_classes = case severity
-                    when 'Critical' then 'bg-purple-500'
-                    when 'High' then 'bg-red-500'
-                    when 'Medium' then 'bg-orange-500'
-                    when 'Low' then 'bg-yellow-500'
-                    when 'Minimal' then 'bg-green-500'
-                  end
                 %>
-                <div class="severity-filter-btn p-2 hover:bg-purple-100 dark:hover:bg-gray-600 rounded transition-colors cursor-pointer" data-severity="<%= severity %>">
-                  <div class="flex items-center justify-between mb-1">
+                <button type="button"
+                        class="severity-filter-btn block w-full text-left p-2 hover:bg-brand-100 dark:hover:bg-gray-600 rounded transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 dark:focus-visible:ring-brand-300"
+                        data-severity="<%= severity %>"
+                        aria-pressed="false">
+                  <span class="flex items-center justify-between mb-1">
                     <span class="text-sm text-gray-700 dark:text-gray-200"><%= severity %></span>
-                    <div class="flex items-center space-x-2">
+                    <span class="flex items-center space-x-2">
                       <span class="text-xs text-gray-600 dark:text-gray-400"><%= percentage %>%</span>
-                      <span class="text-sm font-semibold text-purple-600 dark:text-purple-400"><%= number_with_delimiter(count) %></span>
-                    </div>
-                  </div>
-                  <div class="w-full bg-purple-200 dark:bg-gray-600 rounded-full h-3 relative">
-                    <div class="<%= color_classes %> h-3 rounded-full" style="width: <%= percentage %>%;"></div>
-                  </div>
-                </div>
+                      <span class="text-sm font-semibold text-brand-700 dark:text-brand-200"><%= number_with_delimiter(count) %></span>
+                    </span>
+                  </span>
+                  <span class="block w-full bg-gray-200 dark:bg-gray-600 rounded-full h-3 relative">
+                    <span class="block <%= severity_classes(severity) %> h-3 rounded-full" style="width: <%= percentage %>%;"></span>
+                  </span>
+                </button>
               <% end %>
             </div>
           </div>
@@ -131,12 +113,7 @@
       </div>
     </div>
 
-    <!-- Attribution link -->
-    <div class="text-center mt-8 mb-4">
-      <%= link_to "https://astarte.security/", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:opacity-80" do %>
-        by <span style="color: #ffbc00;">✦</span> <span style="color: #52448d;">Astarte</span>
-      <% end %>
-    </div>
+    <%= render "shared/footer" %>
   </div>
 </div>
 
@@ -155,7 +132,8 @@
           activeSeverity = null;
           // Remove active state from all buttons
           filterButtons.forEach(btn => {
-            btn.classList.remove('ring-2', 'ring-purple-500', 'ring-offset-2', 'dark:ring-offset-gray-700', 'bg-purple-100', 'dark:bg-gray-600');
+            btn.classList.remove('ring-2', 'ring-brand-500', 'ring-offset-2', 'dark:ring-offset-gray-700', 'bg-brand-100', 'dark:bg-gray-600');
+            btn.setAttribute('aria-pressed', 'false');
           });
           // Fetch all scans (no filter)
           fetchScans(null);
@@ -166,9 +144,11 @@
           // Update button states
           filterButtons.forEach(btn => {
             if (btn.dataset.severity === severity) {
-              btn.classList.add('ring-2', 'ring-purple-500', 'ring-offset-2', 'dark:ring-offset-gray-700', 'bg-purple-100', 'dark:bg-gray-600');
+              btn.classList.add('ring-2', 'ring-brand-500', 'ring-offset-2', 'dark:ring-offset-gray-700', 'bg-brand-100', 'dark:bg-gray-600');
+              btn.setAttribute('aria-pressed', 'true');
             } else {
-              btn.classList.remove('ring-2', 'ring-purple-500', 'ring-offset-2', 'dark:ring-offset-gray-700', 'bg-purple-100', 'dark:bg-gray-600');
+              btn.classList.remove('ring-2', 'ring-brand-500', 'ring-offset-2', 'dark:ring-offset-gray-700', 'bg-brand-100', 'dark:bg-gray-600');
+              btn.setAttribute('aria-pressed', 'false');
             }
           });
 

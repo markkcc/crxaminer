@@ -36,14 +36,20 @@ module ExtensionAnalyzerData
     "*"             # Wildcard
   ].freeze
 
+  # The one severity palette. The colours are theme tokens defined in
+  # app/assets/tailwind/application.css; read these through
+  # ScanHelper#severity_classes rather than directly.
   SEVERITY_COLORS = {
-    "Critical" => "bg-violet-600 text-white",
-    "High" => "bg-red-600 text-white",
-    "Medium" => "bg-orange-500 text-white",
-    "Low" => "bg-yellow-500 text-white",
-    "Minimal" => "bg-green-500 text-white",
-    "Info" => "bg-blue-500 text-white"
+    "Critical" => "bg-severity-critical text-severity-critical-fg",
+    "High" => "bg-severity-high text-severity-high-fg",
+    "Medium" => "bg-severity-medium text-severity-medium-fg",
+    "Low" => "bg-severity-low text-severity-low-fg",
+    "Minimal" => "bg-severity-minimal text-severity-minimal-fg",
+    "Info" => "bg-severity-info text-severity-info-fg"
   }.freeze
+
+  # Used for a level the palette does not know (for example a missing verdict).
+  SEVERITY_FALLBACK_COLOR = "bg-gray-600 text-white".freeze
 
   SEVERITY_ORDER = {
     'critical' => 0,

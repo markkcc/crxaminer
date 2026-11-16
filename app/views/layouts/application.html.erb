@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html class="h-full">
+<html lang="en" class="h-full">
   <head>
-    <title>CRXaminer</title>
+    <title><% if content_for?(:title) %><%= yield(:title) %> · CRXaminer<% else %>CRXaminer: Chrome extension security scanner<% end %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="description" content="Scan a Chrome extension's manifest and get a security risk verdict: permissions, host access, embedded URLs and more.">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
     <%= action_cable_meta_tag %>

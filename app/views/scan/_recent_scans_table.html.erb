@@ -19,16 +19,16 @@
       </div>
     </td>
     <td class="px-6 py-4">
-      <div class="<%= ExtensionAnalyzerData::SEVERITY_COLORS[display_severity] %> px-2 py-0.5 rounded text-xs font-semibold">
+      <span class="<%= severity_classes(display_severity) %> inline-block whitespace-nowrap px-2 py-0.5 rounded text-xs font-semibold">
         <%= display_severity&.upcase || 'UNKNOWN' %>
-      </div>
+      </span>
     </td>
     <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-      <%= scan.created_at.strftime("%Y-%m-%d %H:%M") %>
+      <time datetime="<%= scan.created_at.utc.iso8601 %>"><%= scan.created_at.utc.strftime("%Y-%m-%d %H:%M") %> UTC</time>
     </td>
     <td class="px-6 py-4 text-sm">
       <%= link_to "View Results", scan_path(scan.extension_id),
-          class: "text-violet-600 hover:text-violet-900 dark:text-violet-400 dark:hover:text-violet-300" %>
+          class: "text-brand-600 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200 whitespace-nowrap" %>
     </td>
   </tr>
 <% end %>

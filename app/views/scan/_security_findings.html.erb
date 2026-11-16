@@ -5,29 +5,30 @@
     <% overall_finding = @security_findings.find { |f| f[:title]&.downcase&.include?('overall risk') } %>
     <% ai_data = ai_analysis && ai_analysis[:ai].is_a?(Hash) ? ai_analysis[:ai] : nil %>
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-      <div class="flex items-center space-x-4 mb-4 relative">
+      <div class="flex items-center gap-4 mb-4 relative">
         <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200"><%= ai_analysis ? "Context-Aware Verdict" : "Rule-based rating" %></h2>
-        <div class="relative">
-          <button type="button"
-                  class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-xl"
-                  onclick="document.getElementById('info-popup').classList.toggle('hidden')">
-            <span>ⓘ</span>
-          </button>
-          <div id="info-popup"
-               class="hidden absolute bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm shadow-lg p-4 rounded-lg text-[#9370DB] left-0 mt-2 z-50 text-sm w-96">
-            <% if ai_analysis %>
-              This section provides a Claude-based AI analysis that applies additional context to the risk. Results are not guaranteed to be accurate.
-            <% else %>
-              This rating comes only from CRXaminer's rule-based checks of the manifest. AI context is unavailable for this scan.
-            <% end %>
-          </div>
+        <button type="button"
+                class="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 text-xl leading-none rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                data-popover-target="info-popup"
+                aria-controls="info-popup"
+                aria-expanded="false"
+                aria-label="About this rating">
+          <span aria-hidden="true">ⓘ</span>
+        </button>
+        <div id="info-popup"
+             class="hidden absolute left-0 top-full mt-2 z-50 w-full max-w-md bg-white dark:bg-gray-700 border border-brand-200 dark:border-gray-600 shadow-lg p-4 rounded-lg text-brand-700 dark:text-brand-200 text-sm">
+          <% if ai_analysis %>
+            This section provides a Claude-based AI analysis that applies additional context to the risk. Results are not guaranteed to be accurate.
+          <% else %>
+            This rating comes only from CRXaminer's rule-based checks of the manifest. AI context is unavailable for this scan.
+          <% end %>
         </div>
       </div>
 
       <div class="space-y-3 text-gray-600 dark:text-gray-300">
         <% if ai_data %>
           <% risk_level = ai_data[:risk_level].to_s %>
-          <div class="<%= ExtensionAnalyzerData::SEVERITY_COLORS[risk_level.capitalize] %> rounded-lg p-3 mb-3">
+          <div class="<%= severity_classes(risk_level) %> rounded-lg p-3 mb-3">
             <div class="flex items-center gap-2">
               <div class="font-semibold text-sm">
                 <%= risk_level.upcase %>
@@ -60,7 +61,7 @@
           <% ai_analysis[:description].to_s.split("\n").each_with_index do |line, index| %>
             <% if index == 0 && line.start_with?("Risk Level:") %>
               <% risk_level = line.split("Risk Level:").last.strip %>
-              <div class="<%= ExtensionAnalyzerData::SEVERITY_COLORS[risk_level&.capitalize] %> rounded-lg p-3 mb-3">
+              <div class="<%= severity_classes(risk_level) %> rounded-lg p-3 mb-3">
                 <div class="flex items-center gap-2">
                   <div class="font-semibold text-sm">
                     <%= risk_level.upcase %>
@@ -88,7 +89,7 @@
           <% end %>
         <% else %>
           <% if overall_finding %>
-            <div class="<%= ExtensionAnalyzerData::SEVERITY_COLORS[overall_finding[:severity]&.capitalize] %> rounded-lg p-3">
+            <div class="<%= severity_classes(overall_finding[:severity]) %> rounded-lg p-3">
               <div class="flex items-center gap-2">
                 <div class="font-semibold text-sm">
                   <%= overall_finding[:severity]&.upcase %>
@@ -109,18 +110,19 @@
 
     <!-- Findings section -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-      <div class="flex items-center space-x-4 mb-4 relative">
+      <div class="flex items-center gap-4 mb-4 relative">
         <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200">Findings</h2>
-        <div class="relative">
-          <button type="button"
-                  class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-xl"
-                  onclick="document.getElementById('security-info-popup').classList.toggle('hidden')">
-            <span>ⓘ</span>
-          </button>
-          <div id="security-info-popup"
-               class="hidden absolute bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm shadow-lg p-4 rounded-lg text-[#9370DB] left-0 mt-2 z-50 text-sm w-96">
-            This section provides a detailed analysis of the extension's security posture, without broader context. Assumes worst-case impact.
-          </div>
+        <button type="button"
+                class="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 text-xl leading-none rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                data-popover-target="security-info-popup"
+                aria-controls="security-info-popup"
+                aria-expanded="false"
+                aria-label="About the findings">
+          <span aria-hidden="true">ⓘ</span>
+        </button>
+        <div id="security-info-popup"
+             class="hidden absolute left-0 top-full mt-2 z-50 w-full max-w-md bg-white dark:bg-gray-700 border border-brand-200 dark:border-gray-600 shadow-lg p-4 rounded-lg text-brand-700 dark:text-brand-200 text-sm">
+          This section provides a detailed analysis of the extension's security posture, without broader context. Assumes worst-case impact.
         </div>
       </div>
 
@@ -130,10 +132,16 @@
              .reject { |f| f[:title]&.downcase&.include?('overall risk') || (f[:severity] == "Info" && f[:title] == "AI Context Analysis") }
              .sort_by { |f| [ExtensionAnalyzerData::SEVERITY_ORDER.fetch(f[:severity]&.downcase, 999), f[:title]] } %>
 
+        <% if other_findings.empty? %>
+          <p class="text-sm text-gray-600 dark:text-gray-300" id="no-findings">
+            No rule-based findings were raised for this extension.
+          </p>
+        <% end %>
+
         <% other_findings.each do |finding| %>
           <div class="border dark:border-gray-700 rounded-lg p-3">
-            <div class="flex items-center gap-2">
-              <div class="<%= ExtensionAnalyzerData::SEVERITY_COLORS[finding[:severity]&.capitalize] %> px-2 py-0.5 rounded font-semibold text-sm">
+            <div class="flex items-start gap-2">
+              <div class="<%= severity_classes(finding[:severity]) %> shrink-0 px-2 py-0.5 rounded font-semibold text-sm">
                 <%= finding[:severity]&.upcase %>
               </div>
               <div class="font-medium text-gray-700 dark:text-gray-200 text-sm">
@@ -147,4 +155,53 @@
         <% end %>
       </div>
     </div>
+  <% else %>
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+      <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">Findings</h2>
+      <p class="text-sm text-gray-600 dark:text-gray-300" id="no-findings">
+        No rule-based findings were raised for this extension.
+      </p>
+    </div>
   <% end %>
+
+<script>
+  // Info popovers: toggle on click, close on Escape or a click outside.
+  (function() {
+    const buttons = Array.from(document.querySelectorAll('[data-popover-target]'));
+
+    function setOpen(button, open) {
+      const popup = document.getElementById(button.dataset.popoverTarget);
+      if (!popup) return;
+      popup.classList.toggle('hidden', !open);
+      button.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
+    function closeAll(except) {
+      buttons.forEach(button => { if (button !== except) setOpen(button, false); });
+    }
+
+    buttons.forEach(button => {
+      button.addEventListener('click', function() {
+        const open = this.getAttribute('aria-expanded') !== 'true';
+        closeAll(this);
+        setOpen(this, open);
+      });
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key !== 'Escape') return;
+      const openButton = buttons.find(button => button.getAttribute('aria-expanded') === 'true');
+      if (!openButton) return;
+      closeAll();
+      openButton.focus();
+    });
+
+    document.addEventListener('click', function(e) {
+      buttons.forEach(button => {
+        const popup = document.getElementById(button.dataset.popoverTarget);
+        if (button.contains(e.target) || (popup && popup.contains(e.target))) return;
+        setOpen(button, false);
+      });
+    });
+  })();
+</script>
