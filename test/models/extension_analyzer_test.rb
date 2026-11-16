@@ -11,7 +11,9 @@ class ExtensionAnalyzerTest < ActiveSupport::TestCase
     buffer.string
   end
 
-  def extract(files, id: "d" * 32)
+  # A unique id per call: extract_manifest writes tmp/extensions/extension_<id>.zip,
+  # and tests may run in parallel processes.
+  def extract(files, id: SecureRandom.hex(16))
     ExtensionAnalyzer.new(id).send(:extract_manifest, zip_bytes(files))
   end
 

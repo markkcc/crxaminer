@@ -4,7 +4,13 @@
 module FakeAnthropic
   Block = Struct.new(:type, :text, keyword_init: true)
   StopDetails = Struct.new(:category, :explanation, keyword_init: true)
-  Response = Struct.new(:stop_reason, :content, :model, :stop_details, keyword_init: true)
+  Response = Struct.new(:stop_reason, :content, :model, :stop_details, :usage, keyword_init: true)
+  Usage = Struct.new(:input_tokens, :output_tokens, :iterations, keyword_init: true)
+  Iteration = Struct.new(:type, :model, :input_tokens, :output_tokens, keyword_init: true)
+
+  def self.usage(input = 900, output = 300, iterations: nil)
+    Usage.new(input_tokens: input, output_tokens: output, iterations: iterations)
+  end
 
   VALID_RESULT = {
     "risk_level" => "High",
@@ -19,6 +25,7 @@ module FakeAnthropic
       stop_reason: stop_reason,
       model: model.to_sym,
       stop_details: nil,
+      usage: usage,
       content: [Block.new(type: :thinking, text: nil), Block.new(type: :text, text: text)]
     )
   end
@@ -27,8 +34,9 @@ module FakeAnthropic
     text_response(JSON.generate(data), **opts)
   end
 
-  # Records create() params and returns the next queued response, or raises
-  # it when it is an exception.
+  # Records create() params and returns the next queued response. A queued
+  # exception is raised; a queued Proc is called with the params and its
+  # result is returned.
   class Client
     attr_reader :calls
 
@@ -49,6 +57,7 @@ module FakeAnthropic
       @calls << params
       response = @responses.shift
       raise response if response.is_a?(Exception)
+      response = response.call(params) if response.respond_to?(:call)
       raise "FakeAnthropic::Client: no response queued" if response.nil?
 
       response

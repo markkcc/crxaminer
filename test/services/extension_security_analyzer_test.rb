@@ -32,6 +32,36 @@ class ExtensionSecurityAnalyzerTest < ActiveSupport::TestCase
     assert findings.any? { |f| f[:title].start_with?("Overall Risk:") }
   end
 
+  test "an invalid UTF-8 description does not break the scan" do
+    manifest = MANIFEST.merge(raw: { "description" => "caf\xE9 tool".dup.force_encoding(Encoding::UTF_8) })
+    client = FakeAnthropic::Client.new(FakeAnthropic.json_response)
+    findings = nil
+    assert_nothing_raised do
+      findings = ExtensionSecurityAnalyzer.new(manifest, DETAILS, "Demo", "e" * 32, ai_client: client).analyze
+    end
+
+    assert findings.any? { |f| f[:title].start_with?("Overall Risk:") }
+    assert AiContextAnalysis.find_in(findings)
+  end
+
+  test "rule findings survive any AI failure, including an exception from the AI step itself" do
+    [RuntimeError.new("client exploded"), FakeAnthropic.json_response(stop_reason: :max_tokens)].each do |failure|
+      findings = nil
+      capture_rails_log do
+        findings = ExtensionSecurityAnalyzer.new(MANIFEST, DETAILS, "Demo", "e" * 32,
+                                                 ai_client: FakeAnthropic::Client.new(failure)).analyze
+      end
+      assert findings.any? { |f| f[:title] == "High-Risk Permission: tabs" }
+      assert_nil AiContextAnalysis.find_in(findings)
+    end
+
+    findings = nil
+    AiContextAnalysis.stub(:new, ->(**) { raise ArgumentError, "unexpected" }) do
+      capture_rails_log { findings = ExtensionSecurityAnalyzer.new(MANIFEST, DETAILS, "Demo", "e" * 32).analyze }
+    end
+    assert findings.any? { |f| f[:title].start_with?("Overall Risk:") }
+  end
+
   test "re-scanning unchanged input reuses the stored analysis" do
     first = ExtensionSecurityAnalyzer.new(MANIFEST, DETAILS, "Demo", "e" * 32,
                                           ai_client: FakeAnthropic::Client.new(FakeAnthropic.json_response)).analyze

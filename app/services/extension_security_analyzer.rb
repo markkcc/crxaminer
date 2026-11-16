@@ -204,6 +204,9 @@ class ExtensionSecurityAnalyzer
       client: @ai_client
     ).call
     @security_findings << finding if finding
+  rescue StandardError => e
+    # AiContextAnalysis does not raise; this keeps the rule findings even if it ever does.
+    Rails.logger.error "AI analysis failed for #{@extension_id}: #{e.class}: #{e.message}"
   end
 
   def tweet_results

@@ -32,7 +32,8 @@ class AiContextAnalysisSdkTest < ActiveSupport::TestCase
       { type: "text", text: JSON.generate(reply), citations: nil }
     ])])
 
-    finding = analysis(server).call
+    analysis = analysis(server)
+    finding = analysis.call
 
     assert_equal 1, server.requests.size
     request = server.requests.first
@@ -51,13 +52,43 @@ class AiContextAnalysisSdkTest < ActiveSupport::TestCase
     assert_equal AiContextAnalysis::SYSTEM_PROMPT, body["system"]
     assert_equal 1, body["messages"].size
     assert_includes body["messages"].first["content"], "A demo extension."
+    assert_includes body["messages"].first["content"], "\"current_date\":\"#{Date.current.iso8601}\""
     %w[temperature top_p top_k thinking tool_choice stream betas].each do |key|
       assert_not body.key?(key), "#{key} must not be in the request body"
     end
 
     assert_equal "Risk Level: Low", finding[:description].lines.first.chomp
     assert_equal "claude-opus-5-5", finding[:ai][:model]
+    assert_equal false, finding[:ai][:fallback]
     assert_equal ["Keep it updated"], finding[:ai][:recommendations]
+    assert_equal({ input_tokens: 321, output_tokens: 123 }, analysis.usage)
+  ensure
+    server&.close
+  end
+
+  test "reads the documented fallback signal and per-attempt token usage from a real SDK response" do
+    reply = { risk_level: "Medium", summary: "Served after a decline.", trust_factors: [], concerns: ["c"],
+              recommendations: [] }
+    body = message_body([
+      { type: "fallback", from: { model: "claude-opus-5-5" }, to: { model: "claude-opus-4-8" },
+        trigger: { type: "refusal", category: "cyber" } },
+      { type: "text", text: JSON.generate(reply), citations: nil }
+    ]).merge(model: "claude-opus-4-8")
+    body[:usage] = body[:usage].merge(iterations: [
+      { type: "message", model: "claude-opus-5-5", input_tokens: 700, output_tokens: 0,
+        cache_creation: nil, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+      { type: "fallback_message", model: "claude-opus-4-8", input_tokens: 710, output_tokens: 90,
+        cache_creation: nil, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 }
+    ])
+    server = StubMessagesServer.new([200, body])
+    analysis = analysis(server)
+    finding = nil
+    log = capture_rails_log { finding = analysis.call }
+
+    assert finding[:ai][:fallback]
+    assert_equal "claude-opus-4-8", finding[:ai][:model]
+    assert_equal({ input_tokens: 1410, output_tokens: 90 }, analysis.usage)
+    assert_match(/model=claude-opus-4-8 fallback=true stop_reason=:end_turn input_tokens=1410 output_tokens=90/, log)
   ensure
     server&.close
   end

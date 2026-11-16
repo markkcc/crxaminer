@@ -113,6 +113,183 @@ class AiContextAnalysisTest < ActiveSupport::TestCase
     assert_includes AiContextAnalysis::SYSTEM_PROMPT, "untrusted data"
   end
 
+  test "every list item and scalar is capped, so oversized input stays small" do
+    big = "p" * 50_000
+    manifest = fresh_manifest.merge(
+      version: "9" * 50_000,
+      permissions: (1..40).map { |i| "#{i}#{big}" },
+      host_permissions: (1..40).map { |i| "https://#{i}#{big}/*" },
+      content_scripts: [{ "matches" => (1..40).map { |i| "#{i}#{big}" } }]
+    )
+    manifest[:raw] = manifest[:raw].merge(
+      "background" => { "service_worker" => big },
+      "web_accessible_resources" => [{ "resources" => (1..40).map { |i| "#{i}#{big}" } }]
+    )
+    huge_details = details.transform_values { big }
+    analysis = AiContextAnalysis.new(manifest: manifest, extension_details: huge_details, extension_name: big,
+                                     findings: rule_findings + [{ severity: big, title: big }],
+                                     client: FakeAnthropic::Client.new(FakeAnthropic.json_response))
+    payload = analysis.payload
+
+    %i[version users rating rating_count last_updated size].each do |key|
+      assert_operator payload[key].length, :<=, AiContextAnalysis::SCALAR_LIMIT, key
+    end
+    %i[permissions host_permissions content_script_matches web_accessible_resources findings].each do |key|
+      assert payload[key].all? { |item| item.length <= AiContextAnalysis::LIST_ITEM_LIMIT }, key
+    end
+    assert_operator payload[:background][:service_worker].length, :<=, AiContextAnalysis::LIST_ITEM_LIMIT
+    bytes = AiContextAnalysis.user_message(analysis.request_payload).bytesize
+    assert_operator bytes, :<, AiContextAnalysis::MAX_MESSAGE_BYTES
+    assert analysis.call, "a capped payload is still analysed"
+  end
+
+  test "a payload above the byte ceiling is skipped with a logged reason and no call" do
+    wide = "\u{1F600}" * 200
+    manifest = fresh_manifest.merge(permissions: (1..40).map { |i| "#{i}#{wide}" },
+                                    host_permissions: (1..25).map { |i| "#{i}#{wide}" },
+                                    content_scripts: [{ "matches" => (1..25).map { |i| "#{i}#{wide}" } }])
+    client = FakeAnthropic::Client.new
+    analysis = build(manifest: manifest, client: client)
+    log = capture_rails_log { assert_nil analysis.call }
+
+    assert_equal :input_too_large, analysis.outcome
+    assert_empty client.calls
+    assert_match(/above the 32000-byte ceiling/, log)
+  end
+
+  test "invalid UTF-8 bytes never raise and are scrubbed before sending" do
+    manifest = fresh_manifest
+    manifest[:localized_description] = "caf\xE9 tool".dup.force_encoding(Encoding::UTF_8)
+    binary_details = details.merge(author: "Ac\xFFme".dup.force_encoding(Encoding::BINARY))
+    client = FakeAnthropic::Client.new(FakeAnthropic.json_response)
+    analysis = nil
+    assert_nothing_raised do
+      analysis = AiContextAnalysis.new(manifest: manifest, extension_details: binary_details,
+                                       extension_name: "Bad \xC3 name".dup.force_encoding(Encoding::UTF_8),
+                                       findings: rule_findings, client: client)
+    end
+
+    assert analysis.call
+    assert_equal :ok, analysis.outcome
+    content = client.calls.first[:messages].first[:content]
+    assert content.valid_encoding?
+    assert_includes content, "caf\uFFFD tool"
+  end
+
+  test "the scan-path client uses a short timeout and at most one retry" do
+    assert_equal 60, AiContextAnalysis::REQUEST_TIMEOUT_SECONDS
+    assert_equal 1, AiContextAnalysis::MAX_RETRIES
+    client = AiContextAnalysis.build_client(api_key: "test-dummy-key", base_url: "http://127.0.0.1:9")
+    assert_equal 60, client.timeout
+    assert_equal 1, client.max_retries
+    assert_nil AiContextAnalysis.build_client(api_key: nil)
+  end
+
+  test "outcomes say why there is no finding and which failures are systemic" do
+    status = lambda do |code, klass|
+      klass.new(url: URI("https://api.invalid/v1/messages"), status: code, headers: {}, body: nil,
+                request: nil, response: nil, message: "x")
+    end
+    cases = {
+      FakeAnthropic.text_response("nope") => [:invalid_json, false],
+      FakeAnthropic.json_response(stop_reason: :max_tokens) => [:max_tokens, false],
+      status.call(400, Anthropic::Errors::BadRequestError) => [:bad_request, false],
+      status.call(401, Anthropic::Errors::AuthenticationError) => [:auth_error, true],
+      status.call(403, Anthropic::Errors::PermissionDeniedError) => [:auth_error, true],
+      status.call(429, Anthropic::Errors::RateLimitError) => [:rate_limited, true],
+      status.call(503, Anthropic::Errors::ServiceUnavailableError) => [:server_error, true],
+      Anthropic::Errors::APITimeoutError.new(url: URI("https://api.invalid")) => [:connection_error, true],
+      RuntimeError.new("boom") => [:error, false]
+    }
+    cases.each do |response, (outcome, systemic)|
+      analysis = build(client: FakeAnthropic::Client.new(response))
+      capture_rails_log { assert_nil analysis.call }
+      assert_equal outcome, analysis.outcome, response.inspect
+      assert_equal systemic, analysis.failed_systemically?, outcome
+    end
+
+    analysis = build
+    capture_rails_log { analysis.call }
+    assert_equal :missing_key, analysis.outcome
+    assert analysis.failed_systemically?
+  end
+
+  test "token counts and the serving model are logged for every call" do
+    response = FakeAnthropic.json_response
+    response.usage = FakeAnthropic.usage(1234, 567)
+    analysis = build(client: FakeAnthropic::Client.new(response))
+    log = capture_rails_log { analysis.call }
+
+    assert_match(/AI analysis call for Tab Helper: model=claude-opus-5-5 fallback=false stop_reason=:end_turn input_tokens=1234 output_tokens=567/, log)
+    assert_equal({ input_tokens: 1234, output_tokens: 567 }, analysis.usage)
+  end
+
+  test "a fallback_message usage entry marks the reply as served by a fallback model" do
+    response = FakeAnthropic.json_response
+    response.usage = FakeAnthropic.usage(50, 0, iterations: [
+      FakeAnthropic::Iteration.new(type: :message, model: :"claude-opus-5-5", input_tokens: 800, output_tokens: 0),
+      FakeAnthropic::Iteration.new(type: :fallback_message, model: :"claude-opus-4-8", input_tokens: 820, output_tokens: 310)
+    ])
+    analysis = build(client: FakeAnthropic::Client.new(response))
+    finding = nil
+    log = capture_rails_log { finding = analysis.call }
+
+    assert finding[:ai][:fallback]
+    assert_equal "claude-opus-4-8", finding[:ai][:model]
+    assert_equal "claude-opus-5-5", finding[:ai][:requested_model]
+    assert_equal({ input_tokens: 1620, output_tokens: 310 }, analysis.usage)
+    assert_match(/served by fallback model claude-opus-4-8/, log)
+
+    plain = build(client: FakeAnthropic::Client.new(FakeAnthropic.json_response)).call
+    assert_equal false, plain[:ai][:fallback]
+  end
+
+  test "the model gets today's date and the capture date, which stay out of the digest" do
+    captured = Time.utc(2026, 9, 1, 10)
+    a = build(as_of: Time.utc(2026, 11, 16), data_captured_at: captured)
+    b = build(as_of: Time.utc(2027, 1, 3))
+
+    assert_equal "2026-11-16", a.request_payload[:current_date]
+    assert_equal "2026-09-01", a.request_payload[:data_captured_on]
+    assert_not b.request_payload.key?(:data_captured_on)
+    assert_includes AiContextAnalysis.user_message(a.request_payload), "\"current_date\":\"2026-11-16\""
+    assert_equal a.input_digest, b.input_digest
+  end
+
+  test "the digest ignores rating_count drift but follows the prompt, schema and effort" do
+    drifted = AiContextAnalysis.new(manifest: fresh_manifest, extension_details: details.merge(rating_count: "1.3K"),
+                                    extension_name: "Tab Helper", findings: rule_findings)
+    assert_equal build.input_digest, drifted.input_digest
+    assert_equal "1.3K", drifted.payload[:rating_count], "rating_count is still sent"
+
+    payload = build.payload
+    original = AiContextAnalysis.digest_for(payload)
+    fingerprint = AiContextAnalysis::REQUEST_FINGERPRINT
+    edited = Digest::SHA256.hexdigest(JSON.generate({ model: AiContextAnalysis::MODEL, effort: "medium",
+                                                      system: AiContextAnalysis::SYSTEM_PROMPT, schema: AiContextAnalysis::SCHEMA }))
+    begin
+      silence_warnings { AiContextAnalysis.const_set(:REQUEST_FINGERPRINT, edited) }
+      assert_not_equal original, AiContextAnalysis.digest_for(payload)
+    ensure
+      silence_warnings { AiContextAnalysis.const_set(:REQUEST_FINGERPRINT, fingerprint) }
+    end
+    assert_equal fingerprint, AiContextAnalysis::REQUEST_FINGERPRINT
+  end
+
+  test "the prompt states limits that the stored caps never cut" do
+    assert_includes AiContextAnalysis::SYSTEM_PROMPT, "at most #{AiContextAnalysis::PROMPT_SUMMARY_CHARS} characters"
+    assert_includes AiContextAnalysis::SYSTEM_PROMPT, "each at most #{AiContextAnalysis::PROMPT_ITEM_CHARS} characters"
+    assert_operator AiContextAnalysis::PROMPT_ITEM_CHARS, :<=, AiContextAnalysis::MAX_ITEM_CHARS
+    assert_operator AiContextAnalysis::PROMPT_SUMMARY_CHARS, :<=, AiContextAnalysis::MAX_SUMMARY_CHARS
+
+    item = "word " * (AiContextAnalysis::PROMPT_ITEM_CHARS / 5)
+    summary = "s" * AiContextAnalysis::PROMPT_SUMMARY_CHARS
+    data = FakeAnthropic::VALID_RESULT.merge("summary" => summary, "concerns" => [item.strip] * 4)
+    finding = build(client: FakeAnthropic::Client.new(FakeAnthropic.json_response(data))).call
+    assert_equal summary, finding[:ai][:summary]
+    assert_equal [item.strip] * 4, finding[:ai][:concerns]
+  end
+
   # --- request parameters ---
 
   test "request uses the configured model, low effort, the JSON schema and no sampling parameters" do
