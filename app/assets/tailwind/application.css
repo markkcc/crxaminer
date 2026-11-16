@@ -1,5 +1,58 @@
 @import "tailwindcss";
 
+/* Brand and severity colours. Each token becomes a utility class
+   (bg-brand-600, text-severity-high-fg, ...). Use brand-600 or darker
+   behind white text; brand-300 and lighter are for text on dark surfaces. */
+@theme {
+  --color-brand-50: #f5f1fc;
+  --color-brand-100: #ebe4f9;
+  --color-brand-200: #d9ccf2;
+  --color-brand-300: #b19cd9;
+  --color-brand-400: #a48ade;
+  --color-brand-500: #9370db;
+  --color-brand-600: #7851c5;
+  --color-brand-700: #6240b0;
+  --color-brand-800: #4e3391;
+  --color-brand-900: #3b2770;
+
+  /* Severity ramp, most to least severe, plus Info. Each pair is at least
+     4.5:1 and the chips are opaque, so the ratio holds in both themes. */
+  --color-severity-critical: #7f1d1d;
+  --color-severity-critical-fg: #ffffff;
+  --color-severity-high: #dc2626;
+  --color-severity-high-fg: #ffffff;
+  --color-severity-medium: #c2410c;
+  --color-severity-medium-fg: #ffffff;
+  --color-severity-low: #fcd34d;
+  --color-severity-low-fg: #451a03;
+  --color-severity-minimal: #15803d;
+  --color-severity-minimal-fg: #ffffff;
+  --color-severity-info: #1d4ed8;
+  --color-severity-info-fg: #ffffff;
+}
+
+/* Tailwind 4 made a bare `border` use currentColor. Restore a light neutral
+   default (and a dark one in dark mode); explicit border-* classes still win. */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentColor);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    *,
+    ::after,
+    ::before,
+    ::backdrop,
+    ::file-selector-button {
+      border-color: var(--color-gray-700, currentColor);
+    }
+  }
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;
@@ -10,18 +63,18 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #9370DB;
+  background: var(--color-brand-500);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #7B5DD1;
+  background: var(--color-brand-600);
 }
 
 /* Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #9370DB transparent;
+  scrollbar-color: var(--color-brand-500) transparent;
 }
 
 /* Base layout */
