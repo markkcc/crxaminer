@@ -1,19 +1,14 @@
 class ExtensionSecurityAnalyzer
   include ExtensionAnalyzerData
   
-  def initialize(manifest, extension_details = nil, extension_name = nil, extension_id = nil)
+  def initialize(manifest, extension_details = nil, extension_name = nil, extension_id = nil, previous_findings: nil, ai_client: :default)
     @manifest = manifest
     @extension_details = extension_details
     @extension_name = extension_name
     @extension_id = extension_id
+    @previous_findings = previous_findings
+    @ai_client = ai_client
     @security_findings = []
-    begin
-      @client = Anthropic::Client.new
-    rescue => e
-      Rails.logger.error "Failed to initialize Anthropic client: #{e.message}"
-      Rails.logger.error e.backtrace.join("\n")
-      @client = nil
-    end
   end
 
   def analyze
@@ -200,70 +195,15 @@ class ExtensionSecurityAnalyzer
   end
 
   def analyze_with_claude
-    begin
-      return unless @client
-      
-      prompt = format_prompt
-      
-      response = @client.messages(
-        parameters: {
-          model: "claude-sonnet-4-20250514",
-          system: "You are a security analysis tool called CRXaminer that assesses Chrome Extensions for risk. Given metrics that are visible to the user, analyze the risk of the chrome extension, and provide a short summary under 200 words adding context to the findings that the user can already see (do not repeat the extension's permissions). Some example recommendations include: If an extension is very high risk, the user can run it in a separate chrome profile. The response should be formatted as follows: Include your own risk level (Critical, High, Medium, Low, or Minimal). include trust factors based on the extension's description, downloads, company reputation, etc. include a list of concerns, including unnecessary permissions given the nature of the extension etc. finally include some recommendations. Important note: Do not format the response in markdown, do not use any asterisk characters for bold. For example return Risk Level: Critical, instead of **Risk Level: Critical**.",
-          messages: [
-            {
-              role: "user",
-              content: prompt
-            }
-          ],
-          max_tokens: 400,
-          temperature: 0.3
-        }
-      )
-
-      response_text = response["content"].first["text"]
-
-      add_finding(
-        "Info",
-        "AI Context Analysis",
-        response_text
-      )
-    rescue => e
-      Rails.logger.error "AI analysis failed: #{e.message}"
-    end
-  end
-
-  def format_prompt
-
-    prompt = """
-    Analyze this Chrome extension:
-  
-    Extension Details:
-    Name: #{@extension_name}
-    Version: #{@manifest[:version]}
-    Description: #{@manifest[:description]}
-    Manifest Version: #{@manifest[:manifest_version]}
-    Size: #{@extension_details[:size]}
-    Users: #{@extension_details[:users]}
-    Last Updated: #{@extension_details[:last_updated]}
-    Rating: #{@extension_details[:rating]} (#{@extension_details[:rating_count]} reviews)
-    Author: #{@extension_details[:author]}
-    Developer Info: #{@extension_details[:developer_info]}
-  
-    Technical Details:
-    Permissions: #{@manifest[:permissions].join(', ')}
-    Host Permissions: #{@manifest[:host_permissions]&.join(', ')}
-    Content Scripts: #{@manifest[:content_scripts]&.map { |cs| cs['matches']&.join(', ') }&.join('; ')}
-    Background Scripts: #{@manifest[:background]&.[](:service_worker) || @manifest[:background]&.[](:scripts)&.join(', ')}
-    Web Accessible Resources: #{@manifest[:web_accessible_resources]&.map { |r| r['resources']&.join(', ') }&.join('; ')}
-    CSP: #{@manifest[:content_security_policy]}
-  
-    Security Findings:
-    #{@security_findings.map { |f| 
-      "#{f[:severity]}: #{f[:title]}\n#{f[:description].gsub(/https?:\/\/[^\s]+/, '[URL]')}"
-    }.join("\n\n")}
-    """
-
-    prompt
+    finding = AiContextAnalysis.new(
+      manifest: @manifest,
+      extension_details: @extension_details,
+      extension_name: @extension_name,
+      findings: @security_findings,
+      previous_findings: @previous_findings,
+      client: @ai_client
+    ).call
+    @security_findings << finding if finding
   end
 
   def tweet_results

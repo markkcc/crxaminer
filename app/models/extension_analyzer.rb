@@ -12,8 +12,11 @@ class ExtensionAnalyzer
   attr_reader :extension_id, :extension_details, :extension_name,
               :extension_image, :manifest, :security_findings, :error
 
-  def initialize(extension_id)
+  # previous_findings: the stored findings of an earlier scan of this
+  # extension, used to reuse its AI analysis when the input is unchanged.
+  def initialize(extension_id, previous_findings: nil)
     @extension_id = extension_id.downcase
+    @previous_findings = previous_findings
   end
 
   def perform
@@ -190,7 +193,8 @@ class ExtensionAnalyzer
           locals: { message: "Analyzing security..." }
         )
 
-        analyzer = ExtensionSecurityAnalyzer.new(@manifest, @extension_details, @extension_name, @extension_id)
+        analyzer = ExtensionSecurityAnalyzer.new(@manifest, @extension_details, @extension_name, @extension_id,
+                                                 previous_findings: @previous_findings)
         @security_findings = analyzer.analyze
       end
     rescue OpenURI::HTTPError => e
