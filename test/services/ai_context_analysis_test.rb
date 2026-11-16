@@ -49,6 +49,27 @@ class AiContextAnalysisTest < ActiveSupport::TestCase
                           findings: findings, **opts)
   end
 
+  # --- uncollected fields ---
+
+  test "fields that were not collected are left out of the payload, while empty lists are kept" do
+    manifest = { manifest_version: 3, version: "1.0", permissions: [], host_permissions: [], raw: { "name" => "Bare" } }
+    payload = AiContextAnalysis.build_payload(manifest: manifest, extension_details: { users: "5,000" },
+                                              extension_name: "Bare", findings: [])
+
+    %i[author developer_info rating rating_count last_updated size store_description description background].each do |key|
+      assert_not payload.key?(key), "#{key} was not collected and must not be sent"
+    end
+    assert_equal "5,000", payload[:users]
+    assert_equal [], payload[:host_permissions], "an empty list is a fact about the extension"
+    assert_equal [], payload[:permissions]
+    assert_not_includes JSON.generate(payload), "null"
+  end
+
+  test "the system prompt tells the model that an absent field is not a concern" do
+    assert_match(/absent was not collected by the scanner/, AiContextAnalysis::SYSTEM_PROMPT)
+    assert_match(/never mention a missing field or count it as a concern/, AiContextAnalysis::SYSTEM_PROMPT)
+  end
+
   # --- payload (B3) ---
 
   test "payload reads description, background and web resources from a string-keyed raw manifest" do
