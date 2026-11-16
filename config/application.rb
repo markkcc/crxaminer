@@ -30,5 +30,9 @@ module Crxaminer
     config.autoload_paths += %W(#{config.root}/app/models)
     config.autoload_paths << Rails.root.join('lib')
     config.eager_load_paths << Rails.root.join('lib')
+
+    # The app has no Active Storage image variants (and no image_processing
+    # gem). Rails 8.1 warns on every boot unless variant processing is disabled.
+    config.active_storage.variant_processor = :disabled
   end
 end
