@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40" role="img" aria-label="CRXaminer">
     <!-- Shield -->
     <path d="M20 5 L35 10 L35 25 L20 32 L5 25 L5 10 Z" 
             fill="#E6E6FA" 
@@ -19,17 +19,11 @@
     <path d="M15 14 Q13 14 13 16 L13 18 Q13 20 11 20 L15 20 L15 14" 
             fill="#9370DB"/>
     
-    <!-- Text with consistent spacing and clear separation -->
-    <text x="45" y="25" 
-            font-family="Arial Black, sans-serif" 
-            font-size="20" 
-            fill="#9370DB"
-            letter-spacing="1">CRX</text>
-    <text x="94" y="25" 
-            font-family="Arial, sans-serif" 
-            font-size="20" 
-            fill="#B19CD9"
-            letter-spacing="1">aminer</text>
+    <!-- Wordmark: one text run, so "aminer" always follows "CRX" whatever font is available -->
+    <text x="45" y="25"
+            font-family="'Arial Black', 'Arial Bold', Gadget, Arial, Helvetica, 'Liberation Sans', Roboto, sans-serif"
+            font-size="20"
+            letter-spacing="1"><tspan font-weight="900" fill="#9370DB">CRX</tspan><tspan font-family="Arial, Helvetica, 'Liberation Sans', Roboto, sans-serif" font-weight="400" fill="#B19CD9">aminer</tspan></text>
     
     <!-- Scanning line -->
     <line x1="8" y1="12" x2="18" y2="12" 
