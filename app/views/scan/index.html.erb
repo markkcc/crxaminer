@@ -15,9 +15,9 @@
       </p>
 
       <%= form_tag scan_path(':id'), method: :get, class: "extension-form", data: { turbo: false } do %>
-        <div class="flex gap-2">
+        <div class="flex flex-col sm:flex-row gap-2">
           <%= text_field_tag :id, nil, 
-              class: "min-w-0 flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200",
+              class: "w-full min-w-0 sm:flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200",
               placeholder: "Extension ID or store link",
               aria: { label: "Chrome extension ID or Chrome Web Store link", describedby: "extension-error" },
               autofocus: true,
@@ -26,7 +26,7 @@
               autocorrect: "off",
               spellcheck: false %>
           <%= submit_tag "Analyze", 
-              class: "shrink-0 px-4 sm:px-6 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800" %>
+              class: "w-full sm:w-auto shrink-0 px-6 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800" %>
         </div>
       <% end %>
 
