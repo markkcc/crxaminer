@@ -1,9 +1,8 @@
 # Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
 
-one:
-  severity_counts: 
-  spiciest_extensions: 
+_fixture:
+  model_class: StatCache
 
-two:
-  severity_counts: 
-  spiciest_extensions: 
+one:
+  severity_counts: {}
+  spiciest_extensions: []

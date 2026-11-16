@@ -1,7 +1,20 @@
 require "test_helper"
 
 class RefreshStatsJobTest < ActiveJob::TestCase
-  # test "the truth" do
-  #   assert true
-  # end
+  test "counts the AI risk level from the stored description and falls back to the overall risk" do
+    ScanResult.delete_all
+    overall = { severity: "Medium", title: "Overall Risk: Medium", description: "x" }
+    ai = { severity: "Info", title: "AI Context Analysis",
+           description: AiContextAnalysis.render_description(risk_level: "Critical", summary: "s",
+                                                             trust_factors: [], concerns: ["c"], recommendations: []),
+           ai: { risk_level: "Critical" } }
+    ScanResult.create!(extension_id: "6" * 32, manifest: {}, security_findings: [overall, ai])
+    ScanResult.create!(extension_id: "7" * 32, manifest: {}, security_findings: [overall])
+
+    RefreshStatsJob.perform_now
+
+    counts = StatCache.first.severity_counts
+    assert_equal 1, counts["Critical"]
+    assert_equal 1, counts["Medium"]
+  end
 end

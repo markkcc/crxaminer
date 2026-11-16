@@ -69,7 +69,7 @@ end
 gem 'rubyzip', require: 'zip'
 gem 'nokogiri'
 
-gem "anthropic", "~> 0.3.2"
+gem "anthropic", "~> 2.8.0"
 gem 'dotenv-rails', groups: [:development, :test]
 
 # for the twitter client

@@ -63,7 +63,7 @@ class ScanController < ApplicationController
       return
     end
 
-    analyzer = ExtensionAnalyzer.new(@extension_id)
+    analyzer = ExtensionAnalyzer.new(@extension_id, previous_findings: existing_scan&.security_findings)
     result = analyzer.perform
 
     if result.error?
