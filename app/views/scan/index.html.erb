@@ -1,4 +1,6 @@
-<div class="h-screen flex items-center justify-center">
+<div class="min-h-screen flex flex-col">
+<%= render "shared/upgrade_notice" %>
+<div class="flex-1 flex items-center justify-center">
   <div class="max-w-2xl w-full mx-auto px-4 sm:px-6 lg:px-8">
   <div class="w-full bg-gray-100 dark:bg-gray-900 py-2 text-center -mt-8">
   <span class="space-x-4">
@@ -43,6 +45,7 @@
       <% end %>
     </div>
   </div>
+</div>
 </div>
 
 <script>

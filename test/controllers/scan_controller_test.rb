@@ -59,4 +59,27 @@ class ScanControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Looks fine."
     assert_includes response.body, "- &lt;b&gt;None&lt;/b&gt;"
   end
+
+  test "the home page shows the dated upgrade notice" do
+    get root_path
+
+    assert_response :success
+    assert_select "[role=status]", count: 1 do
+      assert_select "time[datetime='2026-11-16']", text: "November 16, 2026"
+    end
+    notice = css_select("[role=status]").first.text.squish
+    assert_includes notice, "We are pushing major experimental upgrades, which may affect the app's availability."
+  end
+
+  test "the upgrade notice is only on the home page" do
+    create_scan("o" * 32)
+
+    get scan_path("o" * 32)
+    assert_response :success
+    assert_select "[role=status]", count: 0
+
+    get stats_scan_index_path
+    assert_response :success
+    assert_select "[role=status]", count: 0
+  end
 end
