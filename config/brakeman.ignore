@@ -3,38 +3,48 @@
     {
       "warning_type": "Cross-Site Scripting",
       "warning_code": 2,
-      "fingerprint": "ff4f7685f51fffa8f3d7640e6078850276e9635bf8b8569794319569fc1f631d",
+      "fingerprint": "17badd82b6e0bb798bc95398af70d39c0492f00ed7821a31051a84dcca4518be",
       "check_name": "CrossSiteScripting",
       "message": "Unescaped model attribute",
-      "file": "app/views/scan/_results.html.erb",
-      "line": 260,
+      "file": "app/views/scan/_manifest.html.erb",
+      "line": 6,
       "link": "https://brakemanscanner.org/docs/warning_types/cross_site_scripting",
-      "code": "rouge_highlight(JSON.pretty_generate(ScanResult.find_by(:extension_id => params[:id]).manifest[:raw]))",
+      "code": "rouge_highlight(JSON.pretty_generate(ScanResult.find_by(:extension_id => params[:id].downcase).manifest[:raw]))",
       "render_path": [
         {
           "type": "controller",
           "class": "ScanController",
           "method": "show",
-          "line": 24,
+          "line": 26,
           "file": "app/controllers/scan_controller.rb",
           "rendered": {
             "name": "scan/_results",
             "file": "app/views/scan/_results.html.erb"
           }
+        },
+        {
+          "type": "template",
+          "name": "scan/_results",
+          "line": 143,
+          "file": "app/views/scan/_results.html.erb",
+          "rendered": {
+            "name": "scan/_manifest",
+            "file": "app/views/scan/_manifest.html.erb"
+          }
         }
       ],
       "location": {
         "type": "template",
-        "template": "scan/_results"
+        "template": "scan/_manifest"
       },
-      "user_input": "ScanResult.find_by(:extension_id => params[:id]).manifest",
+      "user_input": "ScanResult.find_by(:extension_id => params[:id].downcase).manifest",
       "confidence": "Weak",
       "cwe_id": [
         79
       ],
-      "note": ""
+      "note": "Safe: rouge_highlight returns the output of Rouge::Formatters::HTML, which HTML-escapes &, < and > in every token value and only wraps tokens in <span class=\"...\"> with fixed class names; Rouge escape tokens are disabled (they are turned into escaped Error tokens). The fallback path uses CGI.escape_html. The manifest is rendered as element content inside <pre>, never in an attribute."
     }
   ],
-  "updated": "2024-12-09 00:48:22 -0500",
-  "brakeman_version": "6.2.2"
+  "updated": "2026-11-16 00:00:00 +0000",
+  "brakeman_version": "8.1.0"
 }
