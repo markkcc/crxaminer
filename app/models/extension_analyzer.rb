@@ -19,6 +19,51 @@ class ExtensionAnalyzer
     @previous_findings = previous_findings
   end
 
+  # Best-effort store listing description from standard meta tags. Nil-safe.
+  def self.store_description_from(doc)
+    return nil unless doc
+
+    %w[meta[property="og:description"] meta[name="description"]].each do |selector|
+      content = doc.at_css(selector)&.[]("content").to_s.strip
+      return content if content.present?
+    end
+    nil
+  rescue StandardError
+    nil
+  end
+
+  # Resolves a "__MSG_key__" manifest value from
+  # _locales/<default_locale>/messages.json (keys are case-insensitive).
+  # Returns the value unchanged when it is not a placeholder, or nil when the
+  # placeholder cannot be resolved.
+  def self.resolve_locale_message(value, messages)
+    return value unless value.is_a?(String)
+
+    match = value.match(/\A__MSG_(\w+)__\z/)
+    return value unless match
+
+    message = messages[match[1].downcase]
+    message.is_a?(Hash) ? message["message"].presence : nil
+  end
+
+  # Reads the default locale's messages.json from an open Zip::File and
+  # returns it with downcased keys ({} when missing or unreadable).
+  def self.locale_messages(zip_file, default_locale)
+    candidates = [default_locale, "en"].compact.map(&:to_s).reject(&:empty?).uniq
+    candidates.each do |locale|
+      path = "_locales/#{locale}/messages.json".downcase
+      entry = zip_file.entries.find { |e| e.name.downcase == path }
+      next unless entry
+
+      parsed = JSON.parse(entry.get_input_stream.read.force_encoding("UTF-8").delete_prefix("\uFEFF"))
+      return parsed.transform_keys { |k| k.to_s.downcase } if parsed.is_a?(Hash)
+    end
+    {}
+  rescue StandardError => e
+    Rails.logger.warn "Could not read locale messages: #{e.message}"
+    {}
+  end
+
   def perform
     validate_extension_id
     return self if error?
@@ -118,7 +163,8 @@ class ExtensionAnalyzer
         size: size_element&.next_element&.text&.strip,
         users: users_element,
         developer_info: doc.css('.Fm8Cnb').first&.text&.strip.to_s
-                       .gsub('&amp;', '&')
+                       .gsub('&amp;', '&'),
+        store_description: self.class.store_description_from(doc)
       }
 
     rescue Net::HTTPError => e
@@ -268,9 +314,18 @@ class ExtensionAnalyzer
           end
         end
 
+        # Resolve __MSG_*__ placeholders while the package is open.
+        locale_messages = if [manifest['name'], manifest['description']].any? { |v| v.to_s.start_with?('__MSG_') }
+          self.class.locale_messages(zip_file, manifest['default_locale'])
+        else
+          {}
+        end
+
         return {
           manifest_version: manifest['manifest_version'],
           name: manifest['name'],
+          localized_name: self.class.resolve_locale_message(manifest['name'], locale_messages),
+          localized_description: self.class.resolve_locale_message(manifest['description'], locale_messages),
           version: manifest['version'],
           permissions: manifest['permissions'] || [],
           optional_permissions: manifest['optional_permissions'] || [],
