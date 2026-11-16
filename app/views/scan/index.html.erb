@@ -1,49 +1,44 @@
 <div class="min-h-screen flex flex-col">
 <%= render "shared/upgrade_notice" %>
 <div class="flex-1 flex items-center justify-center">
-  <div class="max-w-2xl w-full mx-auto px-4 sm:px-6 lg:px-8">
-  <div class="w-full bg-gray-100 dark:bg-gray-900 py-2 text-center -mt-8">
-  <span class="space-x-4">
-    <%= link_to "[ statistics ]", stats_scan_index_path, class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
-    <%= link_to "[ github ]", "https://github.com/markkcc/crxaminer", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
-    <%= link_to "[ twitter ]", "https://x.com/CRXaminer", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
-    <%= link_to "[ help ]", "https://astarte.security/docs/tools/crxaminer", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
-  </span>
-</div>
-    <div class="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg">
+  <div class="max-w-2xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <%= render "shared/header", logo: false %>
+
+    <div class="bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-lg shadow-lg">
       <div class="flex justify-center items-center mb-6">
         <%= render "shared/logo" %>
       </div>
       
       <p class="text-gray-600 dark:text-gray-300 mb-8 text-center">
         Enter the ID of the Chrome extension you want to analyze.
-        <span class="text-sm text-gray-500 dark:text-gray-400 block mt-1"></span>
+        <span class="text-sm text-gray-500 dark:text-gray-400 block mt-1">You can also paste its Chrome Web Store link.</span>
       </p>
 
       <%= form_tag scan_path(':id'), method: :get, class: "extension-form", data: { turbo: false } do %>
         <div class="flex gap-2">
           <%= text_field_tag :id, nil, 
-              class: "flex-grow px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#9370DB] dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200",
-              placeholder: "Enter Chrome Extension ID" %>
+              class: "min-w-0 flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200",
+              placeholder: "Extension ID or store link",
+              aria: { label: "Chrome extension ID or Chrome Web Store link", describedby: "extension-error" },
+              autofocus: true,
+              autocomplete: "off",
+              autocapitalize: "off",
+              autocorrect: "off",
+              spellcheck: false %>
           <%= submit_tag "Analyze", 
-              class: "px-6 py-2 bg-[#9370DB] text-white rounded-lg hover:bg-[#7851c5] focus:outline-none focus:ring-2 focus:ring-[#9370DB] focus:ring-offset-2" %>
+              class: "shrink-0 px-4 sm:px-6 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800" %>
         </div>
       <% end %>
 
       <!-- Error container that shows both client-side and server-side errors -->
-      <div id="extension-error" class="mt-4 text-center">
+      <div id="extension-error" class="mt-4 text-center" aria-live="polite">
         <% if flash[:error] %>
-          <div class="text-red-500 text-sm"><%= flash[:error] %></div>
+          <div class="text-red-700 dark:text-red-400 text-sm"><%= flash[:error] %></div>
         <% end %>
       </div>
     </div>
 
-    <!-- Attribution link -->
-    <div class="text-center mt-4">
-      <%= link_to "https://astarte.security/", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:opacity-80" do %>
-        by <span style="color: #ffbc00;">✦</span> <span style="color: #52448d;">Astarte</span>
-      <% end %>
-    </div>
+    <%= render "shared/footer" %>
   </div>
 </div>
 </div>
@@ -54,28 +49,59 @@ window.addEventListener('load', function() {
   const input = document.querySelector('input[name="id"]');
   const errorContainer = document.querySelector('#extension-error');
 
+  // A Chrome Web Store link ends in (or contains) the 32-letter ID; IDs only use the letters a to p.
+  const STORE_URL = /^(?:https?:\/\/)?(?:chromewebstore\.google\.com|chrome\.google\.com\/webstore)\/.*?\b([a-p]{32})\b/i;
+
+  function extractId(text) {
+    const value = text.trim();
+    const match = value.match(STORE_URL);
+    return match ? match[1] : value;
+  }
+
+  function showError(message) {
+    const div = document.createElement('div');
+    div.className = 'text-red-700 dark:text-red-400 text-sm';
+    div.textContent = message;
+    errorContainer.replaceChildren(div);
+    input.classList.add('border-red-500');
+    input.setAttribute('aria-invalid', 'true');
+  }
+
+  function clearError() {
+    errorContainer.replaceChildren();
+    input.classList.remove('border-red-500');
+    input.removeAttribute('aria-invalid');
+  }
+
+  // Pasting a store link leaves just the ID in the box.
+  input.addEventListener('paste', function(e) {
+    const pasted = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+    const id = extractId(pasted);
+    if (id !== pasted.trim()) {
+      e.preventDefault();
+      input.value = id;
+      clearError();
+    }
+  });
+
   form.addEventListener('submit', function(e) {
     e.preventDefault();
     
-    const extensionId = input.value.trim();
+    const extensionId = extractId(input.value);
     
-    const isValid = /^[a-zA-Z0-9]{32}$/.test(extensionId);
+    const isValid = /^[a-p]{32}$/i.test(extensionId);
 
     if (!isValid) {
-      errorContainer.innerHTML = '<div class="text-red-500 text-sm">Invalid extension ID: Must be 32 alphanumeric characters long.</div>';
-      input.classList.add('border-red-500');
+      showError('Invalid extension ID: it must be 32 letters from a to p, or a Chrome Web Store link.');
     } else {
-      errorContainer.innerHTML = '';
-      input.classList.remove('border-red-500');
+      clearError();
+      input.value = extensionId.toLowerCase();
       // Replace the placeholder ID with the actual ID and submit
       window.location.href = form.action.replace(':id', extensionId.toLowerCase());
     }
   });
 
   // Clear error on input
-  input.addEventListener('input', function() {
-    errorContainer.innerHTML = '';
-    input.classList.remove('border-red-500');
-  });
+  input.addEventListener('input', clearError);
 });
 </script>

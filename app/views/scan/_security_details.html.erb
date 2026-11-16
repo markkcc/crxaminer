@@ -50,38 +50,33 @@
         <% end %>
 
         <% if @manifest[:embedded_urls]&.any? %>
-          <div> <br />
+          <div class="pt-4">
             <h4 class="text-sm font-medium text-gray-600 dark:text-gray-400">
               Embedded URLs (<%= @manifest[:embedded_urls].size %> total):
             </h4>
-            <div class="mt-2 overflow-x-auto w-full">
+            <div class="mt-2 w-full">
               <div id="embedded-urls-container" data-urls="<%= @manifest[:embedded_urls].to_json %>">
-                <table class="w-full table-fixed text-sm">
-                  <tbody id="embedded-urls-tbody">
-                    <% @manifest[:embedded_urls].first(80).each_slice(2) do |url_group| %>
-                      <tr class="border-t dark:border-gray-700">
-                        <td class="w-1/3 px-4 py-2 text-gray-600 dark:text-gray-300 truncate"><%= url_group[0] %></td>
-                        <td class="w-1/3 px-4 py-2 text-gray-600 dark:text-gray-300 truncate"><%= url_group[1] %></td>
-                        <td class="w-1/3 px-4 py-2 text-gray-600 dark:text-gray-300 truncate"><%= url_group[2] %></td>
-                      </tr>
-                    <% end %>
-                  </tbody>
-                </table>
+                <%# One column on phones, two from md up. URLs are plain text, never links. %>
+                <ul id="embedded-urls-list"
+                    class="grid grid-cols-1 md:grid-cols-2 md:gap-x-6"
+                    data-item-class="px-3 py-2 border-t font-mono text-xs leading-5 break-all text-gray-700 dark:text-gray-300">
+                  <% @manifest[:embedded_urls].first(80).each do |url| %>
+                    <li class="px-3 py-2 border-t font-mono text-xs leading-5 break-all text-gray-700 dark:text-gray-300"><%= url %></li>
+                  <% end %>
+                </ul>
 
                 <% if @manifest[:embedded_urls].size > 80 %>
-                  <div class="flex items-center justify-center space-x-2 mt-4">
-                    <button id="prev-page"
-                            class="hidden px-3 py-1 text-sm text-white border border-purple-600 rounded">
-                      &nbsp;Previous&nbsp;
+                  <div class="flex items-center justify-center gap-3 mt-4">
+                    <button id="prev-page" type="button"
+                            class="hidden px-3 py-1 text-sm font-medium rounded border border-brand-600 text-brand-700 hover:bg-brand-50 dark:border-brand-300 dark:text-brand-200 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+                      Previous
                     </button>
-                    &nbsp;
-                    <span class="text-sm text-gray-600 dark:text-gray-400">
+                    <span class="text-sm text-gray-600 dark:text-gray-400" aria-live="polite">
                       Page <span id="current-page">1</span> of <span id="total-pages"><%= (@manifest[:embedded_urls].size.to_f / 80).ceil %></span>
                     </span>
-                    &nbsp;
-                    <button id="next-page"
-                            class="hidden px-3 py-1 text-sm text-white border border-purple-600 rounded">
-                      &nbsp;Next&nbsp;
+                    <button id="next-page" type="button"
+                            class="hidden px-3 py-1 text-sm font-medium rounded border border-brand-600 text-brand-700 hover:bg-brand-50 dark:border-brand-300 dark:text-brand-200 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+                      Next
                     </button>
                   </div>
                 <% end %>

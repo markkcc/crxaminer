@@ -1,21 +1,7 @@
+<% content_for :title, @extension_name.presence || "Scan of #{@extension_id}" %>
 <div class="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
   <div class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow overflow-y-auto">
-    <!-- Logo and navigation -->
-    <div class="flex justify-center mb-2">
-      <div style="width: 350px;">
-        <%= render "shared/logo" %>
-      </div>
-    </div>
-
-    <div class="w-full bg-gray-100 dark:bg-gray-900 py-2 text-center mb-2">
-      <span class="space-x-4">
-        <%= link_to "[ new scan ]", root_path, class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
-        <%= link_to "[ statistics ]", stats_scan_index_path, class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
-        <%= link_to "[ github ]", "https://github.com/markkcc/crxaminer", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
-        <%= link_to "[ twitter ]", "https://x.com/CRXaminer", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
-        <%= link_to "[ help ]", "https://astarte.security/docs/tools/crxaminer", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400" %>
-      </span>
-    </div>
+    <%= render "shared/header" %>
 
     <!-- Analysis Status -->
     <div id="analysis_status">
@@ -145,30 +131,32 @@
           analysisStatus.style.display = 'none';
         }
         
-        // Show error message with link to go back
+        // Show error message with link to go back (built with textContent: the message comes from the server)
         const analysisResults = document.getElementById('analysis_results');
         if (analysisResults) {
-          analysisResults.innerHTML = `
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-              <div class="text-center">
-                <div class="text-red-500 mb-4">${message}</div>
-                <div class="text-gray-600 dark:text-gray-400">
-                  Please check the extension ID and try again or 
-                  <a href="/" class="text-[#9370DB] hover:text-[#7851c5] underline">return to home</a>
-                </div>
-              </div>
-            </div>
-          `;
+          const card = document.createElement('div');
+          card.className = 'bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6';
+          const inner = document.createElement('div');
+          inner.className = 'text-center';
+          const errorLine = document.createElement('div');
+          errorLine.className = 'text-red-700 dark:text-red-400 mb-4';
+          errorLine.textContent = message;
+          const help = document.createElement('div');
+          help.className = 'text-gray-600 dark:text-gray-400';
+          help.append('Please check the extension ID and try again or ');
+          const homeLink = document.createElement('a');
+          homeLink.href = '/';
+          homeLink.className = 'text-brand-600 hover:text-brand-700 dark:text-brand-300 dark:hover:text-brand-200 underline';
+          homeLink.textContent = 'return to home';
+          help.append(homeLink);
+          inner.append(errorLine, help);
+          card.append(inner);
+          analysisResults.replaceChildren(card);
         }
       }
     </script>
 
-    <!-- Attribution link -->
-    <div class="text-center mt-8 mb-4">
-      <%= link_to "https://astarte.security/", target: "_blank", class: "text-gray-600 dark:text-gray-400 hover:opacity-80" do %>
-        by <span style="color: #ffbc00;">✦</span> <span style="color: #52448d;">Astarte</span>
-      <% end %>
-    </div>
+    <%= render "shared/footer" %>
   </div>
 </div>
 
@@ -193,42 +181,28 @@
 
       const urls = JSON.parse(container.dataset.urls);
 
-      const tbody = document.getElementById('embedded-urls-tbody');
+      const list = document.getElementById('embedded-urls-list');
       const currentPageEl = document.getElementById('current-page');
       const prevButton = document.getElementById('prev-page');
       const nextButton = document.getElementById('next-page');
       
-      const ROWS_PER_PAGE = 40;
-      const URLS_PER_ROW = 2;
-      const URLS_PER_PAGE = ROWS_PER_PAGE * URLS_PER_ROW;
+      const URLS_PER_PAGE = 80;
       const totalPages = Math.ceil(urls.length / URLS_PER_PAGE);
       let currentPage = 1;
 
-      if (totalPages === 1) return;
+      if (totalPages <= 1) return;
 
       function updateTable() {
         const startIdx = (currentPage - 1) * URLS_PER_PAGE;
-        const endIdx = startIdx + URLS_PER_PAGE;
-        const pageUrls = urls.slice(startIdx, endIdx);
+        const pageUrls = urls.slice(startIdx, startIdx + URLS_PER_PAGE);
 
-        // Clear existing rows
-        tbody.innerHTML = '';
-        
-        // Create new rows
-        for (let i = 0; i < pageUrls.length; i += URLS_PER_ROW) {
-          const row = document.createElement('tr');
-          row.className = 'border-t dark:border-gray-700';
-          
-          for (let j = 0; j < URLS_PER_ROW; j++) {
-            const cell = document.createElement('td');
-            cell.className = 'w-1/3 px-4 py-2 text-gray-600 dark:text-gray-300 truncate';
-            const url = pageUrls[i + j];
-            cell.textContent = url || '';
-            row.appendChild(cell);
-          }
-          
-          tbody.appendChild(row);
-        }
+        // Rebuild the list; URLs stay plain text
+        list.replaceChildren(...pageUrls.map(url => {
+          const item = document.createElement('li');
+          item.className = list.dataset.itemClass;
+          item.textContent = url;
+          return item;
+        }));
 
         // Update UI state
         currentPageEl.textContent = currentPage;
