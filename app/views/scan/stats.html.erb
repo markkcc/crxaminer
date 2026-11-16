@@ -57,24 +57,27 @@
           <!-- Severity Distribution Card -->
           <div class="bg-brand-50 dark:bg-gray-700 rounded-lg p-6 border border-brand-200 dark:border-gray-600">
             <h2 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-4">Severity Distribution</h2>
-            <div class="space-y-2">
+            <div class="space-y-2" role="group" aria-label="Filter recent scans by risk level">
               <% @severity_counts.each do |severity, count| %>
                 <%
                   total_count = @severity_counts.values.sum
                   percentage = total_count > 0 ? (count.to_f / total_count * 100).round : 0
                 %>
-                <div class="severity-filter-btn p-2 hover:bg-brand-100 dark:hover:bg-gray-600 rounded transition-colors cursor-pointer" data-severity="<%= severity %>">
-                  <div class="flex items-center justify-between mb-1">
+                <button type="button"
+                        class="severity-filter-btn block w-full text-left p-2 hover:bg-brand-100 dark:hover:bg-gray-600 rounded transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 dark:focus-visible:ring-brand-300"
+                        data-severity="<%= severity %>"
+                        aria-pressed="false">
+                  <span class="flex items-center justify-between mb-1">
                     <span class="text-sm text-gray-700 dark:text-gray-200"><%= severity %></span>
-                    <div class="flex items-center space-x-2">
+                    <span class="flex items-center space-x-2">
                       <span class="text-xs text-gray-600 dark:text-gray-400"><%= percentage %>%</span>
                       <span class="text-sm font-semibold text-brand-700 dark:text-brand-200"><%= number_with_delimiter(count) %></span>
-                    </div>
-                  </div>
-                  <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-3 relative">
-                    <div class="<%= severity_classes(severity) %> h-3 rounded-full" style="width: <%= percentage %>%;"></div>
-                  </div>
-                </div>
+                    </span>
+                  </span>
+                  <span class="block w-full bg-gray-200 dark:bg-gray-600 rounded-full h-3 relative">
+                    <span class="block <%= severity_classes(severity) %> h-3 rounded-full" style="width: <%= percentage %>%;"></span>
+                  </span>
+                </button>
               <% end %>
             </div>
           </div>
@@ -130,6 +133,7 @@
           // Remove active state from all buttons
           filterButtons.forEach(btn => {
             btn.classList.remove('ring-2', 'ring-brand-500', 'ring-offset-2', 'dark:ring-offset-gray-700', 'bg-brand-100', 'dark:bg-gray-600');
+            btn.setAttribute('aria-pressed', 'false');
           });
           // Fetch all scans (no filter)
           fetchScans(null);
@@ -141,8 +145,10 @@
           filterButtons.forEach(btn => {
             if (btn.dataset.severity === severity) {
               btn.classList.add('ring-2', 'ring-brand-500', 'ring-offset-2', 'dark:ring-offset-gray-700', 'bg-brand-100', 'dark:bg-gray-600');
+              btn.setAttribute('aria-pressed', 'true');
             } else {
               btn.classList.remove('ring-2', 'ring-brand-500', 'ring-offset-2', 'dark:ring-offset-gray-700', 'bg-brand-100', 'dark:bg-gray-600');
+              btn.setAttribute('aria-pressed', 'false');
             }
           });
 

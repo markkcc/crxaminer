@@ -24,7 +24,7 @@
       </span>
     </td>
     <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-      <%= scan.created_at.strftime("%Y-%m-%d %H:%M") %>
+      <time datetime="<%= scan.created_at.utc.iso8601 %>"><%= scan.created_at.utc.strftime("%Y-%m-%d %H:%M") %> UTC</time>
     </td>
     <td class="px-6 py-4 text-sm">
       <%= link_to "View Results", scan_path(scan.extension_id),

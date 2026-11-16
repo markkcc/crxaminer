@@ -230,6 +230,14 @@ class ScanControllerTest < ActionDispatch::IntegrationTest
     assert_not_includes response.body, "setTimeout(initializeUrlsPagination"
   end
 
+  test "stats severity filters are toggle buttons and scan dates say UTC" do
+    create_scan("m" * 32)
+    get stats_scan_index_path
+
+    assert_select "[role=group] button.severity-filter-btn[type=button][aria-pressed=false]", count: 5
+    assert_select "div.severity-filter-btn", count: 0
+    assert_select "#recent-scans-tbody time[datetime]", text: /\A\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC\z/
+  end
 
   test "severity chips on the scan and stats pages use the shared palette" do
     create_scan("j" * 32)
