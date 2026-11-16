@@ -55,27 +55,34 @@
               Embedded URLs (<%= @manifest[:embedded_urls].size %> total):
             </h4>
             <div class="mt-2 w-full">
-              <div id="embedded-urls-container" data-urls="<%= @manifest[:embedded_urls].to_json %>">
+              <%# Pages hold 20 URLs on phones and 80 from md up; the script sets the page size from the viewport.
+                  Before it runs, CSS already shows only the first 20 on phones, so the list never shrinks visibly. %>
+              <div id="embedded-urls-container" data-urls="<%= @manifest[:embedded_urls].to_json %>"
+                   data-page-size-narrow="20" data-page-size-wide="80">
                 <%# One column on phones, two from md up. URLs are plain text, never links. %>
                 <ul id="embedded-urls-list"
                     class="grid grid-cols-1 md:grid-cols-2 md:gap-x-6"
                     data-item-class="px-3 py-2 border-t font-mono text-xs leading-5 break-all text-gray-700 dark:text-gray-300">
-                  <% @manifest[:embedded_urls].first(80).each do |url| %>
-                    <li class="px-3 py-2 border-t font-mono text-xs leading-5 break-all text-gray-700 dark:text-gray-300"><%= url %></li>
+                  <% @manifest[:embedded_urls].first(80).each_with_index do |url, index| %>
+                    <% if index < 20 %>
+                      <li class="px-3 py-2 border-t font-mono text-xs leading-5 break-all text-gray-700 dark:text-gray-300"><%= url %></li>
+                    <% else %>
+                      <li class="px-3 py-2 border-t font-mono text-xs leading-5 break-all text-gray-700 dark:text-gray-300 hidden md:list-item"><%= url %></li>
+                    <% end %>
                   <% end %>
                 </ul>
 
-                <% if @manifest[:embedded_urls].size > 80 %>
-                  <div class="flex items-center justify-center gap-3 mt-4">
+                <% if @manifest[:embedded_urls].size > 20 %>
+                  <div id="embedded-urls-pager" class="hidden items-center justify-center gap-3 mt-4">
                     <button id="prev-page" type="button"
-                            class="hidden px-3 py-1 text-sm font-medium rounded border border-brand-600 text-brand-700 hover:bg-brand-50 dark:border-brand-300 dark:text-brand-200 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+                            class="invisible px-3 py-1 text-sm font-medium rounded border border-brand-600 text-brand-700 hover:bg-brand-50 dark:border-brand-300 dark:text-brand-200 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
                       Previous
                     </button>
                     <span class="text-sm text-gray-600 dark:text-gray-400" aria-live="polite">
-                      Page <span id="current-page">1</span> of <span id="total-pages"><%= (@manifest[:embedded_urls].size.to_f / 80).ceil %></span>
+                      Page <span id="current-page">1</span> of <span id="total-pages">1</span>
                     </span>
                     <button id="next-page" type="button"
-                            class="hidden px-3 py-1 text-sm font-medium rounded border border-brand-600 text-brand-700 hover:bg-brand-50 dark:border-brand-300 dark:text-brand-200 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+                            class="invisible px-3 py-1 text-sm font-medium rounded border border-brand-600 text-brand-700 hover:bg-brand-50 dark:border-brand-300 dark:text-brand-200 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
                       Next
                     </button>
                   </div>

@@ -193,7 +193,22 @@ class ScanControllerTest < ActionDispatch::IntegrationTest
     assert_select "#embedded-urls-list a", count: 0
     assert_select "#embedded-urls-container td", count: 0
     assert_includes response.body, "q=&lt;b&gt;1&lt;/b&gt;"
-    assert_select "#next-page[type=button]", count: 1
+    # Phones show 20 per page before the script runs; the rest are hidden below md.
+    assert_equal 20, items.count { |li| !li["class"].split.include?("hidden") }
+    assert(items.drop(20).all? { |li| li["class"].split.include?("md:list-item") })
+    assert_select "#embedded-urls-container[data-page-size-narrow='20'][data-page-size-wide='80']"
+    assert_select "#embedded-urls-pager.hidden #next-page[type=button]", count: 1
+  end
+
+  test "the pager is rendered whenever a phone page would overflow" do
+    urls = (1..30).map { |i| "https://u#{i}.test/" }
+    ScanResult.create!(extension_id: "k" * 32, extension_name: "K", manifest: MANIFEST.merge(embedded_urls: urls),
+                       extension_details: {}, security_findings: [OVERALL])
+    get scan_path("k" * 32), xhr: true
+
+    assert_equal 30, css_select("#embedded-urls-list > li").size
+    assert_select "#embedded-urls-pager", count: 1
+    assert_select "#total-pages", text: "1" # the script writes the real count
   end
 
   test "an odd number of embedded URLs leaves no blank cell" do
@@ -203,8 +218,18 @@ class ScanControllerTest < ActionDispatch::IntegrationTest
     get scan_path("i" * 32), xhr: true
 
     assert_equal urls, css_select("#embedded-urls-list > li").map { |li| li.text.strip }
-    assert_select "#next-page", count: 0
+    assert_select "#embedded-urls-pager", count: 0
   end
+
+  test "the scan page scripts do not log to the console" do
+    create_scan("l" * 32)
+    get scan_path("l" * 32)
+
+    assert_response :success
+    assert_not_includes response.body, "console.log"
+    assert_not_includes response.body, "setTimeout(initializeUrlsPagination"
+  end
+
 
   test "severity chips on the scan and stats pages use the shared palette" do
     create_scan("j" * 32)
