@@ -385,6 +385,7 @@ class ScanControllerTest < ActionDispatch::IntegrationTest
       assert_includes body, "&lt;img src=x onerror=alert(1)&gt;"
     end
     assert_select "#permissions-required-table tbody tr", count: 4
+    assert_select "#overview [data-finding]", text: /Untitled finding/
   end
 
   test "a scan with no manifest key at all still renders" do

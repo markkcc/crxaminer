@@ -2,11 +2,13 @@
 <% lines = @report.finding_lines.fetch(finding.title, []) %>
 <li class="border dark:border-gray-700 rounded-lg p-3" data-finding>
   <div class="flex items-start gap-2">
-    <div class="<%= severity_classes(finding.severity) %> shrink-0 px-2 py-0.5 rounded font-semibold text-sm">
-      <%= finding.severity.upcase %>
-    </div>
+    <% if finding.severity.present? %>
+      <div class="<%= severity_classes(finding.severity) %> shrink-0 px-2 py-0.5 rounded font-semibold text-sm">
+        <%= finding.severity.upcase %>
+      </div>
+    <% end %>
     <div class="font-medium text-gray-700 dark:text-gray-200 text-sm min-w-0 break-words">
-      <%= finding.title %>
+      <%= finding.title.presence || "Untitled finding" %>
     </div>
   </div>
   <div class="text-gray-600 dark:text-gray-300 text-sm mt-1 break-words">
