@@ -80,9 +80,76 @@ class ExtensionAnalyzerTest < ActiveSupport::TestCase
 
       assert downloaded, "download attempted for #{store.status}"
       assert_not analyzer.error?
-      assert_equal store.name, analyzer.extension_name
-      assert_equal store.image, analyzer.extension_image
+      [[store.name, analyzer.extension_name], [store.image, analyzer.extension_image]].each do |expected, actual|
+        expected.nil? ? assert_nil(actual) : assert_equal(expected, actual)
+      end
       assert_equal store.details, analyzer.extension_details
     end
+  end
+
+  FakeCrxResponse = Struct.new(:code, :body, :location) do
+    def [](header) = header.to_s.downcase == "location" ? location : nil
+    def to_hash = {}
+  end
+
+  # Runs perform with the store result given and the update server answering
+  # with the responses given, in order.
+  def scan_with(store, *responses, id: SecureRandom.hex(16))
+    analyzer = ExtensionAnalyzer.new(id)
+    fake_client = Struct.new(:result) { def fetch_details = result }.new(store)
+    ChromeStoreClient.stub(:new, fake_client) do
+      analyzer.stub(:request_crx, ->(_uri) { responses.shift || raise("unexpected download request") }) { analyzer.perform }
+    end
+    analyzer
+  end
+
+  test "no download for a listing the store does not have says it is not in the store" do
+    analyzer = scan_with(store_result(:unavailable), FakeCrxResponse.new("204", ""))
+    assert_equal ExtensionAnalyzer::NOT_IN_STORE_MESSAGE, analyzer.error
+    assert_includes analyzer.error, "not available in the Chrome Web Store"
+
+    analyzer = scan_with(store_result(:unavailable), FakeCrxResponse.new("302", "", "https://clients2.googleusercontent.com/crx/x"),
+                         FakeCrxResponse.new("200", ""))
+    assert_equal ExtensionAnalyzer::NOT_IN_STORE_MESSAGE, analyzer.error
+  end
+
+  test "no download for a listed extension points at the Chrome version" do
+    analyzer = scan_with(store_result(:ok, name: "Listed"), FakeCrxResponse.new("204", ""))
+    assert_includes analyzer.error, "lists this extension but did not provide a download"
+    assert_includes analyzer.error, "newer Chrome version than CRXaminer reports (Chrome #{ChromeVersion.major})"
+  end
+
+  test "no download when the store page could not be read gives the combined reasons" do
+    analyzer = scan_with(store_result(:error), FakeCrxResponse.new("204", ""))
+    assert_includes analyzer.error, "did not provide a download"
+    assert_includes analyzer.error, "may have been removed"
+    assert_not_equal ExtensionAnalyzer::NOT_IN_STORE_MESSAGE, analyzer.error
+  end
+
+  test "an unlisted extension that downloads is scanned and named from its manifest" do
+    crx = zip_bytes({ "manifest.json" => JSON.generate({ manifest_version: 3, name: "__MSG_n__", version: "1.0",
+                                                         default_locale: "en" }),
+                      "_locales/en/messages.json" => JSON.generate({ "n" => { "message" => "Unlisted Tool" } }) })
+    analyzer = scan_with(store_result(:unavailable), FakeCrxResponse.new("302", "", "https://clients2.googleusercontent.com/crx/x"),
+                         FakeCrxResponse.new("200", crx))
+
+    assert_not analyzer.error?, analyzer.error
+    assert_equal "Unlisted Tool", analyzer.extension_name
+    assert_equal ChromeStoreClient.empty_details, analyzer.extension_details
+    assert analyzer.security_findings.any? { |f| f[:title].to_s.start_with?("Overall Risk") }
+  end
+
+  test "the store name is kept when there is one" do
+    crx = zip_bytes({ "manifest.json" => JSON.generate({ manifest_version: 3, name: "Manifest Name", version: "1.0" }) })
+    analyzer = scan_with(store_result(:ok, name: "Store Name"), FakeCrxResponse.new("200", crx))
+    assert_equal "Store Name", analyzer.extension_name
+  end
+
+  test "the manifest display name skips unresolved placeholders and blanks" do
+    assert_equal "Raw", ExtensionAnalyzer.manifest_display_name({ name: " Raw ", localized_name: nil })
+    assert_equal "Loc", ExtensionAnalyzer.manifest_display_name({ name: "__MSG_x__", localized_name: "Loc" })
+    assert_nil ExtensionAnalyzer.manifest_display_name({ name: "__MSG_x__", localized_name: nil })
+    assert_nil ExtensionAnalyzer.manifest_display_name({ name: "  " })
+    assert_nil ExtensionAnalyzer.manifest_display_name(nil)
   end
 end

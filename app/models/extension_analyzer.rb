@@ -19,6 +19,21 @@ class ExtensionAnalyzer
     @previous_findings = previous_findings
   end
 
+  NOT_IN_STORE_MESSAGE = "This extension is not available in the Chrome Web Store. " \
+                         "It may have been removed, or the extension ID may be wrong.".freeze
+
+  # The manifest's name for display: the resolved __MSG_ value, else the raw
+  # name unless it is an unresolved placeholder. Nil when there is none.
+  def self.manifest_display_name(manifest)
+    return nil unless manifest.respond_to?(:[])
+
+    name = manifest[:localized_name].presence || manifest[:name]
+    name = name.to_s.squish
+    return nil if name.empty? || name.match?(/\A__MSG_\w+__\z/)
+
+    name.truncate(200)
+  end
+
   # Resolves a "__MSG_key__" manifest value from
   # _locales/<default_locale>/messages.json (keys are case-insensitive).
   # Returns the value unchanged when it is not a placeholder, or nil when the
@@ -100,47 +115,36 @@ class ExtensionAnalyzer
         locals: { message: "Downloading extension..." }
       )
 
-      uri = URI(download_url)
-      http = Net::HTTP.new(uri.host, uri.port)
-      http.use_ssl = true
-      request = Net::HTTP::Get.new(uri.request_uri)
-      request['User-Agent'] = ChromeVersion.user_agent
-      request['Accept'] = '*/*'
-      
-      response = http.request(request)
-      
+      response = request_crx(URI(download_url))
+
       Rails.logger.debug "Download response code: #{response.code}"
       Rails.logger.debug "Download response headers: #{response.to_hash.inspect}"
       Rails.logger.debug "Download URL: #{download_url}"
-      
+
       if response.code == "204"
-        @error = "No content from Chrome Web Store."
+        @error = no_download_message
         return
       end
-      
+
       if response.code == "302" || response.code == "301"
-        redirect_url = response['location']
-        redirect_uri = URI(redirect_url)
-        http = Net::HTTP.new(redirect_uri.host, redirect_uri.port)
-        http.use_ssl = true
-        request = Net::HTTP::Get.new(redirect_uri.request_uri)
-        request['User-Agent'] = ChromeVersion.user_agent
-        request['Accept'] = '*/*'
-        response = http.request(request)
+        response = request_crx(URI(response['location']))
       end
 
       crx_data = response.body
       Rails.logger.debug "Downloaded bytes: #{crx_data&.bytesize || 0}"
 
       if crx_data.nil? || crx_data.empty?
-        @error = "Failed to download extension (empty response)"
+        @error = @store_listing&.unavailable? ? NOT_IN_STORE_MESSAGE : "Failed to download extension (empty response)"
         return
       end
 
       @manifest = extract_manifest(crx_data)
-      Rails.logger.debug "Download URL: #{download_url}"
 
       if @manifest
+        # The store gave no name (unlisted, or the page changed): use the
+        # manifest's so the page and the tweet are not blank.
+        @extension_name = self.class.manifest_display_name(@manifest) if @extension_name.blank?
+
         Turbo::StreamsChannel.broadcast_update_to(
           "analysis_#{@extension_id}",
           target: "analysis_status",
@@ -157,6 +161,28 @@ class ExtensionAnalyzer
     rescue StandardError => e
       Rails.logger.error "Error analyzing extension: #{e.message}"
       @error = "An error occurred while analyzing the extension."
+    end
+  end
+
+  def request_crx(uri)
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = true
+    request = Net::HTTP::Get.new(uri.request_uri)
+    request['User-Agent'] = ChromeVersion.user_agent
+    request['Accept'] = '*/*'
+    http.request(request)
+  end
+
+  # The update server answered 204: no package for this ID and Chrome version.
+  def no_download_message
+    if @store_listing&.unavailable?
+      NOT_IN_STORE_MESSAGE
+    elsif @store_listing&.ok?
+      "The Chrome Web Store lists this extension but did not provide a download. It may need a newer " \
+        "Chrome version than CRXaminer reports (Chrome #{ChromeVersion.major}), or it may not be downloadable."
+    else
+      "The Chrome Web Store did not provide a download for this extension. It may have been removed, " \
+        "may need a newer Chrome version than CRXaminer reports, or may not be downloadable."
     end
   end
 
