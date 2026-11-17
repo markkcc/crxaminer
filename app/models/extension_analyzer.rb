@@ -22,9 +22,9 @@ class ExtensionAnalyzer
   NOT_IN_STORE_MESSAGE = "This extension is not available in the Chrome Web Store. " \
                          "It may have been removed, or the extension ID may be wrong.".freeze
 
-  # How JSON files inside an extension package are parsed. Chrome accepts
-  # comments and repeated keys (the last one wins) in manifest.json; json 3
-  # rejects both unless asked, so ask.
+  # How JSON files inside an extension package are parsed. manifest.json may
+  # contain comments, which Chrome allows, and a key is sometimes repeated.
+  # json 2 read both (the last value won); json 3 only does when asked.
   PACKAGE_JSON_OPTIONS = { allow_comments: true, allow_duplicate_key: true }.freeze
 
   # The manifest's name for display: the resolved __MSG_ value, else the raw
