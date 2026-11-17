@@ -240,7 +240,8 @@
       const body = el('span', 'flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-1');
       body.append(el('span', 'font-mono text-sm text-gray-800 dark:text-gray-100 break-all', domain.name));
       const categoryLabel = labels.categories[domain.category] || 'Other';
-      body.append(el('span', chipClass, categoryLabel));
+      // Most rows are Other, so its chip is left out; the filter still offers it.
+      if (categoryLabel !== 'Other') body.append(el('span', chipClass, categoryLabel));
       // A flag that only repeats the category (link shortener, IP address) is left out.
       domain.flags.forEach(function (flag) {
         if (flag.toLowerCase() !== categoryLabel.toLowerCase()) body.append(el('span', flagClass, flag));
