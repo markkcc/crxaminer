@@ -83,7 +83,7 @@ class ScanControllerTest < ActionDispatch::IntegrationTest
     assert_select "[role=status]", count: 0
   end
 
-  NAV_LABELS = ["[ new scan ]", "[ statistics ]", "[ github ]", "[ twitter ]", "[ help ]"].freeze
+  NAV_LABELS = ["[ new scan ]", "[ statistics ]", "[ github ]", "[ help ]"].freeze
 
   def assert_shared_header(current: nil)
     assert_select "header nav[aria-label=Main]", count: 1 do
@@ -94,7 +94,11 @@ class ScanControllerTest < ActionDispatch::IntegrationTest
         assert_select "a[aria-current]", count: 0
       end
     end
-    assert_select "footer a[href='https://astarte.security/']", count: 1
+    assert_select "header a[href*='x.com'], header a[href*='twitter.com']", count: 0
+    assert_select "footer a", count: 2
+    assert_select "footer a[href='https://x.com/icesolst']", count: 1, text: "Solst/ICE"
+    assert_select "footer a[href='https://astarte.security/']", count: 1, text: /Astarte/
+    assert_equal "by Solst/ICE of ✦ Astarte", css_select("footer").first.text.squish
   end
 
   test "every page uses the shared header and footer, marking the current page" do

@@ -11,7 +11,6 @@
       
       <p class="text-gray-600 dark:text-gray-300 mb-8 text-center">
         Enter the ID of the Chrome extension you want to analyze.
-        <span class="text-sm text-gray-500 dark:text-gray-400 block mt-1">You can also paste its Chrome Web Store link.</span>
       </p>
 
       <%= form_tag scan_path(':id'), method: :get, class: "extension-form", data: { turbo: false } do %>

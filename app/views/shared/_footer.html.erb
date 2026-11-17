@@ -1,5 +1,8 @@
-<footer class="text-center mt-8 mb-4">
-  <%= link_to "https://astarte.security/", target: "_blank", rel: "noopener", class: "text-gray-600 dark:text-gray-400 hover:opacity-80" do %>
-    by <span aria-hidden="true" style="color: #ffbc00;">✦</span> <span class="text-brand-900 dark:text-brand-300">Astarte</span>
-  <% end %>
+<%# Site footer: who made it. Two separate links, so each name goes to its own page. %>
+<% link_class = "text-brand-900 dark:text-brand-300 hover:opacity-80 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" %>
+<footer class="text-center mt-8 mb-4 text-gray-600 dark:text-gray-400">
+  by
+  <%= link_to "Solst/ICE", "https://x.com/icesolst", target: "_blank", rel: "noopener", class: link_class %>
+  of
+  <%= link_to "https://astarte.security/", target: "_blank", rel: "noopener", class: link_class do %><span aria-hidden="true" style="color: #ffbc00;">✦</span> Astarte<% end %>
 </footer>
