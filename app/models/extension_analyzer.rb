@@ -19,19 +19,6 @@ class ExtensionAnalyzer
     @previous_findings = previous_findings
   end
 
-  # Best-effort store listing description from standard meta tags. Nil-safe.
-  def self.store_description_from(doc)
-    return nil unless doc
-
-    %w[meta[property="og:description"] meta[name="description"]].each do |selector|
-      content = doc.at_css(selector)&.[]("content").to_s.strip
-      return content if content.present?
-    end
-    nil
-  rescue StandardError
-    nil
-  end
-
   # Resolves a "__MSG_key__" manifest value from
   # _locales/<default_locale>/messages.json (keys are case-insensitive).
   # Returns the value unchanged when it is not a placeholder, or nil when the
@@ -76,7 +63,6 @@ class ExtensionAnalyzer
     return self if error?
 
     fetch_chrome_store_data
-    return self if error?
 
     download_and_analyze_extension
     self
@@ -94,93 +80,13 @@ class ExtensionAnalyzer
     end
   end
 
+  # Store listing data. Never stops the scan: an unlisted extension can still
+  # be downloadable, and the download step reports what went wrong.
   def fetch_chrome_store_data
-    @extension_details = {}
-
-    begin
-      # Extract and clean the extension ID
-      extension_id = @extension_id.to_s
-                                .split('/')
-                                .last
-                                .gsub(/[^a-z0-9]/, '') # Remove any non-alphanumeric characters
-
-      store_url = "https://chromewebstore.google.com/detail/#{extension_id}"
-
-      uri = URI.parse(store_url)
-      http = Net::HTTP.new(uri.host, uri.port)
-      http.use_ssl = true
-
-      request = Net::HTTP::Get.new(uri.path)
-      request['User-Agent'] = ChromeVersion.user_agent
-
-      response = http.request(request)
-
-      # Follow redirect if necessary
-      if response.code == "301" || response.code == "302"
-        redirect_location = response['location']
-
-        # Parse the URL into components
-        uri_parts = redirect_location.match(%r{(https?://[^/]+)(/.*$)})
-        if uri_parts
-          protocol_and_host = uri_parts[1]
-          path = uri_parts[2]
-
-          # Only encode the path portion
-          encoded_path = URI.encode_www_form_component(URI.decode_www_form_component(path))
-                           .gsub('%2F', '/') # Preserve forward slashes
-
-          redirect_location = protocol_and_host + encoded_path
-        end
-
-        redirect_uri = URI.parse(redirect_location)
-
-        http = Net::HTTP.new(redirect_uri.host, redirect_uri.port)
-        http.use_ssl = true
-        request = Net::HTTP::Get.new(redirect_uri.path)
-        request['User-Agent'] = ChromeVersion.user_agent
-        response = http.request(request)
-      end
-
-      # Ensure proper encoding when parsing HTML
-      doc = Nokogiri::HTML(response.body.force_encoding('UTF-8'))
-      raw_extension_name = doc.css('h1').first&.text&.strip.to_s
-
-      @extension_name = raw_extension_name
-                        .gsub('&mdash;', '—')
-                        .gsub('&ndash;', '-')
-                        .gsub('&reg;', '®')
-                        .gsub('&trade;', '™')
-                        .gsub('&copy;', '©')
-                        .gsub('&amp;', '&')
-
-
-      @extension_image = doc.css('.rBxtY').first&.attr('src')
-
-      # Find elements by their text content
-      size_element = doc.css('.nws2nb').find { |el| el.text.strip == "Size" }
-      updated_element = doc.css('.nws2nb').find { |el| el.text.strip == "Updated" }
-      users_element = doc.css('.gqpEIe.bgp7Ye').first&.next_sibling&.text&.strip&.split(' ')&.first
-
-      @extension_details = {
-        author: doc.css('.cJI8ee').first&.text&.strip.to_s
-                .gsub('&amp;', '&'),
-        rating: doc.css('.Vq0ZA').first&.text&.strip,
-        rating_count: doc.css('.xJEoWe').first&.text&.strip,
-        last_updated: updated_element&.next_element&.text&.strip,
-        size: size_element&.next_element&.text&.strip,
-        users: users_element,
-        developer_info: doc.css('.Fm8Cnb').first&.text&.strip.to_s
-                       .gsub('&amp;', '&'),
-        store_description: self.class.store_description_from(doc)
-      }
-
-    rescue Net::HTTPError => e
-      Rails.logger.error "HTTP Error fetching store data: #{e.message}"
-      @error = "Extension not found in Chrome Web Store."
-    rescue StandardError => e
-      Rails.logger.error "Error fetching store data: #{e.message}"
-      @error = "Error fetching extension information."
-    end
+    @store_listing = ChromeStoreClient.new(@extension_id).fetch_details
+    @extension_name = @store_listing.name
+    @extension_image = @store_listing.image
+    @extension_details = @store_listing.details
   end
 
   def download_and_analyze_extension

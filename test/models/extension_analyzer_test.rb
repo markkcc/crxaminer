@@ -57,9 +57,32 @@ class ExtensionAnalyzerTest < ActiveSupport::TestCase
     meta = Nokogiri::HTML('<html><head><meta name="description" content="From meta"></head></html>')
     none = Nokogiri::HTML("<html><head></head><body><h1>x</h1></body></html>")
 
-    assert_equal "From OG", ExtensionAnalyzer.store_description_from(og)
-    assert_equal "From meta", ExtensionAnalyzer.store_description_from(meta)
-    assert_nil ExtensionAnalyzer.store_description_from(none)
-    assert_nil ExtensionAnalyzer.store_description_from(nil)
+    assert_equal "From OG", ChromeStoreClient.store_description(og)
+    assert_equal "From meta", ChromeStoreClient.store_description(meta)
+    assert_nil ChromeStoreClient.store_description(none)
+    assert_nil ChromeStoreClient.store_description(nil)
+  end
+
+  def store_result(status, name: nil, details: ChromeStoreClient.empty_details)
+    ChromeStoreClient::Result.new(status: status, name: name, image: name && "https://lh3.googleusercontent.com/x=s60",
+                                  details: details, reason: nil)
+  end
+
+  test "store data comes from ChromeStoreClient, and a failed store fetch does not stop the scan" do
+    [store_result(:ok, name: "Listed", details: ChromeStoreClient.empty_details.merge(author: "Acme")),
+     store_result(:error), store_result(:unavailable)].each do |store|
+      analyzer = ExtensionAnalyzer.new("a" * 32)
+      downloaded = false
+      fake_client = Struct.new(:result) { def fetch_details = result }.new(store)
+      ChromeStoreClient.stub(:new, fake_client) do
+        analyzer.stub(:download_and_analyze_extension, -> { downloaded = true }) { analyzer.perform }
+      end
+
+      assert downloaded, "download attempted for #{store.status}"
+      assert_not analyzer.error?
+      assert_equal store.name, analyzer.extension_name
+      assert_equal store.image, analyzer.extension_image
+      assert_equal store.details, analyzer.extension_details
+    end
   end
 end
