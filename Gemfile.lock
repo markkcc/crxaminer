@@ -430,6 +430,7 @@ DEPENDENCIES
   oauth
   pg (~> 1.1)
   propshaft
+  public_suffix (~> 7.0)
   puma (>= 5.0)
   rails (~> 8.1.0)
   rouge
