@@ -126,24 +126,26 @@
     </div>
   </div>
 
+  <%# Panels are focusable (tabindex 0) and get focus when opened from a link with a hash;
+      they use the same focus ring as the other controls instead of the browser outline. %>
   <div id="tab-content">
-    <div id="overview" class="block" role="tabpanel" aria-labelledby="overview-tab" tabindex="0">
+    <div id="overview" class="block rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900" role="tabpanel" aria-labelledby="overview-tab" tabindex="0">
       <%= render "security_findings" %>
     </div>
 
-    <div id="permissions" class="hidden" role="tabpanel" aria-labelledby="permissions-tab" tabindex="0">
+    <div id="permissions" class="hidden rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900" role="tabpanel" aria-labelledby="permissions-tab" tabindex="0">
       <%= render "permissions" %>
     </div>
 
-    <div id="network" class="hidden" role="tabpanel" aria-labelledby="network-tab" tabindex="0">
+    <div id="network" class="hidden rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900" role="tabpanel" aria-labelledby="network-tab" tabindex="0">
       <%= render "network" %>
     </div>
 
-    <div id="manifest" class="hidden" role="tabpanel" aria-labelledby="manifest-tab" tabindex="0">
+    <div id="manifest" class="hidden rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900" role="tabpanel" aria-labelledby="manifest-tab" tabindex="0">
       <%= render "manifest" %>
     </div>
 
-    <div id="secure-annex" class="hidden" role="tabpanel" aria-labelledby="secure-annex-tab" tabindex="0">
+    <div id="secure-annex" class="hidden rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900" role="tabpanel" aria-labelledby="secure-annex-tab" tabindex="0">
       <%= render "secure_annex" %>
     </div>
   </div>

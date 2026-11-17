@@ -147,7 +147,12 @@ class ScanControllerTest < ActionDispatch::IntegrationTest
     assert_equal %w[true false false false false], tabs.map { |t| t["aria-selected"] }
     assert_equal %w[0 -1 -1 -1 -1], tabs.map { |t| t["tabindex"] }
     tabs.each do |tab|
-      assert_select "##{tab['aria-controls']}[role=tabpanel][aria-labelledby=#{tab['id']}]", count: 1
+      assert_select "##{tab['aria-controls']}[role=tabpanel][aria-labelledby=#{tab['id']}][tabindex='0']", count: 1
+    end
+    # Panels take focus when opened from a link with a hash: same ring as other controls, no browser outline.
+    css_select("[role=tabpanel]").each do |panel|
+      assert_includes panel["class"].split, "focus:outline-none"
+      assert_includes panel["class"].split, "focus-visible:ring-2"
     end
     # Counts on Permissions (one API permission) and Network (no URLs).
     assert_equal ["1", "0"], css_select("[data-tab-count]").map { |c| c.text.strip }
@@ -339,8 +344,10 @@ class ScanControllerTest < ActionDispatch::IntegrationTest
     assert_select "#permissions", text: %r{https://later\.test/\*}
 
     assert_select "#permissions-required-table thead th[scope=col]", count: 4
+    # Below sm the description and docs stack under the name, and their columns hide.
+    assert_select "#permissions-required-table thead th.hidden.sm\\:table-cell", count: 2
     rows = css_select("#permissions-required-table tbody tr")
-    assert_equal %w[tabs storage notifications activeTab action], rows.map { |r| r.at_css("th[scope=row]").text.strip }
+    assert_equal %w[tabs storage notifications activeTab action], rows.map { |r| r.at_css("th[scope=row] > span.font-mono").text.strip }
     tabs = rows.first
     assert_equal "High", tabs.at_css("td:nth-of-type(2) span").text.strip
     assert_equal ["https://developer.chrome.com/docs/extensions/reference/api/tabs"], tabs.css("a").map { |a| a["href"] }.uniq
@@ -350,7 +357,7 @@ class ScanControllerTest < ActionDispatch::IntegrationTest
     assert_includes action.text, "not flagged"
     assert_nil action.at_css("a")
 
-    assert_select "#permissions-optional-table tbody th", text: "bookmarks"
+    assert_select "#permissions-optional-table tbody th > span.font-mono", text: "bookmarks"
     assert_select "#csp-list li", text: "extension_pages: script-src 'self' 'wasm-unsafe-eval'"
     assert_select "[data-tab-count]", text: "6", count: 1
   end

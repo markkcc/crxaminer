@@ -4,7 +4,7 @@
     <% ai_analysis = @security_findings.find { |f| f[:severity] == "Info" && f[:title] == "AI Context Analysis" } %>
     <% overall_finding = @security_findings.find { |f| f[:title]&.downcase&.include?('overall risk') } %>
     <% ai_data = ai_analysis && ai_analysis[:ai].is_a?(Hash) ? ai_analysis[:ai] : nil %>
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 mb-6">
       <div class="flex items-center gap-4 mb-4 relative">
         <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200"><%= ai_analysis ? "Context-Aware Verdict" : "Rule-based rating" %></h2>
         <button type="button"
