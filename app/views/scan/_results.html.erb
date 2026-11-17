@@ -101,7 +101,8 @@
        ["secure-annex", "Secure Annex", nil]
      ] %>
   <div class="sticky top-0 z-30 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 py-2 mb-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-    <div class="-mx-1 overflow-x-auto">
+    <%# relative: keeps the sr-only count brackets inside this scroller, not the page. %>
+    <div class="relative -mx-1 overflow-x-auto">
       <div class="flex gap-2 p-1 w-max"
            role="tablist"
            aria-label="Scan results"

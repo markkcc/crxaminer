@@ -69,28 +69,32 @@
               <th scope="col" class="py-2 pr-3 font-medium">Permission</th>
               <th scope="col" class="py-2 pr-3 font-medium">What it allows</th>
               <th scope="col" class="py-2 pr-3 font-medium">Rule rating</th>
-              <th scope="col" class="py-2 font-medium">Docs</th>
+              <th scope="col" class="hidden sm:table-cell py-2 font-medium">Docs</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
             <% rows.each do |row| %>
               <tr class="align-top">
-                <th scope="row" class="py-2 pr-3 font-mono text-xs font-normal text-gray-800 dark:text-gray-100 break-all min-w-[7rem]"><%= row.name %></th>
+                <th scope="row" class="py-2 pr-3 font-mono text-xs font-normal text-gray-800 dark:text-gray-100 break-all min-w-[6rem]"><%= row.name %></th>
                 <td class="py-2 pr-3 text-gray-700 dark:text-gray-300">
                   <% if row.description %>
                     <%= row.description %>
                   <% else %>
                     <span class="italic <%= muted %>">No description in CRXaminer's list</span>
                   <% end %>
+                  <%# Phones have no room for a Docs column; the link sits here instead. %>
+                  <% if row.doc_url %>
+                    <span class="block sm:hidden mt-1"><%= link_to row.doc_url, target: "_blank", rel: "noopener noreferrer", class: link_class do %>Chrome docs<span class="sr-only"> for <%= row.name %> (opens in a new tab)</span><% end %></span>
+                  <% end %>
                 </td>
-                <td class="py-2 pr-3 whitespace-nowrap">
+                <td class="py-2 pr-3 sm:whitespace-nowrap">
                   <% if row.rating %>
                     <span class="<%= severity_classes(row.rating) %> inline-block px-2 py-0.5 rounded text-xs font-semibold"><%= row.rating %></span>
                   <% else %>
                     <span class="<%= muted %>">not flagged</span>
                   <% end %>
                 </td>
-                <td class="py-2 whitespace-nowrap">
+                <td class="hidden sm:table-cell py-2 whitespace-nowrap">
                   <% if row.doc_url %>
                     <%= link_to row.doc_url, target: "_blank", rel: "noopener noreferrer", class: link_class do %>Chrome<span class="sr-only"> documentation for <%= row.name %> (opens in a new tab)</span><% end %>
                   <% else %>

@@ -104,16 +104,19 @@
       tabs[next].scrollIntoView({ block: 'nearest', inline: 'nearest' });
     });
 
-    window.addEventListener('popstate', function () { selectTab(tabFromHash()); });
-    window.addEventListener('hashchange', function () { selectTab(tabFromHash()); });
-
     // Old links (#analysis, #details) open their new tab under the new address.
-    const initial = tabFromHash();
-    const hash = window.location.hash.slice(1);
-    if (hash && hash !== initial && Object.prototype.hasOwnProperty.call(aliases, hash)) {
-      history.replaceState(null, '', '#' + initial);
+    function selectFromHash() {
+      const target = tabFromHash();
+      const hash = window.location.hash.slice(1);
+      if (hash !== target && Object.prototype.hasOwnProperty.call(aliases, hash)) {
+        history.replaceState(null, '', '#' + target);
+      }
+      selectTab(target);
     }
-    selectTab(initial);
+
+    window.addEventListener('popstate', selectFromHash);
+    window.addEventListener('hashchange', selectFromHash);
+    selectFromHash();
 
     return { select: selectTab };
   })();
