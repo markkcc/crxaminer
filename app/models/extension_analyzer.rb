@@ -64,6 +64,13 @@ class ExtensionAnalyzer
     {}
   end
 
+  # The update server's CRX download URL, reporting ChromeVersion.prodversion.
+  def self.crx_download_url(extension_id)
+    "https://clients2.google.com/service/update2/crx?response=redirect&" \
+      "prodversion=#{ChromeVersion.prodversion}&acceptformat=crx2,crx3&" \
+      "x=id%3D#{extension_id}%26installsource%3Dondemand%26uc"
+  end
+
   def perform
     validate_extension_id
     return self if error?
@@ -104,7 +111,7 @@ class ExtensionAnalyzer
       http.use_ssl = true
 
       request = Net::HTTP::Get.new(uri.path)
-      request['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      request['User-Agent'] = ChromeVersion.user_agent
 
       response = http.request(request)
 
@@ -130,7 +137,7 @@ class ExtensionAnalyzer
         http = Net::HTTP.new(redirect_uri.host, redirect_uri.port)
         http.use_ssl = true
         request = Net::HTTP::Get.new(redirect_uri.path)
-        request['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        request['User-Agent'] = ChromeVersion.user_agent
         response = http.request(request)
       end
 
@@ -177,11 +184,7 @@ class ExtensionAnalyzer
   end
 
   def download_and_analyze_extension
-    download_url = "https://clients2.google.com/service/update2/crx?" +
-                  "response=redirect&" +
-                  "prodversion=130.0&" +
-                  "acceptformat=crx2,crx3&" +
-                  "x=id%3D#{@extension_id}%26installsource%3Dondemand%26uc"
+    download_url = self.class.crx_download_url(@extension_id)
 
     begin
       Turbo::StreamsChannel.broadcast_update_to(
@@ -195,7 +198,7 @@ class ExtensionAnalyzer
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = true
       request = Net::HTTP::Get.new(uri.request_uri)
-      request['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+      request['User-Agent'] = ChromeVersion.user_agent
       request['Accept'] = '*/*'
       
       response = http.request(request)
@@ -215,7 +218,7 @@ class ExtensionAnalyzer
         http = Net::HTTP.new(redirect_uri.host, redirect_uri.port)
         http.use_ssl = true
         request = Net::HTTP::Get.new(redirect_uri.request_uri)
-        request['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+        request['User-Agent'] = ChromeVersion.user_agent
         request['Accept'] = '*/*'
         response = http.request(request)
       end
