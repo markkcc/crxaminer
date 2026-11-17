@@ -15,19 +15,21 @@
   --color-brand-800: #4e3391;
   --color-brand-900: #3b2770;
 
-  /* Severity ramp, most to least severe, plus Info. Each pair is at least
-     4.5:1 and the chips are opaque, so the ratio holds in both themes. */
-  --color-severity-critical: #7f1d1d;
+  /* Severity colours, most to least severe, plus Info: the app's original
+     palette (Tailwind's violet-600, red-600, orange-500, yellow-500,
+     green-500 and blue-500, all with white text). White on the Low, Minimal
+     and Medium chips is below 4.5:1; change the matching -fg token to adjust. */
+  --color-severity-critical: var(--color-violet-600);
   --color-severity-critical-fg: #ffffff;
-  --color-severity-high: #dc2626;
+  --color-severity-high: var(--color-red-600);
   --color-severity-high-fg: #ffffff;
-  --color-severity-medium: #c2410c;
+  --color-severity-medium: var(--color-orange-500);
   --color-severity-medium-fg: #ffffff;
-  --color-severity-low: #fcd34d;
-  --color-severity-low-fg: #451a03;
-  --color-severity-minimal: #15803d;
+  --color-severity-low: var(--color-yellow-500);
+  --color-severity-low-fg: #ffffff;
+  --color-severity-minimal: var(--color-green-500);
   --color-severity-minimal-fg: #ffffff;
-  --color-severity-info: #1d4ed8;
+  --color-severity-info: var(--color-blue-500);
   --color-severity-info-fg: #ffffff;
 }
 
