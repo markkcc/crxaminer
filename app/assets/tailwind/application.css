@@ -90,3 +90,75 @@ main {
   overflow-y: scroll;
   -webkit-overflow-scrolling: touch;
 }
+
+/* Scan page manifest viewer. One rule set instead of utility classes on every
+   line keeps long manifests small; app/javascript/scan_page.js toggles
+   data-wrap and .manifest-target. The block is always dark (rouge.css). */
+#manifest-code .manifest-line,
+#manifest-code .manifest-fold {
+  display: flex;
+  min-width: max-content;
+  border-left: 4px solid transparent;
+}
+
+#manifest-code .manifest-line::before,
+#manifest-code .manifest-fold::before {
+  content: attr(data-line);
+  flex-shrink: 0;
+  width: 3rem;
+  padding-right: 0.75rem;
+  text-align: right;
+  color: var(--color-gray-400);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+#manifest-code .manifest-fold::before {
+  content: "";
+  margin-right: 1rem;
+}
+
+#manifest-code .manifest-mark {
+  flex-shrink: 0;
+  width: 1rem;
+  color: var(--color-brand-300);
+  user-select: none;
+}
+
+#manifest-code .manifest-text {
+  white-space: pre;
+  padding-right: 1rem;
+  padding-left: 1rem;
+}
+
+#manifest-code .manifest-flagged {
+  background-color: var(--color-brand-900);
+  border-left-color: var(--color-brand-300);
+}
+
+#manifest-code .manifest-flagged .manifest-text {
+  padding-left: 0;
+}
+
+#manifest-code[data-wrap="true"] .manifest-line,
+#manifest-code[data-wrap="true"] .manifest-fold {
+  min-width: 0;
+}
+
+#manifest-code[data-wrap="true"] .manifest-text {
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The line a finding jumped to: an outline as well as the flag colour. */
+#manifest-code .manifest-target {
+  outline: 2px solid var(--color-brand-300);
+  outline-offset: -2px;
+}
+
+/* Tab panels and jump targets clear the sticky tab bar. */
+[role="tabpanel"],
+#manifest-code .manifest-line {
+  scroll-margin-top: 5rem;
+}

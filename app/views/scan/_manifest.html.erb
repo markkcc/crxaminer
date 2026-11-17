@@ -1,12 +1,53 @@
-<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-  <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Raw Manifest</h3>
-  <% if @manifest && @manifest[:raw].present? %>
-    <div class="relative">
-        <div class="border dark:border-gray-700 rounded-lg p-0">
-            <pre class="highlight bg-gray-100 dark:bg-gray-900 p-4 rounded-lg overflow-x-auto text-sm text-gray-800 dark:text-gray-200"><%= raw(rouge_highlight(JSON.pretty_generate(@manifest[:raw]))) %></pre>
-        </div>
-    </div>
-  <% else %>
+<%# The raw manifest, pretty-printed by ScanPage::ManifestDocument. Tokens carry Rouge's
+    class names for colour and are escaped like any other text. Lines that produced
+    findings are marked; arrays longer than ManifestDocument::COLLAPSE_OVER start folded. %>
+<% doc = @report.manifest_document %>
+<% flagged = @report.flagged_lines %>
+<% button_class = "px-3 py-1 text-sm font-medium rounded border border-brand-600 text-brand-700 hover:bg-brand-50 dark:border-brand-300 dark:text-brand-200 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" %>
+<section class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6" aria-labelledby="manifest-heading">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+    <h2 id="manifest-heading" class="text-xl font-semibold text-gray-700 dark:text-gray-200">Manifest</h2>
+    <% unless doc.empty? %>
+      <div class="flex flex-wrap gap-2" role="group" aria-label="Manifest tools">
+        <button type="button" id="manifest-copy" class="<%= button_class %>">Copy</button>
+        <button type="button" id="manifest-download" class="<%= button_class %>">Download manifest.json</button>
+        <button type="button" id="manifest-wrap" class="<%= button_class %>" aria-pressed="false">Wrap lines</button>
+      </div>
+    <% end %>
+  </div>
+
+  <% if doc.empty? %>
     <p class="text-gray-600 dark:text-gray-300">No manifest data available.</p>
+  <% else %>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+      Pretty-printed from the stored manifest; key order may differ from the original file.
+      <% if flagged.any? %>
+        Lines marked <span aria-hidden="true" class="text-brand-600 dark:text-brand-300">●</span> produced findings.
+      <% end %>
+    </p>
+    <p class="sr-only" id="manifest-status" aria-live="polite"></p>
+    <div id="manifest-code" class="highlight rounded-lg py-3 overflow-x-auto font-mono text-xs leading-5" data-wrap="false">
+      <%# Line numbers come from data-line via CSS, so they are not copied with the text.
+          Per-line styles live in application.css to keep long manifests small. %>
+      <% groups_by_line = doc.groups.index_by(&:first) %>
+      <% doc.lines.each do |line| %>
+        <% titles = flagged[line.number] %>
+        <%= tag.div id: "manifest-line-#{line.number}",
+                    class: ["manifest-line", ("manifest-flagged" if titles.present?)],
+                    hidden: line.groups.any?,
+                    data: { line: line.number, groups: line.groups.presence&.join(" ") } do %><% if titles.present? %><span class="manifest-mark" aria-hidden="true">●</span><span class="sr-only">Line <%= line.number %>, flagged by: <%= titles.join("; ") %>.</span><% end %><code class="manifest-text"><% line.tokens.each do |css, text| %><% if css %><span class="<%= css %>"><%= text %></span><% else %><%= text %><% end %><% end %></code><% end %>
+        <% if (group = groups_by_line[line.number]) %>
+          <%= tag.div class: "manifest-fold", hidden: line.groups.any?, data: { groups: line.groups.presence&.join(" ") } do %>
+            <button type="button"
+                    class="my-0.5 px-2 rounded text-gray-200 bg-gray-700 hover:bg-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+                    data-group-toggle="<%= group.id %>"
+                    data-size="<%= group.size %>"
+                    aria-expanded="false">
+              Show <%= group.size %> hidden entries (lines <%= group.first + 1 %>–<%= group.last - 1 %>)
+            </button>
+          <% end %>
+        <% end %>
+      <% end %>
+    </div>
   <% end %>
-</div> 
+</section>

@@ -23,6 +23,8 @@ class ScanController < ApplicationController
         @extension_details = @scan_result.extension_details
         @security_findings = @scan_result.security_findings
         @last_scanned = @scan_result.updated_at
+        @report = ScanPage::Report.new(manifest: @manifest, security_findings: @security_findings,
+                                       cache_key: [@scan_result.id, @scan_result.updated_at.to_f])
         render partial: 'results'
       else
         render json: { error: "Analysis results not found" }, status: :not_found
@@ -36,6 +38,8 @@ class ScanController < ApplicationController
         @extension_details = @scan_result.extension_details
         @security_findings = @scan_result.security_findings
         @last_scanned = @scan_result.updated_at
+        @report = ScanPage::Report.new(manifest: @manifest, security_findings: @security_findings,
+                                       cache_key: [@scan_result.id, @scan_result.updated_at.to_f])
       end
       render :show
     end

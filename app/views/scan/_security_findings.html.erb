@@ -4,7 +4,7 @@
     <% ai_analysis = @security_findings.find { |f| f[:severity] == "Info" && f[:title] == "AI Context Analysis" } %>
     <% overall_finding = @security_findings.find { |f| f[:title]&.downcase&.include?('overall risk') } %>
     <% ai_data = ai_analysis && ai_analysis[:ai].is_a?(Hash) ? ai_analysis[:ai] : nil %>
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 mb-6">
       <div class="flex items-center gap-4 mb-4 relative">
         <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200"><%= ai_analysis ? "Context-Aware Verdict" : "Rule-based rating" %></h2>
         <button type="button"
@@ -108,100 +108,6 @@
       </div>
     </div>
 
-    <!-- Findings section -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-      <div class="flex items-center gap-4 mb-4 relative">
-        <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200">Findings</h2>
-        <button type="button"
-                class="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 text-xl leading-none rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
-                data-popover-target="security-info-popup"
-                aria-controls="security-info-popup"
-                aria-expanded="false"
-                aria-label="About the findings">
-          <span aria-hidden="true">ⓘ</span>
-        </button>
-        <div id="security-info-popup"
-             class="hidden absolute left-0 top-full mt-2 z-50 w-full max-w-md bg-white dark:bg-gray-700 border border-brand-200 dark:border-gray-600 shadow-lg p-4 rounded-lg text-brand-700 dark:text-brand-200 text-sm">
-          This section provides a detailed analysis of the extension's security posture, without broader context. Assumes worst-case impact.
-        </div>
-      </div>
-
-      <div class="space-y-3">
-        <% # Sort and display findings, excluding AI analysis and overall risk %>
-        <% other_findings = @security_findings
-             .reject { |f| f[:title]&.downcase&.include?('overall risk') || (f[:severity] == "Info" && f[:title] == "AI Context Analysis") }
-             .sort_by { |f| [ExtensionAnalyzerData::SEVERITY_ORDER.fetch(f[:severity]&.downcase, 999), f[:title]] } %>
-
-        <% if other_findings.empty? %>
-          <p class="text-sm text-gray-600 dark:text-gray-300" id="no-findings">
-            No rule-based findings were raised for this extension.
-          </p>
-        <% end %>
-
-        <% other_findings.each do |finding| %>
-          <div class="border dark:border-gray-700 rounded-lg p-3">
-            <div class="flex items-start gap-2">
-              <div class="<%= severity_classes(finding[:severity]) %> shrink-0 px-2 py-0.5 rounded font-semibold text-sm">
-                <%= finding[:severity]&.upcase %>
-              </div>
-              <div class="font-medium text-gray-700 dark:text-gray-200 text-sm">
-                <%= finding[:title] %>
-              </div>
-            </div>
-            <div class="text-gray-600 dark:text-gray-300 text-sm mt-1">
-              <%= finding[:description] %>
-            </div>
-          </div>
-        <% end %>
-      </div>
-    </div>
-  <% else %>
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-      <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">Findings</h2>
-      <p class="text-sm text-gray-600 dark:text-gray-300" id="no-findings">
-        No rule-based findings were raised for this extension.
-      </p>
-    </div>
   <% end %>
 
-<script>
-  // Info popovers: toggle on click, close on Escape or a click outside.
-  (function() {
-    const buttons = Array.from(document.querySelectorAll('[data-popover-target]'));
-
-    function setOpen(button, open) {
-      const popup = document.getElementById(button.dataset.popoverTarget);
-      if (!popup) return;
-      popup.classList.toggle('hidden', !open);
-      button.setAttribute('aria-expanded', open ? 'true' : 'false');
-    }
-
-    function closeAll(except) {
-      buttons.forEach(button => { if (button !== except) setOpen(button, false); });
-    }
-
-    buttons.forEach(button => {
-      button.addEventListener('click', function() {
-        const open = this.getAttribute('aria-expanded') !== 'true';
-        closeAll(this);
-        setOpen(this, open);
-      });
-    });
-
-    document.addEventListener('keydown', function(e) {
-      if (e.key !== 'Escape') return;
-      const openButton = buttons.find(button => button.getAttribute('aria-expanded') === 'true');
-      if (!openButton) return;
-      closeAll();
-      openButton.focus();
-    });
-
-    document.addEventListener('click', function(e) {
-      buttons.forEach(button => {
-        const popup = document.getElementById(button.dataset.popoverTarget);
-        if (button.contains(e.target) || (popup && popup.contains(e.target))) return;
-        setOpen(button, false);
-      });
-    });
-  })();
-</script>
+  <%= render "findings" %>

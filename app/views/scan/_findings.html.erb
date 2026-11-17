@@ -1,0 +1,77 @@
+<%# Rule findings grouped by area (ScanPage::FindingGroups). Routine permissions are
+    collapsed into one line per area; severities and texts are shown as stored. %>
+<% groups = @report.finding_groups %>
+<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 mb-6">
+  <div class="flex items-center gap-4 mb-4 relative">
+    <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200">Findings</h2>
+    <button type="button"
+            class="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 text-xl leading-none rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+            data-popover-target="security-info-popup"
+            aria-controls="security-info-popup"
+            aria-expanded="false"
+            aria-label="About the findings">
+      <span aria-hidden="true">ⓘ</span>
+    </button>
+    <div id="security-info-popup"
+         class="hidden absolute left-0 top-full mt-2 z-40 w-full max-w-md bg-white dark:bg-gray-700 border border-brand-200 dark:border-gray-600 shadow-lg p-4 rounded-lg text-brand-700 dark:text-brand-200 text-sm">
+      These are CRXaminer's rule-based checks of the manifest, without broader context. They assume worst-case impact.
+      Findings are grouped by area; routine permissions are folded into one line and keep their rating when opened.
+    </div>
+  </div>
+
+  <% if groups.findings.empty? %>
+    <p class="text-sm text-gray-600 dark:text-gray-300 mb-4" id="no-findings">
+      No rule-based findings were raised for this extension.
+    </p>
+  <% end %>
+
+  <div class="space-y-6">
+    <% groups.areas.each do |area| %>
+      <section aria-labelledby="area-<%= area.key %>" data-area="<%= area.key %>">
+        <h3 id="area-<%= area.key %>" class="text-base font-semibold text-gray-700 dark:text-gray-200 mb-2 flex items-baseline gap-2">
+          <%= area.name %>
+          <% if area.count.positive? %>
+            <span class="text-sm font-normal text-gray-500 dark:text-gray-400"><%= pluralize(area.count, "finding") %></span>
+          <% end %>
+        </h3>
+
+        <% if area.key == :network %>
+          <% network = @report.network %>
+          <p class="text-sm text-gray-600 dark:text-gray-300" data-network-summary>
+            <% if network.url_count.zero? %>
+              No URLs were found in the extension's files.
+            <% else %>
+              <%= pluralize(number_with_delimiter(network.url_count), "URL") %> across
+              <%= pluralize(number_with_delimiter(network.domain_count), "domain") %> appear in the extension's files.
+              <a href="#network" class="text-brand-600 hover:text-brand-700 dark:text-brand-300 dark:hover:text-brand-200 underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">See them on the Network tab</a>
+            <% end %>
+          </p>
+        <% elsif area.empty? %>
+          <p class="text-sm text-gray-500 dark:text-gray-400">Nothing found in this area.</p>
+        <% else %>
+          <% if area.findings.any? %>
+            <ul class="space-y-3">
+              <% area.findings.each do |finding| %>
+                <%= render "finding", finding: finding %>
+              <% end %>
+            </ul>
+          <% end %>
+
+          <% if area.routine.any? %>
+            <details class="group mt-3 border dark:border-gray-700 rounded-lg" data-routine>
+              <summary class="cursor-pointer list-none flex items-start gap-2 p-3 text-sm text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 [&::-webkit-details-marker]:hidden">
+                <span aria-hidden="true" class="shrink-0 transition-transform group-open:rotate-90">▸</span>
+                <span class="min-w-0 break-words"><%= area.routine_label %></span>
+              </summary>
+              <ul class="space-y-3 px-3 pb-3">
+                <% area.routine.each do |finding| %>
+                  <%= render "finding", finding: finding %>
+                <% end %>
+              </ul>
+            </details>
+          <% end %>
+        <% end %>
+      </section>
+    <% end %>
+  </div>
+</div>
