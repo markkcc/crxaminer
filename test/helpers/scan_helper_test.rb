@@ -25,9 +25,14 @@ class ScanHelperTest < ActionView::TestCase
     end
   end
 
-  test "Critical is not drawn in the brand violet" do
-    ExtensionAnalyzerData::SEVERITY_COLORS.each_value do |classes|
-      assert_no_match(/violet|purple|brand/, classes)
+  test "the tokens carry the original palette with white text" do
+    css = Rails.root.join("app/assets/tailwind/application.css").read
+    original = { "critical" => "violet-600", "high" => "red-600", "medium" => "orange-500",
+                 "low" => "yellow-500", "minimal" => "green-500", "info" => "blue-500" }
+
+    original.each do |level, colour|
+      assert_includes css, "--color-severity-#{level}: var(--color-#{colour});"
+      assert_includes css, "--color-severity-#{level}-fg: #ffffff;"
     end
   end
 
