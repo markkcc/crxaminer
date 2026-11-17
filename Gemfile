@@ -29,9 +29,10 @@ gem "tzinfo-data", platforms: %i[ windows jruby ]
 
 # Use the database-backed adapters for Rails.cache, Active Job, and Action Cable
 gem "solid_cache"
-# solid_queue 1.7 adds tables for job batches (new migration); this app has no
-# release phase to run migrations, so stay on 1.6.x until that is planned.
-gem "solid_queue", "< 1.7"
+# solid_queue 1.7 added tables for job batches. They are optional until 2.0
+# and this app does not use batches, so the migration has not been added;
+# 2.0 will need it (bin/rails solid_queue:update, then migrate).
+gem "solid_queue", "< 2"
 gem "solid_cable"
 
 # Reduces boot times through caching; required in config/boot.rb
@@ -66,17 +67,18 @@ group :test do
   # Use system testing [https://guides.rubyonrails.org/testing.html#system-testing]
   gem "capybara"
   gem "selenium-webdriver"
-  # minitest 6 drops minitest/mock, which the tests use; stay on 5.x for now.
-  gem "minitest", "< 6"
+  gem "minitest"
+  # minitest 6 moved minitest/mock, which the tests use, into this gem.
+  gem "minitest-mock"
 end
 
 gem 'rubyzip', require: 'zip'
 gem 'nokogiri'
-# json 3 rejects comments and duplicate keys by default, which would make
-# scans of some real extension manifests fail; stay on patched 2.x for now.
-gem "json", "< 3"
+# json 3 rejects comments and repeated keys unless asked; extension files are
+# parsed with ExtensionAnalyzer::PACKAGE_JSON_OPTIONS so those still scan.
+gem "json", "~> 3.1"
 
-gem "anthropic", "~> 2.8.0"
+gem "anthropic", "~> 2.10"
 gem 'dotenv-rails', groups: [:development, :test]
 
 # for the twitter client

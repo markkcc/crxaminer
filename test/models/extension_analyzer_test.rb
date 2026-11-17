@@ -52,6 +52,40 @@ class ExtensionAnalyzerTest < ActiveSupport::TestCase
     assert_nil result[:localized_description]
   end
 
+  test "a manifest with comments and a repeated key is still scanned, and the last value wins" do
+    manifest = <<~JSON
+      {
+        // build: release
+        "manifest_version": 3,
+        "name": "Commented",
+        "version": "1.0",
+        /* repeated by a build tool */
+        "version": "1.0.1",
+        "permissions": ["tabs"]
+      }
+    JSON
+    result = extract({ "manifest.json" => manifest })
+
+    assert_not_nil result, "the manifest must parse"
+    assert_equal "Commented", result[:name]
+    assert_equal "1.0.1", result[:version]
+    assert_equal ["tabs"], result[:permissions]
+  end
+
+  test "locale messages with comments and a repeated key still resolve the name" do
+    messages = <<~JSON
+      {
+        // translator note
+        "appName": { "message": "First" },
+        "appName": { "message": "Localized Name" }
+      }
+    JSON
+    result = extract({ "manifest.json" => JSON.generate({ manifest_version: 3, name: "__MSG_appName__", default_locale: "en" }),
+                       "_locales/en/messages.json" => messages })
+
+    assert_equal "Localized Name", result[:localized_name]
+  end
+
   test "store description comes from og:description, then meta description, and is nil-safe" do
     og = Nokogiri::HTML('<html><head><meta property="og:description" content=" From OG "><meta name="description" content="Meta"></head></html>')
     meta = Nokogiri::HTML('<html><head><meta name="description" content="From meta"></head></html>')
