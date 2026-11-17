@@ -19,17 +19,19 @@ class ExtensionAnalyzer
     @previous_findings = previous_findings
   end
 
-  # Best-effort store listing description from standard meta tags. Nil-safe.
-  def self.store_description_from(doc)
-    return nil unless doc
+  NOT_IN_STORE_MESSAGE = "This extension is not available in the Chrome Web Store. " \
+                         "It may have been removed, or the extension ID may be wrong.".freeze
 
-    %w[meta[property="og:description"] meta[name="description"]].each do |selector|
-      content = doc.at_css(selector)&.[]("content").to_s.strip
-      return content if content.present?
-    end
-    nil
-  rescue StandardError
-    nil
+  # The manifest's name for display: the resolved __MSG_ value, else the raw
+  # name unless it is an unresolved placeholder. Nil when there is none.
+  def self.manifest_display_name(manifest)
+    return nil unless manifest.respond_to?(:[])
+
+    name = manifest[:localized_name].presence || manifest[:name]
+    name = name.to_s.squish
+    return nil if name.empty? || name.match?(/\A__MSG_\w+__\z/)
+
+    name.truncate(200)
   end
 
   # Resolves a "__MSG_key__" manifest value from
@@ -64,12 +66,18 @@ class ExtensionAnalyzer
     {}
   end
 
+  # The update server's CRX download URL, reporting ChromeVersion.prodversion.
+  def self.crx_download_url(extension_id)
+    "https://clients2.google.com/service/update2/crx?response=redirect&" \
+      "prodversion=#{ChromeVersion.prodversion}&acceptformat=crx2,crx3&" \
+      "x=id%3D#{extension_id}%26installsource%3Dondemand%26uc"
+  end
+
   def perform
     validate_extension_id
     return self if error?
 
     fetch_chrome_store_data
-    return self if error?
 
     download_and_analyze_extension
     self
@@ -87,101 +95,17 @@ class ExtensionAnalyzer
     end
   end
 
+  # Store listing data. Never stops the scan: an unlisted extension can still
+  # be downloadable, and the download step reports what went wrong.
   def fetch_chrome_store_data
-    @extension_details = {}
-
-    begin
-      # Extract and clean the extension ID
-      extension_id = @extension_id.to_s
-                                .split('/')
-                                .last
-                                .gsub(/[^a-z0-9]/, '') # Remove any non-alphanumeric characters
-
-      store_url = "https://chromewebstore.google.com/detail/#{extension_id}"
-
-      uri = URI.parse(store_url)
-      http = Net::HTTP.new(uri.host, uri.port)
-      http.use_ssl = true
-
-      request = Net::HTTP::Get.new(uri.path)
-      request['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-
-      response = http.request(request)
-
-      # Follow redirect if necessary
-      if response.code == "301" || response.code == "302"
-        redirect_location = response['location']
-
-        # Parse the URL into components
-        uri_parts = redirect_location.match(%r{(https?://[^/]+)(/.*$)})
-        if uri_parts
-          protocol_and_host = uri_parts[1]
-          path = uri_parts[2]
-
-          # Only encode the path portion
-          encoded_path = URI.encode_www_form_component(URI.decode_www_form_component(path))
-                           .gsub('%2F', '/') # Preserve forward slashes
-
-          redirect_location = protocol_and_host + encoded_path
-        end
-
-        redirect_uri = URI.parse(redirect_location)
-
-        http = Net::HTTP.new(redirect_uri.host, redirect_uri.port)
-        http.use_ssl = true
-        request = Net::HTTP::Get.new(redirect_uri.path)
-        request['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        response = http.request(request)
-      end
-
-      # Ensure proper encoding when parsing HTML
-      doc = Nokogiri::HTML(response.body.force_encoding('UTF-8'))
-      raw_extension_name = doc.css('h1').first&.text&.strip.to_s
-
-      @extension_name = raw_extension_name
-                        .gsub('&mdash;', '—')
-                        .gsub('&ndash;', '-')
-                        .gsub('&reg;', '®')
-                        .gsub('&trade;', '™')
-                        .gsub('&copy;', '©')
-                        .gsub('&amp;', '&')
-
-
-      @extension_image = doc.css('.rBxtY').first&.attr('src')
-
-      # Find elements by their text content
-      size_element = doc.css('.nws2nb').find { |el| el.text.strip == "Size" }
-      updated_element = doc.css('.nws2nb').find { |el| el.text.strip == "Updated" }
-      users_element = doc.css('.gqpEIe.bgp7Ye').first&.next_sibling&.text&.strip&.split(' ')&.first
-
-      @extension_details = {
-        author: doc.css('.cJI8ee').first&.text&.strip.to_s
-                .gsub('&amp;', '&'),
-        rating: doc.css('.Vq0ZA').first&.text&.strip,
-        rating_count: doc.css('.xJEoWe').first&.text&.strip,
-        last_updated: updated_element&.next_element&.text&.strip,
-        size: size_element&.next_element&.text&.strip,
-        users: users_element,
-        developer_info: doc.css('.Fm8Cnb').first&.text&.strip.to_s
-                       .gsub('&amp;', '&'),
-        store_description: self.class.store_description_from(doc)
-      }
-
-    rescue Net::HTTPError => e
-      Rails.logger.error "HTTP Error fetching store data: #{e.message}"
-      @error = "Extension not found in Chrome Web Store."
-    rescue StandardError => e
-      Rails.logger.error "Error fetching store data: #{e.message}"
-      @error = "Error fetching extension information."
-    end
+    @store_listing = ChromeStoreClient.new(@extension_id).fetch_details
+    @extension_name = @store_listing.name
+    @extension_image = @store_listing.image
+    @extension_details = @store_listing.details
   end
 
   def download_and_analyze_extension
-    download_url = "https://clients2.google.com/service/update2/crx?" +
-                  "response=redirect&" +
-                  "prodversion=130.0&" +
-                  "acceptformat=crx2,crx3&" +
-                  "x=id%3D#{@extension_id}%26installsource%3Dondemand%26uc"
+    download_url = self.class.crx_download_url(@extension_id)
 
     begin
       Turbo::StreamsChannel.broadcast_update_to(
@@ -191,47 +115,36 @@ class ExtensionAnalyzer
         locals: { message: "Downloading extension..." }
       )
 
-      uri = URI(download_url)
-      http = Net::HTTP.new(uri.host, uri.port)
-      http.use_ssl = true
-      request = Net::HTTP::Get.new(uri.request_uri)
-      request['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
-      request['Accept'] = '*/*'
-      
-      response = http.request(request)
-      
+      response = request_crx(URI(download_url))
+
       Rails.logger.debug "Download response code: #{response.code}"
       Rails.logger.debug "Download response headers: #{response.to_hash.inspect}"
       Rails.logger.debug "Download URL: #{download_url}"
-      
+
       if response.code == "204"
-        @error = "No content from Chrome Web Store."
+        @error = no_download_message
         return
       end
-      
+
       if response.code == "302" || response.code == "301"
-        redirect_url = response['location']
-        redirect_uri = URI(redirect_url)
-        http = Net::HTTP.new(redirect_uri.host, redirect_uri.port)
-        http.use_ssl = true
-        request = Net::HTTP::Get.new(redirect_uri.request_uri)
-        request['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
-        request['Accept'] = '*/*'
-        response = http.request(request)
+        response = request_crx(URI(response['location']))
       end
 
       crx_data = response.body
       Rails.logger.debug "Downloaded bytes: #{crx_data&.bytesize || 0}"
 
       if crx_data.nil? || crx_data.empty?
-        @error = "Failed to download extension (empty response)"
+        @error = @store_listing&.unavailable? ? NOT_IN_STORE_MESSAGE : "Failed to download extension (empty response)"
         return
       end
 
       @manifest = extract_manifest(crx_data)
-      Rails.logger.debug "Download URL: #{download_url}"
 
       if @manifest
+        # The store gave no name (unlisted, or the page changed): use the
+        # manifest's so the page and the tweet are not blank.
+        @extension_name = self.class.manifest_display_name(@manifest) if @extension_name.blank?
+
         Turbo::StreamsChannel.broadcast_update_to(
           "analysis_#{@extension_id}",
           target: "analysis_status",
@@ -248,6 +161,28 @@ class ExtensionAnalyzer
     rescue StandardError => e
       Rails.logger.error "Error analyzing extension: #{e.message}"
       @error = "An error occurred while analyzing the extension."
+    end
+  end
+
+  def request_crx(uri)
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = true
+    request = Net::HTTP::Get.new(uri.request_uri)
+    request['User-Agent'] = ChromeVersion.user_agent
+    request['Accept'] = '*/*'
+    http.request(request)
+  end
+
+  # The update server answered 204: no package for this ID and Chrome version.
+  def no_download_message
+    if @store_listing&.unavailable?
+      NOT_IN_STORE_MESSAGE
+    elsif @store_listing&.ok?
+      "The Chrome Web Store lists this extension but did not provide a download. It may need a newer " \
+        "Chrome version than CRXaminer reports (Chrome #{ChromeVersion.major}), or it may not be downloadable."
+    else
+      "The Chrome Web Store did not provide a download for this extension. It may have been removed, " \
+        "may need a newer Chrome version than CRXaminer reports, or may not be downloadable."
     end
   end
 

@@ -87,6 +87,14 @@
         <% end %>
 
       </div>
+      <%# Store badges, recorded only when present (older scans have none). %>
+      <% store_badges = { featured: "Featured", established_publisher: "Established publisher" }
+                          .select { |key, _| @extension_details&.dig(key) == true }.values %>
+      <% if store_badges.any? %>
+        <p class="mt-3 text-xs text-gray-500 dark:text-gray-400" data-store-badges>
+          Chrome Web Store badges: <%= store_badges.join(" · ") %>
+        </p>
+      <% end %>
     </div>
   </div>
 

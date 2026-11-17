@@ -70,6 +70,34 @@ class AiContextAnalysisTest < ActiveSupport::TestCase
     assert_match(/never mention a missing field or count it as a concern/, AiContextAnalysis::SYSTEM_PROMPT)
   end
 
+  # --- store badges ---
+
+  test "store badges are sent only when at least one is present" do
+    payload = ->(extra) { AiContextAnalysis.build_payload(manifest: fresh_manifest, extension_details: details.merge(extra),
+                                                         extension_name: "Tab Helper", findings: []) }
+
+    assert_equal ["Featured", "Established publisher"], payload.call(featured: true, established_publisher: true)[:store_badges]
+    assert_equal ["Established publisher"], payload.call(established_publisher: true)[:store_badges]
+    assert_equal ["Featured"], payload.call({ "featured" => true })[:store_badges], "string keys from a stored scan"
+    assert_not payload.call({}).key?(:store_badges)
+    assert_not payload.call(featured: "true", established_publisher: false).key?(:store_badges), "only true counts"
+  end
+
+  test "an extension without badges keeps the same digest as before badges existed" do
+    with_none = AiContextAnalysis.build_payload(manifest: fresh_manifest, extension_details: details,
+                                                extension_name: "Tab Helper", findings: [])
+    with_false = AiContextAnalysis.build_payload(manifest: fresh_manifest, extension_details: details.merge(featured: false),
+                                                 extension_name: "Tab Helper", findings: [])
+    assert_equal AiContextAnalysis.digest_for(with_none), AiContextAnalysis.digest_for(with_false)
+  end
+
+  test "the system prompt explains store badges and the prompt version is bumped" do
+    assert_includes AiContextAnalysis::SYSTEM_PROMPT,
+                    "store_badges, when present, are badges the Chrome Web Store shows on the listing; " \
+                    "count them as trust factors, but they are not proof of safety."
+    assert_equal "2026-11-17.1", AiContextAnalysis::PROMPT_VERSION
+  end
+
   # --- payload (B3) ---
 
   test "payload reads description, background and web resources from a string-keyed raw manifest" do
