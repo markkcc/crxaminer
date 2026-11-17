@@ -1,6 +1,6 @@
 <% content_for :title, @extension_name.presence || "Scan of #{@extension_id}" %>
 <div class="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
-  <div class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow overflow-y-auto">
+  <div class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
     <%= render "shared/header" %>
 
     <!-- Analysis Status -->
@@ -152,73 +152,9 @@
   </div>
 </div>
 
-<% content_for :page_scripts do %>
-  <script>
-    // Embedded URL pager. The panels are server-rendered, so this runs once.
-    (function initializeUrlsPagination() {
-      const container = document.getElementById('embedded-urls-container');
-      const pager = document.getElementById('embedded-urls-pager');
-      if (!container || !pager) return;
-
-      const urls = JSON.parse(container.dataset.urls);
-      const list = document.getElementById('embedded-urls-list');
-      const currentPageEl = document.getElementById('current-page');
-      const totalPagesEl = document.getElementById('total-pages');
-      const prevButton = document.getElementById('prev-page');
-      const nextButton = document.getElementById('next-page');
-
-      // Same breakpoint as Tailwind's md (48rem).
-      const wide = window.matchMedia('(min-width: 48rem)');
-      let pageSize = 0;
-      let totalPages = 1;
-      let currentPage = 1;
-
-      function render() {
-        const startIdx = (currentPage - 1) * pageSize;
-        const pageUrls = urls.slice(startIdx, startIdx + pageSize);
-
-        // Rebuild the list; URLs stay plain text
-        list.replaceChildren(...pageUrls.map(url => {
-          const item = document.createElement('li');
-          item.className = list.dataset.itemClass;
-          item.textContent = url;
-          return item;
-        }));
-
-        currentPageEl.textContent = currentPage;
-        totalPagesEl.textContent = totalPages;
-        prevButton.disabled = currentPage === 1;
-        nextButton.disabled = currentPage === totalPages;
-        prevButton.classList.toggle('invisible', prevButton.disabled);
-        nextButton.classList.toggle('invisible', nextButton.disabled);
-        pager.classList.toggle('hidden', totalPages <= 1);
-        pager.classList.toggle('flex', totalPages > 1);
-      }
-
-      function applyPageSize() {
-        const firstShown = (currentPage - 1) * pageSize;
-        pageSize = Number(wide.matches ? container.dataset.pageSizeWide : container.dataset.pageSizeNarrow);
-        totalPages = Math.max(1, Math.ceil(urls.length / pageSize));
-        currentPage = Math.min(totalPages, Math.floor(firstShown / pageSize) + 1);
-        render();
-      }
-
-      prevButton.addEventListener('click', () => {
-        if (currentPage > 1) {
-          currentPage--;
-          render();
-        }
-      });
-
-      nextButton.addEventListener('click', () => {
-        if (currentPage < totalPages) {
-          currentPage++;
-          render();
-        }
-      });
-
-      wide.addEventListener('change', applyPageSize);
-      applyPageSize();
-    })();
-  </script>
+<% if @scan_result %>
+  <% content_for :page_scripts do %>
+    <%# Tabs, popovers, the Network list and the Manifest viewer. %>
+    <%= javascript_include_tag "scan_page" %>
+  <% end %>
 <% end %>

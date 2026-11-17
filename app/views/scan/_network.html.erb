@@ -1,0 +1,54 @@
+<%# Embedded URLs grouped by domain (ScanPage::NetworkDomains, via its cached Summary). The rows are built by
+    scan_page.js from data attributes, so each URL is in the HTML once and the DOM
+    only holds the rows and URLs being looked at. URLs are text, never links. %>
+<% network = @report.network %>
+<% field_class = "w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" %>
+<section class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 mb-6" aria-labelledby="network-heading">
+  <h2 id="network-heading" class="text-xl font-semibold text-gray-700 dark:text-gray-200">Network destinations</h2>
+
+  <% if network.url_count.zero? %>
+    <p class="mt-3 text-sm text-gray-600 dark:text-gray-300" id="network-empty">No URLs were found in the extension's files.</p>
+  <% else %>
+    <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
+      <%= pluralize(number_with_delimiter(network.url_count), "URL") %> across
+      <%= pluralize(number_with_delimiter(network.domain_count), "domain") %> appear in the extension's files.
+      A URL in the code is not proof that the extension contacts it.
+    </p>
+    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+      Grouped by registrable domain. Categories come from a short built-in list of well-known domains; everything else is Other.
+      Flags are plain facts about the URLs. URLs are shown as text and are never links.
+    </p>
+
+    <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <label for="network-search" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Search domains and URLs</label>
+        <input type="search" id="network-search" class="<%= field_class %>" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="e.g. analytics">
+      </div>
+      <div>
+        <label for="network-category" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Category</label>
+        <select id="network-category" class="<%= field_class %>">
+          <option value="">All categories (<%= number_with_delimiter(network.domain_count) %>)</option>
+          <% network.category_counts.each do |key, count| %>
+            <option value="<%= ScanPage::NetworkDomains::CATEGORIES.keys.index(key) %>"><%= ScanPage::NetworkDomains::CATEGORIES[key] %> (<%= number_with_delimiter(count) %>)</option>
+          <% end %>
+        </select>
+      </div>
+    </div>
+
+    <p class="mt-3 text-sm text-gray-600 dark:text-gray-300" id="network-status" aria-live="polite"></p>
+
+    <div class="mt-2 hidden sm:flex gap-3 px-2 pb-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700" aria-hidden="true">
+      <span class="flex-1">Domain · category · flags</span>
+      <span>URLs</span>
+    </div>
+    <%= tag.ul id: "network-domains", class: "divide-y divide-gray-200 dark:divide-gray-700",
+               aria: { label: "Domains" },
+               data: { labels: ScanPage::NetworkDomains.labels, domains: network.encoded, page_size: 50, url_page_size: 200 } %>
+    <div class="mt-3 flex justify-center">
+      <button type="button" id="network-more" class="hidden px-3 py-1 text-sm font-medium rounded border border-brand-600 text-brand-700 hover:bg-brand-50 dark:border-brand-300 dark:text-brand-200 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+        Show more domains
+      </button>
+    </div>
+    <noscript><p class="text-sm text-gray-600 dark:text-gray-300">The domain list needs JavaScript.</p></noscript>
+  <% end %>
+</section>

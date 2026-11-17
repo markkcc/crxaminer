@@ -135,20 +135,23 @@ class ScanControllerTest < ActionDispatch::IntegrationTest
     assert_select "input[name=id][autofocus][autocapitalize=off][autocorrect=off][spellcheck=false][aria-label]", count: 1
   end
 
-  test "result tabs are a tablist wired to their panels" do
+  test "result tabs are a sticky tablist wired to their panels, with counts and old-hash aliases" do
     create_scan("e" * 32)
     get scan_path("e" * 32), xhr: true
 
-    assert_select "[role=tablist][aria-label]", count: 1 do
-      assert_select "[role=tab]", count: 4
+    assert_select ".sticky [role=tablist][aria-label]", count: 1 do
+      assert_select "[role=tab]", count: 5
     end
     tabs = css_select("[role=tab]")
-    assert_equal %w[analysis details manifest secure-annex], tabs.map { |t| t["aria-controls"] }
-    assert_equal %w[true false false false], tabs.map { |t| t["aria-selected"] }
-    assert_equal %w[0 -1 -1 -1], tabs.map { |t| t["tabindex"] }
+    assert_equal %w[overview permissions network manifest secure-annex], tabs.map { |t| t["aria-controls"] }
+    assert_equal %w[true false false false false], tabs.map { |t| t["aria-selected"] }
+    assert_equal %w[0 -1 -1 -1 -1], tabs.map { |t| t["tabindex"] }
     tabs.each do |tab|
       assert_select "##{tab['aria-controls']}[role=tabpanel][aria-labelledby=#{tab['id']}]", count: 1
     end
+    # Counts on Permissions (one API permission) and Network (no URLs).
+    assert_equal ["1", "0"], css_select("[data-tab-count]").map { |c| c.text.strip }
+    assert_equal({ "analysis" => "overview", "details" => "permissions" }, JSON.parse(css_select("#scan-tabs").first["data-aliases"]))
   end
 
   test "info popovers have a name and report whether they are open" do
@@ -178,47 +181,51 @@ class ScanControllerTest < ActionDispatch::IntegrationTest
     get scan_path("g" * 32), xhr: true
 
     assert_select "#no-findings", count: 0
-    assert_select "#analysis div", text: "HIGH"
+    assert_select "#overview [data-area=other] [data-finding] div", text: "HIGH"
   end
 
-  test "embedded URLs render one per cell, as plain text, with no empty column" do
-    urls = (1..85).map { |i| "https://example#{i}.test/path?q=<b>#{i}</b>" }
+  test "embedded URLs are in the page once, escaped, as text and never as links" do
+    urls = (1..85).map { |i| "https://example#{i}.test/path?q=<b>#{i}</b>" } + ["http://a.test/\" onmouseover=\"x"]
     ScanResult.create!(extension_id: "h" * 32, extension_name: "H", manifest: MANIFEST.merge(embedded_urls: urls),
                        extension_details: {}, security_findings: [OVERALL])
     get scan_path("h" * 32), xhr: true
 
-    items = css_select("#embedded-urls-list > li")
-    assert_equal 80, items.size
-    assert_equal urls.first(80), items.map { |li| li.text.strip }
-    assert_select "#embedded-urls-list a", count: 0
-    assert_select "#embedded-urls-container td", count: 0
+    list = css_select("#network-domains").first
+    encoded = list["data-domains"]
+    urls.each { |url| assert_equal 1, encoded.scan(url).size, url }
+    assert_equal 1, response.body.scan("example1.test/path").size
     assert_includes response.body, "q=&lt;b&gt;1&lt;/b&gt;"
-    # Phones show 20 per page before the script runs; the rest are hidden below md.
-    assert_equal 20, items.count { |li| !li["class"].split.include?("hidden") }
-    assert(items.drop(20).all? { |li| li["class"].split.include?("md:list-item") })
-    assert_select "#embedded-urls-container[data-page-size-narrow='20'][data-page-size-wide='80']"
-    assert_select "#embedded-urls-pager.hidden #next-page[type=button]", count: 1
+    assert_not_includes response.body, "<b>1</b>"
+    assert_not_includes response.body, '" onmouseover="x'
+    # Rows are built by the script for the rows on screen, so none are in the HTML.
+    assert_empty list.children.select(&:element?)
+    assert_select "a[href*='example1.test']", count: 0
+    assert_select "[role=tab]#network-tab [data-tab-count]", text: "86"
   end
 
-  test "the pager is rendered whenever a phone page would overflow" do
-    urls = (1..30).map { |i| "https://u#{i}.test/" }
+  test "the Network tab has a labelled search, a category filter and the built-in list note" do
+    urls = %w[https://www.w3.org/1999/xhtml https://cdn.jsdelivr.net/x http://localhost:3000/ https://bit.ly/a]
     ScanResult.create!(extension_id: "k" * 32, extension_name: "K", manifest: MANIFEST.merge(embedded_urls: urls),
                        extension_details: {}, security_findings: [OVERALL])
     get scan_path("k" * 32), xhr: true
 
-    assert_equal 30, css_select("#embedded-urls-list > li").size
-    assert_select "#embedded-urls-pager", count: 1
-    assert_select "#total-pages", text: "1" # the script writes the real count
+    assert_select "label[for=network-search]", count: 1
+    assert_select "input#network-search[type=search]", count: 1
+    assert_select "label[for=network-category]", count: 1
+    options = css_select("#network-category option").map { |o| o.text.strip }
+    assert_equal ["All categories (4)", "Reference (1)", "CDN (1)", "Link shortener (1)", "Local (1)"], options
+    assert_includes response.body, "Categories come from a short built-in list"
+    assert_select "[data-network-summary]", text: /4 URLs across\s+4 domains/
+    assert_select "[data-network-summary] a[href='#network']", count: 1
   end
 
-  test "an odd number of embedded URLs leaves no blank cell" do
-    urls = %w[https://a.test https://b.test https://c.test]
-    ScanResult.create!(extension_id: "i" * 32, extension_name: "I", manifest: MANIFEST.merge(embedded_urls: urls),
-                       extension_details: {}, security_findings: [OVERALL])
+  test "a scan without URLs says so on both tabs" do
+    create_scan("i" * 32)
     get scan_path("i" * 32), xhr: true
 
-    assert_equal urls, css_select("#embedded-urls-list > li").map { |li| li.text.strip }
-    assert_select "#embedded-urls-pager", count: 0
+    assert_select "#network-empty", text: "No URLs were found in the extension's files."
+    assert_select "#network-domains", count: 0
+    assert_select "[data-network-summary]", text: /No URLs were found/
   end
 
   test "the scan page scripts do not log to the console" do
@@ -227,7 +234,8 @@ class ScanControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_not_includes response.body, "console.log"
-    assert_not_includes response.body, "setTimeout(initializeUrlsPagination"
+    assert_select "script[src*=scan_page]", count: 1
+    assert_not_includes Rails.root.join("app/javascript/scan_page.js").read, "console.log"
   end
 
   test "stats severity filters are toggle buttons and scan dates say UTC" do
@@ -242,11 +250,148 @@ class ScanControllerTest < ActionDispatch::IntegrationTest
   test "severity chips on the scan and stats pages use the shared palette" do
     create_scan("j" * 32)
     get scan_path("j" * 32), xhr: true
-    assert_select "#analysis .bg-severity-medium.text-severity-medium-fg", text: /MEDIUM/
+    assert_select "#overview .bg-severity-medium.text-severity-medium-fg", text: /MEDIUM/
 
     get stats_scan_index_path
     assert_select "#recent-scans-tbody span.inline-block.bg-severity-medium", text: "MEDIUM"
     assert_not_includes response.body, "bg-violet"
     assert_not_includes response.body, "bg-purple"
+  end
+  RICH_MANIFEST = {
+    manifest_version: 3, name: "R", version: "2.0",
+    permissions: %w[tabs storage notifications activeTab action],
+    optional_permissions: ["bookmarks"],
+    host_permissions: ["https://start.me/"],
+    content_security_policy: ["extension_pages: script-src 'self' 'wasm-unsafe-eval'"],
+    raw: { manifest_version: 3, name: "R", permissions: %w[tabs storage notifications activeTab action],
+           optional_permissions: ["bookmarks"], optional_host_permissions: ["https://later.test/*"],
+           host_permissions: ["https://start.me/"],
+           content_security_policy: { extension_pages: "script-src 'self' 'wasm-unsafe-eval'" },
+           web_accessible_resources: (1..30).map { |i| "file#{i}.js" } }
+  }.freeze
+
+  RICH_FINDINGS = [
+    OVERALL,
+    { severity: "High", title: "High-Risk Permission: tabs", description: "Tabs text." },
+    { severity: "Medium", title: "Medium-Risk Permission: storage", description: "Storage text." },
+    { severity: "Medium", title: "Medium-Risk Permission: notifications", description: "Notifications text." },
+    { severity: "Medium", title: "Medium-Risk Permission: activeTab", description: "ActiveTab text." },
+    { severity: "High", title: "Unsafe WebAssembly Execution", description: "Wasm text." }
+  ].freeze
+
+  def create_rich_scan(id)
+    ScanResult.create!(extension_id: id, extension_name: "Rich", manifest: RICH_MANIFEST,
+                       extension_details: {}, security_findings: RICH_FINDINGS)
+  end
+
+  test "the Overview groups findings by area and folds routine permissions" do
+    create_rich_scan("p" * 32)
+    get scan_path("p" * 32), xhr: true
+
+    areas = css_select("#overview section[data-area]").map { |a| a["data-area"] }
+    assert_equal %w[site_access browser code_policy network], areas
+    assert_select "#overview [data-area=site_access]", text: /Nothing found in this area\./
+    assert_select "#overview [data-area=browser] > ul [data-finding]", count: 1
+    assert_select "#overview [data-area=browser] details[data-routine] summary",
+                  text: /\A▸\s+3 routine permissions: activeTab · notifications · storage\z/
+    # Folded findings keep their stored severity and text.
+    assert_select "#overview details[data-routine] [data-finding]", count: 3
+    assert_select "#overview details[data-routine] .bg-severity-medium", text: "MEDIUM", count: 3
+    assert_select "#overview details[data-routine]", text: /Storage text\./
+  end
+
+  test "each finding offers a jump to the manifest lines that produced it" do
+    create_rich_scan("q" * 32)
+    get scan_path("q" * 32), xhr: true
+
+    tabs_button = css_select("[data-finding]").find { |f| f.text.include?("High-Risk Permission: tabs") }.at_css("button[data-manifest-lines]")
+    line = tabs_button["data-manifest-lines"]
+    assert_match(/\AShow line #{line} in the manifest\z/, tabs_button.text.squish)
+    assert_select "#manifest-line-#{line}.manifest-flagged code", text: '"tabs",'
+    assert_select "#manifest-line-#{line} .sr-only", text: /flagged by: High-Risk Permission: tabs/
+
+    wasm = css_select("[data-finding]").find { |f| f.text.include?("Unsafe WebAssembly") }.at_css("button[data-manifest-lines]")
+    assert_select "#manifest-line-#{wasm['data-manifest-lines']} code", text: /"extension_pages":/
+  end
+
+  test "the Manifest tab has tools, line numbers and folded long arrays" do
+    create_rich_scan("r" * 32)
+    get scan_path("r" * 32), xhr: true
+
+    assert_select "#manifest-copy[type=button]", text: "Copy"
+    assert_select "#manifest-download[type=button]", text: "Download manifest.json"
+    assert_select "#manifest-wrap[type=button][aria-pressed=false]", text: "Wrap lines"
+    lines = css_select("#manifest-code .manifest-line")
+    assert_equal JSON.pretty_generate(RICH_MANIFEST[:raw]).lines.size, lines.size
+    assert_equal (1..lines.size).map(&:to_s), lines.map { |l| l["data-line"] }
+    # The 30-entry array is folded behind one button; its brackets stay visible.
+    assert_select "#manifest-code [data-group-toggle][aria-expanded=false]", count: 1, text: /Show 30 hidden entries/
+    assert_equal 30, lines.count { |l| l["hidden"] }
+  end
+
+  test "the Permissions tab explains site access and tables the API permissions" do
+    create_rich_scan("s" * 32)
+    get scan_path("s" * 32), xhr: true
+
+    assert_select "#site-access-summary[data-kind=named]", text: "1 named site"
+    assert_select "#permissions ul[aria-label='Named sites'] li", text: "start.me"
+    assert_select "#permissions", text: /It can also use the current tab after you click the extension/
+    assert_select "#permissions", text: %r{https://later\.test/\*}
+
+    assert_select "#permissions-required-table thead th[scope=col]", count: 4
+    rows = css_select("#permissions-required-table tbody tr")
+    assert_equal %w[tabs storage notifications activeTab action], rows.map { |r| r.at_css("th[scope=row]").text.strip }
+    tabs = rows.first
+    assert_equal "High", tabs.at_css("td:nth-of-type(2) span").text.strip
+    assert_equal "https://developer.chrome.com/docs/extensions/reference/api/tabs", tabs.at_css("a")["href"]
+    assert_equal "noopener noreferrer", tabs.at_css("a")["rel"]
+    action = rows.last
+    assert_includes action.text, "No description in CRXaminer's list"
+    assert_includes action.text, "not flagged"
+    assert_nil action.at_css("a")
+
+    assert_select "#permissions-optional-table tbody th", text: "bookmarks"
+    assert_select "#csp-list li", text: "extension_pages: script-src 'self' 'wasm-unsafe-eval'"
+    assert_select "[data-tab-count]", text: "6", count: 1
+  end
+
+  test "junk stored data renders escaped with status 200" do
+    manifest = {
+      manifest_version: "<b>2</b>",
+      name: "<script>alert('name')</script>",
+      permissions: ["<script>alert('perm')</script>", 7, nil, { "x" => "<i>y</i>" }, ["nested"]],
+      optional_permissions: "not a list",
+      host_permissions: nil,
+      content_scripts: [nil, 5, { "matches" => "<all_urls>" }, { matches: [nil, "<script>m</script>"] }],
+      embedded_urls: ["<script>alert('url')</script>", "javascript:alert(1)", "https://exa mple.com/", "http://[::1",
+                      42, nil, "https://ok.test/?a=<img src=x onerror=alert(1)>"],
+      content_security_policy: "not a list",
+      raw: { "name" => "<script>alert('raw')</script>", "permissions" => ["<img src=x onerror=alert(1)>"], "deep" => [[[]]] }
+    }
+    ScanResult.create!(extension_id: "t" * 32, extension_name: "<script>alert('ext')</script>", manifest: manifest,
+                       extension_details: { size: nil }, security_findings: [
+                         { severity: "<b>High</b>", title: "High-Risk Permission: <script>alert('t')</script>", description: "<img src=x onerror=alert(1)>" },
+                         { severity: nil, title: nil, description: nil }
+                       ])
+
+    [true, false].each do |xhr|
+      get scan_path("t" * 32), xhr: xhr
+      assert_response :success
+      body = response.body
+      assert_not_includes body, "<script>alert("
+      assert_not_includes body, "<img src=x"
+      assert_not_includes body, "<i>y</i>"
+      assert_includes body, "&lt;script&gt;alert(&#39;perm&#39;)&lt;/script&gt;"
+      assert_includes body, "&lt;img src=x onerror=alert(1)&gt;"
+    end
+    assert_select "#permissions-required-table tbody tr", count: 4
+  end
+
+  test "a scan with no manifest key at all still renders" do
+    ScanResult.create!(extension_id: "u" * 32, extension_name: "U", manifest: { version: "1" }, extension_details: nil, security_findings: nil)
+    get scan_path("u" * 32)
+    assert_response :success
+    assert_select "#site-access-summary", text: "No website access"
+    assert_select "#manifest", text: /No manifest data available\./
   end
 end

@@ -1,0 +1,121 @@
+<%# Site access in plain words (ScanPage::SiteAccess), the API permissions table
+    (ScanPage::PermissionCatalog) and the Content Security Policy. %>
+<% site = @report.site_access %>
+<% catalog = @report.permissions %>
+<% link_class = "text-brand-600 hover:text-brand-700 dark:text-brand-300 dark:hover:text-brand-200 underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" %>
+<% muted = "text-gray-500 dark:text-gray-400" %>
+
+<section class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 mb-6" aria-labelledby="site-access-heading">
+  <h2 id="site-access-heading" class="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-3">Site access</h2>
+  <p class="text-lg font-medium text-gray-800 dark:text-gray-100" id="site-access-summary" data-kind="<%= site.kind %>">
+    <%= site.summary %>
+  </p>
+  <% if site.kind == :named %>
+    <ul class="mt-2 flex flex-wrap gap-2" aria-label="Named sites">
+      <% site.sites.each do |name| %>
+        <li class="px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 font-mono text-xs break-all"><%= name %></li>
+      <% end %>
+    </ul>
+  <% end %>
+  <% site.notes.each do |note| %>
+    <p class="mt-2 text-sm text-gray-600 dark:text-gray-300"><%= note %></p>
+  <% end %>
+  <p class="mt-2 text-xs <%= muted %>">Worked out from host permissions, content script matches<%= " and the match patterns listed in permissions" if site.manifest_v2? %>.</p>
+
+  <% if site.patterns.any? %>
+    <div class="mt-4 space-y-3">
+      <% site.patterns_by_source.each do |source, patterns| %>
+        <div>
+          <h3 class="text-sm font-medium text-gray-600 dark:text-gray-400"><%= ScanPage::SiteAccess::SOURCES[source] %></h3>
+          <ul class="mt-1 space-y-1">
+            <% patterns.each do |p| %>
+              <%# The rule engine rates entries of "permissions" only, so only those get a chip. %>
+              <% rating = ScanPage::PermissionCatalog.rating(p.pattern) if source == :permissions %>
+              <li class="font-mono text-xs text-gray-700 dark:text-gray-300 break-all"><%= p.pattern %><% if rating %> <span class="<%= severity_classes(rating) %> ml-1 px-1.5 py-0.5 rounded font-sans font-semibold">Rated <%= rating %></span><% end %></li>
+            <% end %>
+          </ul>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+
+  <% if site.optional_patterns.any? %>
+    <div class="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
+      <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200">Sites it can request later</h3>
+      <p class="text-xs <%= muted %> mt-1">Chrome asks you before granting these.</p>
+      <ul class="mt-2 space-y-1">
+        <% site.optional_patterns.each do |p| %>
+          <li class="font-mono text-xs text-gray-700 dark:text-gray-300 break-all"><%= p.pattern %></li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+</section>
+
+<% [[:required, "API permissions", "Requested at install", catalog.required],
+    [:optional, "API permissions it can request later", "Chrome asks you before granting these", catalog.optional]].each do |key, heading, intro, rows| %>
+  <% next if key == :optional && rows.empty? %>
+  <section class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 mb-6" aria-labelledby="permissions-<%= key %>-heading">
+    <h2 id="permissions-<%= key %>-heading" class="text-xl font-semibold text-gray-700 dark:text-gray-200"><%= heading %></h2>
+    <p class="text-sm <%= muted %> mt-1 mb-3"><%= intro %>. Ratings are CRXaminer's rule-based ones.</p>
+    <% if rows.empty? %>
+      <p class="text-sm text-gray-600 dark:text-gray-300">This extension requests no API permissions.</p>
+    <% else %>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left" id="permissions-<%= key %>-table">
+          <caption class="sr-only"><%= heading %></caption>
+          <thead class="text-xs uppercase tracking-wide <%= muted %> border-b border-gray-200 dark:border-gray-700">
+            <tr>
+              <th scope="col" class="py-2 pr-3 font-medium">Permission</th>
+              <th scope="col" class="py-2 pr-3 font-medium">What it allows</th>
+              <th scope="col" class="py-2 pr-3 font-medium">Rule rating</th>
+              <th scope="col" class="py-2 font-medium">Docs</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+            <% rows.each do |row| %>
+              <tr class="align-top">
+                <th scope="row" class="py-2 pr-3 font-mono text-xs font-normal text-gray-800 dark:text-gray-100 break-all min-w-[7rem]"><%= row.name %></th>
+                <td class="py-2 pr-3 text-gray-700 dark:text-gray-300">
+                  <% if row.description %>
+                    <%= row.description %>
+                  <% else %>
+                    <span class="italic <%= muted %>">No description in CRXaminer's list</span>
+                  <% end %>
+                </td>
+                <td class="py-2 pr-3 whitespace-nowrap">
+                  <% if row.rating %>
+                    <span class="<%= severity_classes(row.rating) %> inline-block px-2 py-0.5 rounded text-xs font-semibold"><%= row.rating %></span>
+                  <% else %>
+                    <span class="<%= muted %>">not flagged</span>
+                  <% end %>
+                </td>
+                <td class="py-2 whitespace-nowrap">
+                  <% if row.doc_url %>
+                    <%= link_to row.doc_url, target: "_blank", rel: "noopener noreferrer", class: link_class do %>Chrome<span class="sr-only"> documentation for <%= row.name %> (opens in a new tab)</span><% end %>
+                  <% else %>
+                    <span class="<%= muted %>" aria-hidden="true">—</span><span class="sr-only">No documentation link</span>
+                  <% end %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+  </section>
+<% end %>
+
+<section class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 mb-6" aria-labelledby="csp-heading">
+  <h2 id="csp-heading" class="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-3">Content Security Policy</h2>
+  <% policies = @report.content_security_policy %>
+  <% if policies.any? %>
+    <ul class="space-y-2" id="csp-list">
+      <% policies.each do |policy| %>
+        <li class="font-mono text-xs text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-900 rounded p-2 break-all"><%= policy %></li>
+      <% end %>
+    </ul>
+  <% else %>
+    <p class="text-sm text-gray-600 dark:text-gray-300">The manifest does not set one, so Chrome's default policy applies.</p>
+  <% end %>
+</section>
