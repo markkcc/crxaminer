@@ -386,7 +386,9 @@ class ChromeStoreClient
       Result.new(status: :ok, name: parsed[:name], image: parsed[:image], details: parsed[:details],
                  reason: parsed[:lang].to_s.start_with?("en") || parsed[:lang].nil? ? nil : "page language #{parsed[:lang]}")
     else
-      Result.new(status: :error, name: nil, image: parsed[:image], details: parsed[:details],
+      # Keep nothing from a page that is not a listing (a maintenance page's
+      # meta description is not the extension's).
+      Result.new(status: :error, name: nil, image: nil, details: self.class.empty_details,
                  reason: "listing page not recognised")
     end
   end

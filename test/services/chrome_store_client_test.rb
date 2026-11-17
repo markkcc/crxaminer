@@ -272,9 +272,13 @@ class ChromeStoreClientTest < ActiveSupport::TestCase
   end
 
   test "a page that is not a listing is an error, not a listing with blank fields" do
-    result = client(FakeTransport.new(response(200, body: "<html><body>maintenance</body></html>"))).fetch_details
+    page = '<html><head><meta property="og:description" content="Back soon"><meta property="og:image" ' \
+           'content="https://example.com/x.png"></head><body>maintenance</body></html>'
+    result = client(FakeTransport.new(response(200, body: page))).fetch_details
     assert result.error?
     assert_equal "listing page not recognised", result.reason
+    assert_equal ChromeStoreClient.empty_details, result.details
+    assert_nil result.image
   end
 
   test "each scrape logs one line naming the fields found and missing" do
