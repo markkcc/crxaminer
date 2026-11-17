@@ -2,9 +2,11 @@ module ScanPage
   # Everything the scan results page shows, built once per request from the
   # stored manifest and findings. Each part is computed on first use.
   class Report
-    # Grouping tens of thousands of URLs by domain takes a few hundred
-    # milliseconds, so summaries for long lists are cached per stored scan.
-    NETWORK_CACHE_OVER = 1_000
+    # Grouping by domain takes a few milliseconds for ordinary scans (about
+    # 3 ms for 1,100 URLs, 30 ms for 4,300) but a few hundred for the rare
+    # ones with tens of thousands of URLs. Only those are cached per stored
+    # scan: caching smaller ones saves little and fills the file cache.
+    NETWORK_CACHE_OVER = 5_000
 
     # cache_key identifies the stored scan (for example its id and update
     # time); without it nothing is cached.

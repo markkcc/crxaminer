@@ -13,7 +13,7 @@ class ScanPage::ReportTest < ActiveSupport::TestCase
     (1..count).map { |i| "https://host#{i}.test/" }
   end
 
-  test "long URL lists are cached per scan; short ones and keyless reports are not" do
+  test "only very long URL lists are cached per scan; others and keyless reports are not" do
     with_memory_cache do |cache|
       over = ScanPage::Report::NETWORK_CACHE_OVER + 1
       ScanPage::Report.new(manifest: { embedded_urls: urls(over) }, security_findings: [], cache_key: [1, 2.0]).network
@@ -24,7 +24,9 @@ class ScanPage::ReportTest < ActiveSupport::TestCase
       cache.write(key, ScanPage::NetworkDomains::Summary.new(url_count: 7, domain_count: 7, category_counts: {}, encoded: ""))
       assert_equal 7, ScanPage::Report.new(manifest: { embedded_urls: urls(over) }, security_findings: [], cache_key: [1, 2.0]).network.url_count
 
-      ScanPage::Report.new(manifest: { embedded_urls: urls(5) }, security_findings: [], cache_key: [3, 4.0]).network
+      # Ordinary scans (uBlock has 4,297 URLs) are fast enough uncached.
+      assert_equal 5_000, ScanPage::Report::NETWORK_CACHE_OVER
+      ScanPage::Report.new(manifest: { embedded_urls: urls(ScanPage::Report::NETWORK_CACHE_OVER) }, security_findings: [], cache_key: [3, 4.0]).network
       ScanPage::Report.new(manifest: { embedded_urls: urls(over) }, security_findings: []).network
       assert_nil cache.read(["scan-page-network", ScanPage::NetworkDomains::VERSION, 3, 4.0])
     end
