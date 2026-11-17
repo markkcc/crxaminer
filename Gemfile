@@ -82,9 +82,6 @@ gem 'dotenv-rails', groups: [:development, :test]
 # for the twitter client
 gem 'oauth'
 
-# server-side syntax highlighting
-gem 'rouge'
-
 # Registrable-domain lookup for grouping embedded URLs on the scan page.
 # Already locked through capybara/addressable in test; declared here so it is
 # installed in production too.
