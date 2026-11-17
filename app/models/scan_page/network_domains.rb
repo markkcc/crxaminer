@@ -80,7 +80,8 @@ module ScanPage
     LOCAL_FILES_RESULT = [LOCAL_FILES, :local, 0].freeze
 
     def initialize(urls)
-      @urls = ScanPage.list(urls)
+      # nil and blank entries are not URLs; they are neither shown nor counted.
+      @urls = ScanPage.list(urls).reject(&:blank?)
       @hosts = {}
     end
 

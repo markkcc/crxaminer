@@ -49,14 +49,17 @@ class ScanPage::NetworkDomainsTest < ActiveSupport::TestCase
 
   test "junk and unparseable strings share one bucket and never raise" do
     junk = ["<script>alert(1)</script>", "https://", "http://exa mple.com", "https://a:b@", "https://host:notaport/",
-            "http://999.1.1.1/", 42, nil, { "a" => 1 }, "https://[::1", "javascript:alert(1)", "https://..../"]
-    result = ScanPage::NetworkDomains.new(junk)
+            "http://999.1.1.1/", 42, { "a" => 1 }, "https://[::1", "javascript:alert(1)", "https://..../"]
+    result = ScanPage::NetworkDomains.new(junk + [nil, "", "   "])
     unparsed = result.domains.find { |d| d.name == ScanPage::NetworkDomains::UNPARSED }
 
+    # nil and blank entries are skipped; everything else is kept.
+    assert_equal junk.size, result.url_count
     assert_equal junk.size, result.domains.sum { |d| d.urls.size }
     assert unparsed.urls.size >= 9
     assert_includes unparsed.urls, "42"
-    assert_includes unparsed.urls, "null"
+    assert_not_includes unparsed.urls, "null"
+    assert_not_includes unparsed.urls, ""
     assert_equal 0, ScanPage::NetworkDomains.new(nil).url_count
     assert_equal 0, ScanPage::NetworkDomains.new("not a list").domain_count
   end
