@@ -336,32 +336,55 @@
   })();
 
   // ---- Manifest viewer --------------------------------------------------------
+  // Markup: app/views/scan/_manifest.html.erb; looks: application.css. Lines
+  // are .ml rows numbered by data-line from 1, in order. A line with notes is
+  // followed by a .mn row (data-for = its line). Rows inside a long array
+  // carry data-groups, and the array's button carries data-group-toggle.
+  // Everything here only flips attributes and classes; nothing is measured.
 
   const manifestApi = (function initManifest() {
     const code = document.getElementById('manifest-code');
     if (!code) return null;
 
     const status = document.getElementById('manifest-status');
-    const lines = Array.from(code.querySelectorAll('.manifest-line'));
+    const lines = Array.from(code.querySelectorAll('.ml'));
     const grouped = Array.from(code.querySelectorAll('[data-groups]'));
-    const collapsed = new Set(Array.from(code.querySelectorAll('[data-group-toggle]')).map(function (b) {
-      return b.dataset.groupToggle;
-    }));
+    const toggles = Array.from(code.querySelectorAll('[data-group-toggle]'));
+    const collapsed = new Set(toggles
+      .filter(function (b) { return b.getAttribute('aria-expanded') === 'false'; })
+      .map(function (b) { return b.dataset.groupToggle; }));
+    const noted = Array.from(code.querySelectorAll('.mn')).map(function (n) { return Number(n.dataset.for); });
+    const prev = document.getElementById('manifest-prev');
+    const next = document.getElementById('manifest-next');
+    const position = document.getElementById('manifest-position');
+    const notesToggle = document.getElementById('manifest-notes-toggle');
+    let current = -1;
+    let marked = [];
 
+    function lineAt(n) {
+      const line = lines[n - 1];
+      return line && Number(line.dataset.line) === n ? line : null;
+    }
+
+    // The file as stored: line text only, without numbers or notes.
     function manifestText() {
-      return lines.map(function (line) { return line.querySelector('.manifest-text').textContent; }).join('\n') + '\n';
+      return lines.map(function (line) { return line.textContent; }).join('\n') + '\n';
     }
 
     function refreshFolds() {
       grouped.forEach(function (node) {
-        node.hidden = node.dataset.groups.split(' ').some(function (id) { return collapsed.has(id); });
+        const hide = node.dataset.groups.split(' ').some(function (id) { return collapsed.has(id); });
+        if (node.hidden !== hide) node.hidden = hide;
       });
-      code.querySelectorAll('[data-group-toggle]').forEach(function (button) {
+      toggles.forEach(function (button) {
         const open = !collapsed.has(button.dataset.groupToggle);
-        if (!button.dataset.closedLabel) button.dataset.closedLabel = button.textContent.trim();
         button.setAttribute('aria-expanded', open ? 'true' : 'false');
-        button.textContent = open ? 'Hide these ' + button.dataset.size + ' entries' : button.dataset.closedLabel;
+        button.textContent = open ? button.dataset.openLabel : button.dataset.closedLabel;
       });
+    }
+
+    function unfoldAround(line) {
+      (line.dataset.groups || '').split(' ').forEach(function (id) { if (id) collapsed.delete(id); });
     }
 
     code.addEventListener('click', function (e) {
@@ -399,21 +422,85 @@
       wrap.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
 
-    // Opens the lines, unfolding any collapsed array around them, and moves
-    // focus to the first so keyboard and screen reader users land there.
-    function show(numbers) {
-      const targets = numbers.map(function (n) { return document.getElementById('manifest-line-' + n); }).filter(Boolean);
-      if (targets.length === 0) return;
-      targets.forEach(function (line) {
-        (line.dataset.groups || '').split(' ').forEach(function (id) { if (id) collapsed.delete(id); });
-      });
+    function setNotes(on) {
+      code.dataset.notes = on ? 'on' : 'off';
+      if (notesToggle) notesToggle.setAttribute('aria-pressed', on ? 'true' : 'false');
+      if (prev) prev.disabled = !on;
+      if (next) next.disabled = !on;
+      if (!on) {
+        mark([]);
+        current = -1;
+        if (position) position.textContent = '';
+      }
+      status.textContent = on ? 'Notes shown.' : 'Notes hidden.';
+    }
+
+    function mark(nodes) {
+      marked.forEach(function (node) { node.classList.remove('is-target'); });
+      marked = nodes;
+      marked.forEach(function (node) { node.classList.add('is-target'); });
+    }
+
+    function updatePosition(lineNumber) {
+      current = noted.indexOf(lineNumber);
+      if (position) position.textContent = current < 0 ? '' : (current + 1) + ' of ' + noted.length;
+      status.textContent = 'Line ' + lineNumber + (current < 0 ? '.' : ', note ' + (current + 1) + ' of ' + noted.length + '.');
+    }
+
+    // The notes bar sticks under the page's tab bar, and a line scrolled to
+    // must clear both. Their heights are read once here and once per jump,
+    // after all the changes above, so each jump costs a single layout.
+    const viewer = code.closest('.manifest-viewer');
+    const tabBar = document.getElementById('scan-tabs');
+    const stickyTabs = tabBar && tabBar.closest('.sticky');
+    const summary = document.getElementById('manifest-summary');
+
+    function measureStickyBars() {
+      if (!viewer) return;
+      const top = stickyTabs ? stickyTabs.offsetHeight : null;
+      const bar = summary && summary.hasAttribute('data-sticky') ? summary.offsetHeight : 0;
+      if (top !== null) viewer.style.setProperty('--mv-sticky-top', top + 'px');
+      viewer.style.setProperty('--mv-summary-h', bar + 'px');
+    }
+    measureStickyBars();
+
+    // Unfolds, marks and scrolls to the line, then moves focus there so
+    // keyboard and screen reader users land on it (its note describes it).
+    function open(line, extra) {
+      if (code.dataset.notes === 'off') setNotes(true);
+      unfoldAround(line);
       refreshFolds();
-      lines.forEach(function (line) { line.classList.remove('manifest-target'); });
-      targets.forEach(function (line) { line.classList.add('manifest-target'); });
-      const first = targets[0];
-      first.setAttribute('tabindex', '-1');
-      first.scrollIntoView({ block: 'center' });
-      first.focus({ preventScroll: true });
+      mark([line].concat(extra || []));
+      updatePosition(Number(line.dataset.line));
+      line.setAttribute('tabindex', '-1');
+      measureStickyBars();
+      line.scrollIntoView({ block: 'start', inline: 'start' });
+      line.focus({ preventScroll: true });
+    }
+
+    function step(by) {
+      if (noted.length === 0) return;
+      const index = current < 0 ? (by > 0 ? 0 : noted.length - 1) : (current + by + noted.length) % noted.length;
+      const line = lineAt(noted[index]);
+      if (line) open(line);
+    }
+
+    if (prev) prev.addEventListener('click', function () { step(-1); });
+    if (next) next.addEventListener('click', function () { step(1); });
+    if (notesToggle) {
+      notesToggle.addEventListener('click', function () { setNotes(code.dataset.notes === 'off'); });
+    }
+
+    // Opens the lines of one finding; ref (data-manifest-finding) picks out
+    // that finding's entry in the notes.
+    function show(numbers, ref) {
+      const targets = numbers.map(lineAt).filter(Boolean);
+      if (targets.length === 0) return;
+      targets.forEach(unfoldAround);
+      const items = /^\d+$/.test(ref || '')
+        ? Array.from(code.querySelectorAll('.mn-item[data-note-for="' + ref + '"]'))
+        : [];
+      open(targets[0], targets.slice(1).concat(items));
     }
 
     return { show: show };
@@ -423,7 +510,7 @@
     button.addEventListener('click', function () {
       if (!tabsApi || !manifestApi) return;
       tabsApi.select('manifest', { updateHash: true });
-      manifestApi.show(this.dataset.manifestLines.split(' ').map(Number));
+      manifestApi.show(this.dataset.manifestLines.split(' ').map(Number), this.dataset.manifestFinding);
     });
   });
 })();

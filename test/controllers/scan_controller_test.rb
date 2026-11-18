@@ -316,11 +316,11 @@ class ScanControllerTest < ActionDispatch::IntegrationTest
     tabs_button = css_select("[data-finding]").find { |f| f.text.include?("High-Risk Permission: tabs") }.at_css("button[data-manifest-lines]")
     line = tabs_button["data-manifest-lines"]
     assert_match(/\AShow line #{line} in the manifest\z/, tabs_button.text.squish)
-    assert_select "#manifest-line-#{line}.manifest-flagged code", text: '"tabs",'
-    assert_select "#manifest-line-#{line} .sr-only", text: /flagged by: High-Risk Permission: tabs/
+    assert_select "#manifest-code .ml[data-line='#{line}'][data-sev=high] code", text: '"tabs",'
+    assert_select "#manifest-note-#{line} .mn-title", text: "High-Risk Permission: tabs"
 
     wasm = css_select("[data-finding]").find { |f| f.text.include?("Unsafe WebAssembly") }.at_css("button[data-manifest-lines]")
-    assert_select "#manifest-line-#{wasm['data-manifest-lines']} code", text: /"extension_pages":/
+    assert_select "#manifest-code .ml[data-line='#{wasm['data-manifest-lines']}'] code", text: /"extension_pages":/
   end
 
   test "the Manifest tab has tools, line numbers and folded long arrays" do
@@ -330,7 +330,7 @@ class ScanControllerTest < ActionDispatch::IntegrationTest
     assert_select "#manifest-copy[type=button]", text: "Copy"
     assert_select "#manifest-download[type=button]", text: "Download manifest.json"
     assert_select "#manifest-wrap[type=button][aria-pressed=false]", text: "Wrap lines"
-    lines = css_select("#manifest-code .manifest-line")
+    lines = css_select("#manifest-code .ml")
     assert_equal JSON.pretty_generate(RICH_MANIFEST[:raw]).lines.size, lines.size
     assert_equal (1..lines.size).map(&:to_s), lines.map { |l| l["data-line"] }
     # The 30-entry array is folded behind one button; its brackets stay visible.

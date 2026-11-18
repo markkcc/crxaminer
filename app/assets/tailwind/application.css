@@ -91,74 +91,425 @@ main {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Scan page manifest viewer. One rule set instead of utility classes on every
-   line keeps long manifests small; app/javascript/scan_page.js toggles
-   data-wrap and .manifest-target. The block is always dark (rouge.css). */
-#manifest-code .manifest-line,
-#manifest-code .manifest-fold {
-  display: flex;
-  min-width: max-content;
-  border-left: 4px solid transparent;
+
+/* Tab panels clear the sticky tab bar when scrolled to. */
+[role="tabpanel"] {
+  scroll-margin-top: 5rem;
 }
 
-#manifest-code .manifest-line::before,
-#manifest-code .manifest-fold::before {
+/* ---- Scan page: manifest viewer -------------------------------------------
+   app/views/scan/_manifest.html.erb, driven by app/javascript/scan_page.js.
+   Every line, note and fold row is styled here by a short class name rather
+   than utility classes, so manifests with thousands of lines stay small:
+     .ml  a line: data-line (number, drawn by ::before so it is not copied),
+          data-sev (most severe note on it), a <code> with token spans
+          (.k key, .s string, .n number, .l true/false/null, .p punctuation)
+     .mn  the notes under a line, .mn-card / .mn-item / .mn-sev inside
+     .mf  the button row that folds a long array
+   #manifest-code carries data-wrap, data-notes ("on"/"off") and data-digits.
+
+   Colours are tokens below, one set per theme. Measured contrast (WCAG):
+   tokens and text >= 4.97:1 on every line background, tinted lines
+   included; plain line numbers 3.42:1 (light) and 4.25:1 (dark); annotated
+   line numbers use the severity ink colour (>= 5.17:1). */
+:root {
+  --mv-bg: #fdfcff;
+  --mv-gutter-bg: #f6f4fb;
+  --mv-bar: #f8f7fc;
+  --mv-border: #e3e0ec;
+  --mv-rule: #e7e3f0;
+  --mv-note-bg: #ffffff;
+  --mv-note-border: #e3e0ec;
+  --mv-text: #1f2430;
+  --mv-muted: #4b5263;
+  --mv-lineno: #7f8495;
+  --mv-focus: var(--color-brand-600);
+  --mv-key: #5b3aa6;
+  --mv-string: #0b6e5f;
+  --mv-number: #1d4fbf;
+  --mv-literal: #b4235f;
+  --mv-punct: #5f6575;
+  --mv-tint: 9%;
+  --mv-pill: 14%;
+
+  /* Severity accents (line marker, note border) and inks (text). */
+  --mv-sev-critical: #7c3aed;
+  --mv-ink-critical: #5b21b6;
+  --mv-sev-high: #dc2626;
+  --mv-ink-high: #b91c1c;
+  --mv-sev-medium: #ea580c;
+  --mv-ink-medium: #9a3412;
+  --mv-sev-low: #a16207;
+  --mv-ink-low: #854d0e;
+  --mv-sev-minimal: #16a34a;
+  --mv-ink-minimal: #166534;
+  --mv-sev-info: #2563eb;
+  --mv-ink-info: #1e40af;
+  --mv-sev-unrated: #6b7280;
+  --mv-ink-unrated: #374151;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --mv-bg: #151722;
+    --mv-gutter-bg: #1a1c28;
+    --mv-bar: #1c1f2b;
+    --mv-border: #2f3242;
+    --mv-rule: #2b2e3d;
+    --mv-note-bg: #1f2230;
+    --mv-note-border: #343849;
+    --mv-text: #e4e6ee;
+    --mv-muted: #b4b9c8;
+    --mv-lineno: #7a7f92;
+    --mv-focus: var(--color-brand-300);
+    --mv-key: #c4b2f0;
+    --mv-string: #7fdcc6;
+    --mv-number: #93bbfd;
+    --mv-literal: #f5a3c7;
+    --mv-punct: #9aa0b3;
+    --mv-tint: 14%;
+    --mv-pill: 22%;
+
+    --mv-sev-critical: #a78bfa;
+    --mv-ink-critical: #ddd6fe;
+    --mv-sev-high: #f87171;
+    --mv-ink-high: #fecaca;
+    --mv-sev-medium: #fb923c;
+    --mv-ink-medium: #fed7aa;
+    --mv-sev-low: #facc15;
+    --mv-ink-low: #fef08a;
+    --mv-sev-minimal: #4ade80;
+    --mv-ink-minimal: #bbf7d0;
+    --mv-sev-info: #60a5fa;
+    --mv-ink-info: #bfdbfe;
+    --mv-sev-unrated: #9ca3af;
+    --mv-ink-unrated: #e5e7eb;
+  }
+}
+
+.manifest-viewer [data-sev="critical"] { --sev: var(--mv-sev-critical); --ink: var(--mv-ink-critical); }
+.manifest-viewer [data-sev="high"] { --sev: var(--mv-sev-high); --ink: var(--mv-ink-high); }
+.manifest-viewer [data-sev="medium"] { --sev: var(--mv-sev-medium); --ink: var(--mv-ink-medium); }
+.manifest-viewer [data-sev="low"] { --sev: var(--mv-sev-low); --ink: var(--mv-ink-low); }
+.manifest-viewer [data-sev="minimal"] { --sev: var(--mv-sev-minimal); --ink: var(--mv-ink-minimal); }
+.manifest-viewer [data-sev="info"] { --sev: var(--mv-sev-info); --ink: var(--mv-ink-info); }
+.manifest-viewer [data-sev="unrated"] { --sev: var(--mv-sev-unrated); --ink: var(--mv-ink-unrated); }
+
+/* No overflow clipping here: it would stop the notes bar from sticking. */
+.manifest-viewer {
+  border: 1px solid var(--mv-border);
+  border-radius: 0.5rem;
+  background: var(--mv-bg);
+  color: var(--mv-text);
+}
+
+.manifest-viewer > :first-child {
+  border-radius: calc(0.5rem - 1px) calc(0.5rem - 1px) 0 0;
+}
+
+/* The two bars above the code: file facts and tools, then the notes summary. */
+.mv-bar,
+.mv-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--mv-bar);
+  border-bottom: 1px solid var(--mv-border);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* The notes bar stays under the page's sticky tab bar while the code scrolls,
+   so Previous and Next stay at hand. scan_page.js measures both heights into
+   --mv-sticky-top and --mv-summary-h; the fallbacks fit the usual layout. */
+.mv-summary[data-sticky] {
+  position: sticky;
+  top: var(--mv-sticky-top, 4.1rem);
+  z-index: 20;
+}
+
+.mv-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.5rem;
+  color: var(--mv-muted);
+}
+
+.mv-facts > span + span::before {
+  content: "·";
+  margin-right: 0.5rem;
+}
+
+.mv-count {
+  white-space: nowrap;
+}
+
+.mv-count::before {
+  content: "";
+  display: inline-block;
+  width: 0.625rem;
+  height: 0.625rem;
+  margin: 0 0.3rem 0 0.15rem;
+  border-radius: 2px;
+  background: var(--sev);
+}
+
+/* The code. It scrolls sideways on its own; the line numbers and the notes
+   stay put while it does. It is the size container for the notes' width. */
+#manifest-code {
+  border-radius: 0 0 calc(0.5rem - 1px) calc(0.5rem - 1px);
+  --mv-code-size: 0.8125rem;
+  --mv-digits-n: 3;
+  --mv-gutter: calc(var(--mv-digits-n) * 1ch + 1.5rem);
+  container-type: inline-size;
+  overflow-x: auto;
+  padding: 0.5rem 0 0.75rem;
+  background: var(--mv-bg);
+  font-family: var(--font-mono);
+  font-size: var(--mv-code-size);
+  line-height: 1.7;
+}
+
+#manifest-code[data-digits="2"] { --mv-digits-n: 2; }
+#manifest-code[data-digits="4"] { --mv-digits-n: 4; }
+#manifest-code[data-digits="5"] { --mv-digits-n: 5; }
+#manifest-code[data-digits="6"] { --mv-digits-n: 6; }
+
+#manifest-code:focus {
+  outline: none;
+}
+
+#manifest-code:focus-visible {
+  outline: 2px solid var(--mv-focus);
+  outline-offset: -2px;
+}
+
+/* As wide as the longest line, so sticky parts can travel the whole width. */
+#manifest-code .mv-rows {
+  width: max-content;
+  min-width: 100%;
+}
+
+#manifest-code .ml {
+  display: flex;
+  scroll-margin-top: calc(var(--mv-sticky-top, 4.1rem) + var(--mv-summary-h, 0px) + 1.5rem);
+}
+
+#manifest-code .ml::before {
   content: attr(data-line);
-  flex-shrink: 0;
-  width: 3rem;
-  padding-right: 0.75rem;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  flex: none;
+  box-sizing: border-box;
+  width: var(--mv-gutter);
+  padding: 0 0.75rem 0 0.5rem;
   text-align: right;
-  color: var(--color-gray-400);
+  color: var(--mv-lineno);
+  background: var(--mv-gutter-bg);
+  border-right: 1px solid var(--mv-rule);
   font-variant-numeric: tabular-nums;
   user-select: none;
 }
 
-#manifest-code .manifest-fold::before {
-  content: "";
-  margin-right: 1rem;
+#manifest-code .ml > code {
+  flex: 1 0 auto;
+  padding: 0 1.5rem 0 1rem;
+  font: inherit;
+  white-space: pre;
 }
 
-#manifest-code .manifest-mark {
-  flex-shrink: 0;
-  width: 1rem;
-  color: var(--color-brand-300);
+#manifest-code .k { color: var(--mv-key); }
+#manifest-code .s { color: var(--mv-string); }
+#manifest-code .n { color: var(--mv-number); }
+#manifest-code .l { color: var(--mv-literal); }
+#manifest-code .p { color: var(--mv-punct); }
+
+/* A line with notes: tinted, with a severity bar and number in the gutter. */
+#manifest-code .ml[data-sev] {
+  background: color-mix(in srgb, var(--sev) var(--mv-tint), var(--mv-bg));
+}
+
+#manifest-code .ml[data-sev]::before {
+  color: var(--ink);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--sev) var(--mv-tint), var(--mv-gutter-bg));
+  box-shadow: inset 3px 0 0 var(--sev);
+}
+
+/* A line opened from a finding or the Previous/Next buttons. */
+#manifest-code .ml:focus {
+  outline: none;
+}
+
+#manifest-code .ml.is-target,
+#manifest-code .ml:focus-visible {
+  outline: 2px solid var(--mv-focus);
+  outline-offset: -2px;
+}
+
+/* Rows that are not code (notes, fold buttons) span the visible width only
+   and stay in view when the code scrolls sideways. The gradient continues
+   the gutter through them. */
+#manifest-code .mn,
+#manifest-code .mf {
+  position: sticky;
+  left: 0;
+  box-sizing: border-box;
+  width: 100cqw;
+  padding: 0.25rem 1rem 0.625rem calc(var(--mv-gutter) + 1rem);
+  background-image: linear-gradient(to right,
+    var(--mv-gutter-bg) calc(var(--mv-gutter) - 1px),
+    var(--mv-rule) calc(var(--mv-gutter) - 1px) var(--mv-gutter),
+    transparent var(--mv-gutter));
+  white-space: normal;
+}
+
+#manifest-code .mf {
+  padding-block: 0.125rem;
+}
+
+#manifest-code .mn {
+  /* Left out of a mouse selection, as of Copy and Download. */
   user-select: none;
 }
 
-#manifest-code .manifest-text {
-  white-space: pre;
-  padding-right: 1rem;
-  padding-left: 1rem;
+#manifest-code .mn-card {
+  max-width: 50rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--mv-note-border);
+  border-left: 3px solid var(--sev);
+  border-radius: 0.375rem;
+  background: var(--mv-note-bg);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  color: var(--mv-text);
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
-#manifest-code .manifest-flagged {
-  background-color: var(--color-brand-900);
-  border-left-color: var(--color-brand-300);
+#manifest-code .mn-item + .mn-item {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--mv-note-border);
 }
 
-#manifest-code .manifest-flagged .manifest-text {
-  padding-left: 0;
+#manifest-code .mn-sev {
+  display: inline-block;
+  margin-right: 0.25rem;
+  padding: 0 0.375rem;
+  border-radius: 0.25rem;
+  background: color-mix(in srgb, var(--sev) var(--mv-pill), var(--mv-note-bg));
+  color: var(--ink);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.25rem;
+  text-transform: uppercase;
+  vertical-align: 1px;
 }
 
-#manifest-code[data-wrap="true"] .manifest-line,
-#manifest-code[data-wrap="true"] .manifest-fold {
-  min-width: 0;
+#manifest-code .mn-title {
+  font-weight: 600;
 }
 
-#manifest-code[data-wrap="true"] .manifest-text {
+#manifest-code .mn-desc {
+  margin-top: 0.125rem;
+  color: var(--mv-muted);
+}
+
+/* The finding the reader jumped to from the Overview. */
+#manifest-code .mn-item.is-target {
+  outline: 2px solid var(--mv-focus);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+#manifest-code .mf button {
+  padding: 0.0625rem 0.5rem;
+  border: 1px dashed var(--mv-lineno);
+  border-radius: 0.25rem;
+  background: var(--mv-bar);
+  color: var(--mv-muted);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+#manifest-code .mf button:hover {
+  color: var(--mv-text);
+  border-style: solid;
+}
+
+#manifest-code .mf button:focus-visible {
+  outline: 2px solid var(--mv-focus);
+  outline-offset: 1px;
+}
+
+/* Wrap lines: long values wrap inside the visible width instead of scrolling. */
+#manifest-code[data-wrap="true"] .mv-rows {
+  width: auto;
+}
+
+#manifest-code[data-wrap="true"] .ml > code {
+  flex: 1 1 0;
   min-width: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-/* The line a finding jumped to: an outline as well as the flag colour. */
-#manifest-code .manifest-target {
-  outline: 2px solid var(--color-brand-300);
-  outline-offset: -2px;
+/* Hide notes: the plain file. */
+#manifest-code[data-notes="off"] .mn {
+  display: none;
 }
 
-/* Tab panels and jump targets clear the sticky tab bar. */
-[role="tabpanel"],
-#manifest-code .manifest-line {
-  scroll-margin-top: 5rem;
+#manifest-code[data-notes="off"] .ml[data-sev] {
+  background: none;
+}
+
+#manifest-code[data-notes="off"] .ml[data-sev]::before {
+  color: var(--mv-lineno);
+  font-weight: inherit;
+  background: var(--mv-gutter-bg);
+  box-shadow: none;
+}
+
+/* Phones: the viewer runs to the card's edges (the card has 1rem padding
+   below the sm breakpoint) to give the code every pixel. */
+@media (max-width: 639px) {
+  .manifest-viewer {
+    margin-inline: -1rem;
+    border-inline: 0;
+    border-radius: 0;
+  }
+
+  .manifest-viewer > :first-child,
+  #manifest-code {
+    border-radius: 0;
+  }
+
+  .mv-bar,
+  .mv-summary {
+    padding-inline: 1rem;
+    font-size: 0.8125rem;
+  }
+
+  #manifest-code {
+    --mv-code-size: 0.75rem;
+  }
+
+  #manifest-code .mn,
+  #manifest-code .mf {
+    padding-right: 0.5rem;
+    padding-left: calc(var(--mv-gutter) + 0.5rem);
+  }
+
+  #manifest-code .ml > code {
+    padding-left: 0.625rem;
+  }
 }
