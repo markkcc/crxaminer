@@ -15,7 +15,7 @@
            ["[ new scan ]", root_path, current_page?(root_path)],
            ["[ statistics ]", stats_scan_index_path, current_page?(stats_scan_index_path)],
            ["[ github ]", "https://github.com/markkcc/crxaminer", false],
-           ["[ help ]", "https://astarte.security/docs/tools/crxaminer", false]
+           ["[ help ]", help_path, current_page?(help_path)]
          ].each do |label, href, current| %>
         <li class="whitespace-nowrap">
           <% if current %>
