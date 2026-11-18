@@ -64,7 +64,7 @@ class ExtensionSecurityAnalyzer
       analyze_optional
       analyze_csp
       analyze_manifest_version
-      [overall_finding] + @findings
+      [overall_finding] + most_severe_first(@findings)
     end
   end
 
@@ -325,6 +325,13 @@ class ExtensionSecurityAnalyzer
   end
 
   # --- helpers --------------------------------------------------------------
+
+  # Most severe first, keeping the rule order within a level. The AI step
+  # only receives the first findings of a long list, so the Critical and High
+  # ones must not sit behind a long run of routine permissions.
+  def most_severe_first(findings)
+    findings.sort_by.with_index { |finding, index| [LEVELS.index(finding[:severity]) || LEVELS.size, index] }
+  end
 
   # [[key, policy, evidence path]]. The scanner stores an object policy as
   # "key: value" strings; those are read back when raw is missing.
