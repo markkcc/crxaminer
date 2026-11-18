@@ -1,6 +1,12 @@
 class ScanController < ApplicationController
   helper_method :get_display_severity
 
+  # The store-version lookup asks Google, so keep one visitor from making the
+  # server do that in a loop. A normal page view makes one request.
+  STORE_VERSION_RATE_LIMIT = 30
+  rate_limit to: STORE_VERSION_RATE_LIMIT, within: 1.minute, only: :store_version, name: "store-version",
+             with: -> { render json: { error: "Too many requests. Please try again in a minute." }, status: :too_many_requests }
+
   def show
     @extension_id = params[:id]&.downcase
     
@@ -25,6 +31,8 @@ class ScanController < ApplicationController
         @last_scanned = @scan_result.updated_at
         @report = ScanPage::Report.new(manifest: @manifest, security_findings: @security_findings,
                                        cache_key: [@scan_result.id, @scan_result.updated_at.to_f])
+        # Cached store version only: the page never waits for Google.
+        @freshness = ScanFreshness.new(@scan_result, store: StoreVersionClient.cached(@extension_id))
         render partial: 'results'
       else
         render json: { error: "Analysis results not found" }, status: :not_found
@@ -40,6 +48,8 @@ class ScanController < ApplicationController
         @last_scanned = @scan_result.updated_at
         @report = ScanPage::Report.new(manifest: @manifest, security_findings: @security_findings,
                                        cache_key: [@scan_result.id, @scan_result.updated_at.to_f])
+        # Cached store version only: the page never waits for Google.
+        @freshness = ScanFreshness.new(@scan_result, store: StoreVersionClient.cached(@extension_id))
       end
       render :show
     end
@@ -55,13 +65,10 @@ class ScanController < ApplicationController
 
     existing_scan = ScanResult.find_by(extension_id: @extension_id)
     
-    # Return existing scan if either:
-    # 1. force is not true and scan exists, OR
-    # 2. force is true and scan exists and is less than 24 hours old
-    if existing_scan && (
-         params[:force] != 'true' || 
-         existing_scan.updated_at > 24.hours.ago
-       )
+    # Return the existing scan unless force is true and a re-scan is allowed:
+    # the scan is older than 24 hours, or the store now has another version
+    # (the server asks the store; nothing from the browser decides this).
+    if existing_scan && (params[:force] != 'true' || !rescan_allowed?(existing_scan))
       Rails.logger.debug "Found recent scan for extension #{@extension_id}"
       render json: existing_scan.as_json(except: [:id]).merge(last_scanned: existing_scan.updated_at)
       return
@@ -99,6 +106,37 @@ class ScanController < ApplicationController
         render json: { error: scan_result.errors.full_messages.join(", ") }, status: :unprocessable_entity
       end
     end
+  end
+
+  # GET /scan/:id/store_version: the version the Chrome Web Store offers now,
+  # compared with the stored scan. Called by the scan page after it loads.
+  # Only for extensions with a stored scan, so it cannot be used to make the
+  # server query Google for arbitrary IDs.
+  def store_version
+    extension_id = params[:id].to_s.downcase
+    unless valid_extension_id?(extension_id)
+      render json: { error: "Invalid extension ID format" }, status: :unprocessable_entity
+      return
+    end
+
+    scan = ScanResult.find_by(extension_id: extension_id)
+    unless scan
+      render json: { error: "No stored scan for this extension" }, status: :not_found
+      return
+    end
+
+    store = StoreVersionClient.lookup(extension_id)
+    freshness = ScanFreshness.new(scan, store: store)
+    render json: {
+      extension_id: extension_id,
+      status: store.status,
+      store_version: freshness.store_version,
+      version_differs: freshness.version_differs?,
+      old: freshness.old?,
+      store_note: freshness.store_note,
+      notice: freshness.notice,
+      rescan_allowed: freshness.rescan_allowed?
+    }
   end
 
   def stats
@@ -179,6 +217,12 @@ class ScanController < ApplicationController
   end
 
   private
+
+  def rescan_allowed?(scan)
+    return true if scan.updated_at <= ScanFreshness::RESCAN_AFTER.ago
+
+    ScanFreshness.new(scan, store: StoreVersionClient.lookup(scan.extension_id)).rescan_allowed?
+  end
 
   def valid_extension_id?(id)
     id.present? && id.match?(/\A[a-zA-Z0-9]{32}\z/)
