@@ -1,6 +1,6 @@
-<%# How the app works, in one screen: what a scan does, how the rules rate, how to read
-    the result, and a link to the longer write-up. The rating table is generated from
-    the rule engine's own data (HelpController), so it cannot drift from the rules. %>
+<%# How the app works, briefly: what a scan does, how the rules rate, how to read the
+    result, and a link to the longer write-up. The rating levels are generated from
+    the rule engine's own data (HelpController), so they cannot drift from the rules. %>
 <% content_for :title, "How it works" %>
 <% link_class = "text-brand-700 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200 underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" %>
 <% heading_class = "text-lg font-semibold text-gray-700 dark:text-gray-200 mt-8 mb-3" %>
@@ -36,7 +36,7 @@
       <h2 class="<%= heading_class %>" id="rules">The rule engine</h2>
       <p>
         The rules read only the manifest. They rate what the extension is allowed to do, assuming the worst case, not what its code actually does.
-        Each finding has a level, and the rule-based rating is the highest level found.
+        Each finding has a level, and the rule-based rating is the highest level found. Nothing is added up.
       </p>
 
       <%= render "levels" %>

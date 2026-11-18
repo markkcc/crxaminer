@@ -1,1 +1,34 @@
-<%# What puts an extension at each level. Filled from the rule engine's data once it is merged. %>
+<%# What puts an extension at each level, from ExtensionAnalyzerData (see HelpController).
+    Permission lists are folded so the page stays short. %>
+<dl class="mt-4 space-y-4" id="rating-levels">
+  <% @levels.each do |level| %>
+    <div class="sm:flex sm:gap-4" data-level="<%= level.name %>">
+      <dt class="shrink-0 sm:w-24 mb-1 sm:mb-0">
+        <span class="<%= severity_classes(level.name) %> inline-block px-2 py-0.5 rounded font-semibold text-sm"><%= level.name.upcase %></span>
+      </dt>
+      <dd class="min-w-0">
+        <ul class="space-y-1">
+          <% level.rules.each do |rule| %>
+            <li><strong class="text-gray-700 dark:text-gray-200"><%= rule.name %>.</strong> <%= rule.summary %></li>
+          <% end %>
+          <% if level.permissions.any? %>
+            <li>
+              <details class="group">
+                <summary class="cursor-pointer rounded text-brand-700 dark:text-brand-300 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
+                  <%= pluralize(level.permissions.size, level.name == "Low" ? "routine permission" : "permission") %>
+                </summary>
+                <p class="mt-1 font-mono text-xs leading-relaxed break-words"><%= level.permissions.join(", ") %></p>
+              </details>
+            </li>
+          <% end %>
+        </ul>
+      </dd>
+    </div>
+  <% end %>
+  <div class="sm:flex sm:gap-4" data-level="Minimal">
+    <dt class="shrink-0 sm:w-24 mb-1 sm:mb-0">
+      <span class="<%= severity_classes("Minimal") %> inline-block px-2 py-0.5 rounded font-semibold text-sm">MINIMAL</span>
+    </dt>
+    <dd class="min-w-0">No rule found anything.</dd>
+  </div>
+</dl>

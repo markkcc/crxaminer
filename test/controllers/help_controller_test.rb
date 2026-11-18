@@ -18,6 +18,30 @@ class HelpControllerTest < ActionDispatch::IntegrationTest
     assert_includes links.last["rel"].to_s, "noopener"
   end
 
+  test "the rating levels come from the rule engine's data" do
+    get help_path
+
+    data = ExtensionAnalyzerData
+    assert_equal data::OVERALL_LEVELS, css_select("#rating-levels [data-level]").map { |row| row["data-level"] }
+
+    data::LEVELS.each do |level|
+      row = css_select("#rating-levels [data-level='#{level}']").first
+      rules = data.rules.select { |rule| rule.severity == level && !rule.id.start_with?("optional.") }
+      assert rules.any? || data.permissions_by_level[level].any?, "#{level} has something to show"
+      rules.each do |rule|
+        assert_includes row.text, rule.name
+        assert_includes row.text, rule.summary
+      end
+      assert_equal data.permissions_by_level[level].join(", "), row.css("details p").text.strip
+    end
+
+    critical = css_select("#rating-levels [data-level='Critical']").first.text
+    assert_includes critical, "debugger"
+    assert_includes critical, "All sites plus cookies"
+    assert_no_match(/optional/i, css_select("#rating-levels").text, "optional items are covered by one sentence below the table")
+    assert_includes css_select("article").text, "Optional permissions are rated one level lower"
+  end
+
   test "the help link in the navigation opens the help page and is marked current there" do
     get root_path
     assert_select "header nav a[href='#{help_path}']", count: 1, text: "[ help ]"
