@@ -441,10 +441,23 @@
       marked.forEach(function (node) { node.classList.add('is-target'); });
     }
 
-    function updatePosition(lineNumber) {
+    // Shows "3 of 17" and, for screen readers, says where the line is and
+    // what its notes are (all read from the page, set as text).
+    function updatePosition(line) {
+      const lineNumber = Number(line.dataset.line);
       current = noted.indexOf(lineNumber);
       if (position) position.textContent = current < 0 ? '' : (current + 1) + ' of ' + noted.length;
-      status.textContent = 'Line ' + lineNumber + (current < 0 ? '.' : ', note ' + (current + 1) + ' of ' + noted.length + '.');
+      const parts = [current < 0 ? 'Line ' + lineNumber + '.' : 'Note ' + (current + 1) + ' of ' + noted.length + ', line ' + lineNumber + ':'];
+      parts.push(line.textContent.trim());
+      const note = document.getElementById('manifest-note-' + lineNumber);
+      if (note) {
+        note.querySelectorAll('.mn-item').forEach(function (item) {
+          const sev = item.querySelector('.mn-sev');
+          const title = item.querySelector('.mn-title');
+          parts.push((sev ? sev.textContent + ': ' : '') + (title ? title.textContent : '') + '.');
+        });
+      }
+      status.textContent = parts.join(' ');
     }
 
     // The notes bar sticks under the page's tab bar, and a line scrolled to
@@ -464,25 +477,28 @@
     }
     measureStickyBars();
 
-    // Unfolds, marks and scrolls to the line, then moves focus there so
-    // keyboard and screen reader users land on it (its note describes it).
-    function open(line, extra) {
+    // Unfolds, marks and scrolls to the line. With focus, it also moves
+    // focus there (its note describes it); Previous and Next keep focus on
+    // themselves so they can be pressed again, and announce the note instead.
+    function open(line, extra, focus) {
       if (code.dataset.notes === 'off') setNotes(true);
       unfoldAround(line);
       refreshFolds();
       mark([line].concat(extra || []));
-      updatePosition(Number(line.dataset.line));
-      line.setAttribute('tabindex', '-1');
+      updatePosition(line);
       measureStickyBars();
       line.scrollIntoView({ block: 'start', inline: 'start' });
-      line.focus({ preventScroll: true });
+      if (focus) {
+        line.setAttribute('tabindex', '-1');
+        line.focus({ preventScroll: true });
+      }
     }
 
     function step(by) {
       if (noted.length === 0) return;
       const index = current < 0 ? (by > 0 ? 0 : noted.length - 1) : (current + by + noted.length) % noted.length;
       const line = lineAt(noted[index]);
-      if (line) open(line);
+      if (line) open(line, [], false);
     }
 
     if (prev) prev.addEventListener('click', function () { step(-1); });
@@ -500,7 +516,7 @@
       const items = /^\d+$/.test(ref || '')
         ? Array.from(code.querySelectorAll('.mn-item[data-note-for="' + ref + '"]'))
         : [];
-      open(targets[0], targets.slice(1).concat(items));
+      open(targets[0], targets.slice(1).concat(items), true);
     }
 
     return { show: show };
