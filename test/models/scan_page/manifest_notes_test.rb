@@ -108,6 +108,24 @@ class ScanPage::ManifestNotesTest < ActiveSupport::TestCase
     assert_equal 2, notes.notes_for(doc.resolve(["permissions", 0])).size
   end
 
+  test "Low, Minimal and Info notes are quiet; a line is quiet only when all its notes are" do
+    notes, = notes_for([
+      { severity: "Low", title: "Low storage", description: "x", rule: "a", evidence: [["permissions", 0]] },
+      { severity: "Minimal", title: "Minimal tabs", description: "x", rule: "b", evidence: [["permissions", 1]] },
+      { severity: "Info", title: "Info tabs", description: "x", rule: "c", evidence: [["permissions", 1]] },
+      { severity: "Low", title: "Low cookies", description: "x", rule: "d", evidence: [["permissions", 3]] },
+      { severity: "Critical", title: "Critical cookies", description: "x", rule: "e", evidence: [["permissions", 3]] },
+      { severity: "<b>?</b>", title: "Unrated webRequest", description: "x", rule: "f", evidence: [["permissions", 2]] }
+    ])
+    storage, tabs, web, cookies = [0, 1, 2, 3].map { |i| doc.resolve(["permissions", i]) }
+    assert notes.quiet?(storage)
+    assert notes.quiet?(tabs)
+    assert_not notes.quiet?(cookies)
+    assert_not notes.quiet?(web), "an unrated note is never quiet"
+    assert_not notes.quiet?(doc.resolve(["name"])), "a line without notes is not quiet"
+    assert_equal [false, true], notes.notes_for(cookies).map(&:quiet?)
+  end
+
   test "severity keys and labels" do
     assert_equal "high", ScanPage::ManifestNotes.severity_key(" High ")
     assert_equal "unrated", ScanPage::ManifestNotes.severity_key("<b>High</b>")

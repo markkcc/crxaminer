@@ -11,9 +11,18 @@ module ScanPage
     # Severity keys in display order; anything else is "unrated".
     SEVERITIES = ExtensionAnalyzerData::SEVERITY_ORDER.sort_by(&:last).map(&:first).freeze
 
+    # Severities shown as a slim row that opens to the description, so that
+    # routine findings (the rule engine rates every routine permission Low)
+    # do not drown the ones that matter.
+    QUIET = %w[low minimal info].freeze
+
     # One finding as shown in a note. ref is its position in the findings
     # list, shared with the Overview's "Show line" button.
-    Note = Struct.new(:finding, :ref, :severity, :label, keyword_init: true)
+    Note = Struct.new(:finding, :ref, :severity, :label, keyword_init: true) do
+      def quiet?
+        QUIET.include?(severity)
+      end
+    end
 
     def initialize(document, findings)
       @document = document
@@ -51,6 +60,12 @@ module ScanPage
     # The most severe severity key on a line, or nil when it has no notes.
     def severity_of(line)
       notes_for(line).first&.severity
+    end
+
+    # True when every note on the line is quiet (see QUIET).
+    def quiet?(line)
+      notes = notes_for(line)
+      notes.any? && notes.all?(&:quiet?)
     end
 
     def lines

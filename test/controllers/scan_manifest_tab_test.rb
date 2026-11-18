@@ -145,6 +145,62 @@ class ScanManifestTabTest < ActionDispatch::IntegrationTest
     assert_not_includes response.body, HOSTILE
   end
 
+  test "Low notes are one slim row that opens to the description" do
+    create("mk" * 16, findings: [
+      OVERALL,
+      { severity: "Low", title: "Low-Risk Permission: storage", description: "Routine #{HOSTILE}.", rule: "p", evidence: [["permissions", 0]] },
+      { severity: "Low", title: "Low-Risk Permission: cookies", description: "Cookie basics.", rule: "p", evidence: [["permissions", 2]] },
+      { severity: "Critical", title: "All sites plus cookies", description: "Account takeover.", rule: "c",
+        evidence: [["permissions", 2], ["host_permissions", 0]] },
+      { severity: "Low", title: "Low without text", description: "", rule: "p", evidence: [["permissions", 1]] },
+      { severity: "Medium", title: "Optional site", description: "Asked later.", rule: "o", evidence: [["optional_host_permissions", 0]] }
+    ])
+
+    # A line with only Low notes: a slim note, closed, title in the summary.
+    storage = line_of('"storage",')
+    assert_select "#manifest-code .ml[data-line='#{storage}'][data-sev=low]"
+    assert_select "#manifest-note-#{storage}[data-quiet]" do
+      assert_select ".mn-item[data-quiet] > details:not([open])", count: 1
+      assert_select "summary .mn-sev[data-sev=low]", text: "Low"
+      assert_select "summary .mn-title", text: "Low-Risk Permission: storage"
+      assert_select "summary .mn-why[aria-hidden=true]", text: "Why?"
+      assert_select "details > .mn-desc", text: "Routine #{HOSTILE}."
+    end
+
+    # Next to a higher note, the line keeps its card; the Low note inside stays slim.
+    cookies = line_of('"cookies"')
+    assert_select "#manifest-note-#{cookies}:not([data-quiet])" do
+      assert_equal ["All sites plus cookies", "Low-Risk Permission: cookies"], css_select("#manifest-note-#{cookies} .mn-title").map(&:text)
+      assert_select ".mn-item:not([data-quiet]) details", count: 0
+      assert_select ".mn-item:not([data-quiet]) > .mn-desc", text: "Account takeover."
+      assert_select ".mn-item[data-quiet] > details .mn-desc", text: "Cookie basics."
+    end
+
+    # A Low note with nothing to open is a plain row.
+    tabs = line_of('"tabs",')
+    assert_select "#manifest-note-#{tabs}[data-quiet] .mn-item[data-quiet] details", count: 0
+    assert_select "#manifest-note-#{tabs} .mn-title", text: "Low without text"
+
+    # Medium and higher keep the open card.
+    site = line_of('"https://site1.test/*",')
+    assert_select "#manifest-note-#{site}:not([data-quiet]) .mn-item:not([data-quiet]) > .mn-desc", text: "Asked later."
+
+    assert_select "#manifest", text: /Low-risk notes are kept to one line; open one to see why\./
+    assert_not_includes response.body, HOSTILE
+    # The line text is still the plain file.
+    text = css_select("#manifest-code .ml").map(&:text).join("\n")
+    assert_equal JSON.pretty_generate(JSON.parse(text)), text
+    assert_no_match(/Why\?|Routine|Low-Risk/, text)
+  end
+
+  test "without Low notes the intro does not mention them" do
+    create("ml" * 16)
+    assert_select "#manifest", text: /Low-risk notes/, count: 1 # "Optional history" is Low
+    create("mm" * 16, findings: [OVERALL, { severity: "High", title: "Cookies", description: "x", rule: "p", evidence: [["permissions", 2]] }])
+    assert_select "#manifest-code [data-quiet]", count: 0
+    assert_no_match(/Low-risk notes/, css_select("#manifest").text)
+  end
+
   test "no stored manifest keeps a clear empty state" do
     create("mj" * 16, raw: nil)
     assert_select "#manifest", text: /No manifest data available\./

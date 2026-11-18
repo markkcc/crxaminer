@@ -109,9 +109,9 @@ main {
    #manifest-code carries data-wrap, data-notes ("on"/"off") and data-digits.
 
    Colours are tokens below, one set per theme. Measured contrast (WCAG):
-   tokens and text >= 4.97:1 on every line background, tinted lines
+   tokens and text >= 4.95:1 on every line background, tinted lines
    included; plain line numbers 3.42:1 (light) and 4.25:1 (dark); annotated
-   line numbers use the severity ink colour (>= 5.17:1). */
+   line numbers use the severity ink colour (>= 5.18:1). */
 :root {
   --mv-bg: #fdfcff;
   --mv-gutter-bg: #f6f4fb;
@@ -129,7 +129,15 @@ main {
   --mv-number: #1d4fbf;
   --mv-literal: #b4235f;
   --mv-punct: #5f6575;
-  --mv-tint: 9%;
+  /* Line tints, laid over the code background: rose for High and amber for
+     Medium so the two read apart; quiet severities are fainter. */
+  --mv-tint-critical: rgb(124 58 237 / 0.09);
+  --mv-tint-high: rgb(225 29 72 / 0.09);
+  --mv-tint-medium: rgb(245 158 11 / 0.16);
+  --mv-tint-low: rgb(161 98 7 / 0.05);
+  --mv-tint-minimal: rgb(22 163 74 / 0.05);
+  --mv-tint-info: rgb(37 99 235 / 0.05);
+  --mv-tint-unrated: rgb(107 114 128 / 0.09);
   --mv-pill: 14%;
 
   /* Severity accents (line marker, note border) and inks (text). */
@@ -167,7 +175,13 @@ main {
     --mv-number: #93bbfd;
     --mv-literal: #f5a3c7;
     --mv-punct: #9aa0b3;
-    --mv-tint: 14%;
+    --mv-tint-critical: rgb(167 139 250 / 0.14);
+    --mv-tint-high: rgb(248 113 113 / 0.14);
+    --mv-tint-medium: rgb(251 146 60 / 0.14);
+    --mv-tint-low: rgb(250 204 21 / 0.08);
+    --mv-tint-minimal: rgb(74 222 128 / 0.08);
+    --mv-tint-info: rgb(96 165 250 / 0.08);
+    --mv-tint-unrated: rgb(156 163 175 / 0.14);
     --mv-pill: 22%;
 
     --mv-sev-critical: #a78bfa;
@@ -187,13 +201,13 @@ main {
   }
 }
 
-.manifest-viewer [data-sev="critical"] { --sev: var(--mv-sev-critical); --ink: var(--mv-ink-critical); }
-.manifest-viewer [data-sev="high"] { --sev: var(--mv-sev-high); --ink: var(--mv-ink-high); }
-.manifest-viewer [data-sev="medium"] { --sev: var(--mv-sev-medium); --ink: var(--mv-ink-medium); }
-.manifest-viewer [data-sev="low"] { --sev: var(--mv-sev-low); --ink: var(--mv-ink-low); }
-.manifest-viewer [data-sev="minimal"] { --sev: var(--mv-sev-minimal); --ink: var(--mv-ink-minimal); }
-.manifest-viewer [data-sev="info"] { --sev: var(--mv-sev-info); --ink: var(--mv-ink-info); }
-.manifest-viewer [data-sev="unrated"] { --sev: var(--mv-sev-unrated); --ink: var(--mv-ink-unrated); }
+.manifest-viewer [data-sev="critical"] { --sev: var(--mv-sev-critical); --ink: var(--mv-ink-critical); --tint: var(--mv-tint-critical); }
+.manifest-viewer [data-sev="high"] { --sev: var(--mv-sev-high); --ink: var(--mv-ink-high); --tint: var(--mv-tint-high); }
+.manifest-viewer [data-sev="medium"] { --sev: var(--mv-sev-medium); --ink: var(--mv-ink-medium); --tint: var(--mv-tint-medium); }
+.manifest-viewer [data-sev="low"] { --sev: var(--mv-sev-low); --ink: var(--mv-ink-low); --tint: var(--mv-tint-low); }
+.manifest-viewer [data-sev="minimal"] { --sev: var(--mv-sev-minimal); --ink: var(--mv-ink-minimal); --tint: var(--mv-tint-minimal); }
+.manifest-viewer [data-sev="info"] { --sev: var(--mv-sev-info); --ink: var(--mv-ink-info); --tint: var(--mv-tint-info); }
+.manifest-viewer [data-sev="unrated"] { --sev: var(--mv-sev-unrated); --ink: var(--mv-ink-unrated); --tint: var(--mv-tint-unrated); }
 
 /* No overflow clipping here: it would stop the notes bar from sticking. */
 .manifest-viewer {
@@ -331,14 +345,18 @@ main {
 
 /* A line with notes: tinted, with a severity bar and number in the gutter. */
 #manifest-code .ml[data-sev] {
-  background: color-mix(in srgb, var(--sev) var(--mv-tint), var(--mv-bg));
+  background-color: var(--tint);
 }
 
 #manifest-code .ml[data-sev]::before {
   color: var(--ink);
   font-weight: 700;
-  background: color-mix(in srgb, var(--sev) var(--mv-tint), var(--mv-gutter-bg));
+  background: linear-gradient(var(--tint), var(--tint)), var(--mv-gutter-bg);
   box-shadow: inset 3px 0 0 var(--sev);
+}
+
+#manifest-code .ml:is([data-sev="low"], [data-sev="minimal"], [data-sev="info"])::before {
+  font-weight: 400;
 }
 
 /* A line opened from a finding or the Previous/Next buttons. */
@@ -421,6 +439,93 @@ main {
 #manifest-code .mn-desc {
   margin-top: 0.125rem;
   color: var(--mv-muted);
+}
+
+/* Quiet notes (Low, Minimal, Info): one slim row, lighter than a card, that
+   opens to the description. Inside a card next to a higher note they are a
+   slim row too; a line with only quiet notes drops the card itself. */
+#manifest-code .mn-item[data-quiet] .mn-title {
+  font-weight: 500;
+  color: var(--mv-muted);
+}
+
+#manifest-code .mn-item[data-quiet] .mn-sev {
+  font-size: 0.625rem;
+  line-height: 1.125rem;
+}
+
+#manifest-code .mn-item summary {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+#manifest-code .mn-item summary::-webkit-details-marker {
+  display: none;
+}
+
+#manifest-code .mn-item summary::before {
+  content: "▸";
+  display: inline-block;
+  width: 0.75rem;
+  color: var(--mv-muted);
+  transition: transform 0.15s;
+}
+
+#manifest-code .mn-item details[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+#manifest-code .mn-why {
+  margin-left: 0.375rem;
+  color: var(--mv-focus);
+  font-size: 0.75rem;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+#manifest-code .mn-item summary:hover .mn-title {
+  color: var(--mv-text);
+}
+
+#manifest-code .mn-item details[open] .mn-why {
+  display: none;
+}
+
+#manifest-code .mn-item summary:focus {
+  outline: none;
+}
+
+#manifest-code .mn-item summary:focus-visible {
+  outline: 2px solid var(--mv-focus);
+  outline-offset: 2px;
+}
+
+#manifest-code .mn-item details > .mn-desc {
+  padding-left: 1rem;
+}
+
+#manifest-code .mn[data-quiet] {
+  padding-top: 0;
+  padding-bottom: 0.375rem;
+}
+
+#manifest-code .mn[data-quiet] .mn-card {
+  padding: 0.125rem 0 0.125rem 0.5rem;
+  border: 0;
+  border-left: 2px solid var(--sev);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+#manifest-code .mn[data-quiet] .mn-item + .mn-item {
+  margin-top: 0.125rem;
+  padding-top: 0;
+  border-top: 0;
 }
 
 /* The finding the reader jumped to from the Overview. */

@@ -494,11 +494,22 @@
       }
     }
 
+    // Opens the slim (Low, Minimal, Info) notes inside the given nodes, so
+    // the explanation shows wherever the reader was taken.
+    function expand(nodes) {
+      nodes.forEach(function (node) {
+        node.querySelectorAll('details').forEach(function (details) { details.open = true; });
+      });
+    }
+
     function step(by) {
       if (noted.length === 0) return;
       const index = current < 0 ? (by > 0 ? 0 : noted.length - 1) : (current + by + noted.length) % noted.length;
       const line = lineAt(noted[index]);
-      if (line) open(line, [], false);
+      if (!line) return;
+      const note = document.getElementById('manifest-note-' + line.dataset.line);
+      if (note) expand([note]);
+      open(line, [], false);
     }
 
     if (prev) prev.addEventListener('click', function () { step(-1); });
@@ -516,6 +527,7 @@
       const items = /^\d+$/.test(ref || '')
         ? Array.from(code.querySelectorAll('.mn-item[data-note-for="' + ref + '"]'))
         : [];
+      expand(items);
       open(targets[0], targets.slice(1).concat(items), true);
     }
 

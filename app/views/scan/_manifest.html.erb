@@ -23,6 +23,7 @@
       The extension's settings file, laid out from the stored copy. Key order may differ from the original.
       <% if notes.any? %>
         A note under a line explains each finding that line raised.
+        <% if notes.by_line.values.flatten.any?(&:quiet?) %>Low-risk notes are kept to one line; open one to see why.<% end %>
         <% if (unplaced = notes.unplaced_count).positive? %>
           <%= unplaced == 1 ? "1 finding does not point at a line" : "#{unplaced} findings do not point at a line" %>; the Overview tab lists every finding.
         <% end %>
@@ -81,17 +82,28 @@
                         data: { line: n, sev: line_notes.first&.severity, groups: groups },
                         aria: { describedby: ("manifest-note-#{n}" if line_notes.any?) } do %><code><% line.tokens.each do |css, text| %><% if css %><span class="<%= css %>"><%= text %></span><% else %><%= text %><% end %><% end %></code><% end %>
             <% if line_notes.any? %>
-              <%= tag.div class: "mn", id: "manifest-note-#{n}", hidden: hidden, data: { for: n, groups: groups } do %>
+              <%# Low, Minimal and Info notes are one slim row that opens to the description;
+                  a line with only those gets a slim note instead of a card (data-quiet). %>
+              <%= tag.div class: "mn", id: "manifest-note-#{n}", hidden: hidden,
+                          data: { for: n, groups: groups, quiet: ("" if notes.quiet?(n)) } do %>
                 <div class="mn-card" data-sev="<%= line_notes.first.severity %>">
                   <span class="sr-only">Line <%= n %>:</span>
                   <ul>
                     <% line_notes.each do |note| %>
-                      <li class="mn-item" data-note-for="<%= note.ref %>">
-                        <p><span class="mn-sev" data-sev="<%= note.severity %>"><%= note.label %></span> <strong class="mn-title"><%= note.finding.title.presence || "Untitled finding" %></strong></p>
-                        <% if note.finding.description.present? %>
-                          <p class="mn-desc"><%= note.finding.description %></p>
+                      <% heading = capture do %><span class="mn-sev" data-sev="<%= note.severity %>"><%= note.label %></span> <strong class="mn-title"><%= note.finding.title.presence || "Untitled finding" %></strong><% end %>
+                      <%= tag.li class: "mn-item", data: { note_for: note.ref, quiet: ("" if note.quiet?) } do %>
+                        <% if note.quiet? && note.finding.description.present? %>
+                          <details>
+                            <summary><%= heading %><span class="mn-why" aria-hidden="true">Why?</span></summary>
+                            <p class="mn-desc"><%= note.finding.description %></p>
+                          </details>
+                        <% else %>
+                          <p><%= heading %></p>
+                          <% if note.finding.description.present? %>
+                            <p class="mn-desc"><%= note.finding.description %></p>
+                          <% end %>
                         <% end %>
-                      </li>
+                      <% end %>
                     <% end %>
                   </ul>
                 </div>
