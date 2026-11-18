@@ -1,57 +1,71 @@
 <%# How the app works, briefly: what a scan does, how the rules rate, how to read the
     result, and a link to the longer write-up. The rating levels are generated from
-    the rule engine's own data (HelpController), so they cannot drift from the rules. %>
+    the rule engine's own data (HelpController), so they cannot drift from the rules.
+
+    The page is as wide as the scan and statistics pages. On large screens the text is
+    set in two columns so the lines stay a comfortable length. %>
 <% content_for :title, "How it works" %>
 <% link_class = "text-brand-700 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200 underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" %>
-<% heading_class = "text-lg font-semibold text-gray-700 dark:text-gray-200 mt-8 mb-3" %>
+<% heading_class = "text-lg font-semibold text-gray-700 dark:text-gray-200 mb-3" %>
+<% strong_class = "text-gray-700 dark:text-gray-200" %>
 <div class="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
-  <div class="max-w-3xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
+  <div class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow" id="help-page">
     <%= render "shared/header" %>
 
     <article class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 sm:p-8 mb-6 text-gray-600 dark:text-gray-300 leading-relaxed">
       <h1 class="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-3">How CRXaminer works</h1>
-      <p>
+      <p class="max-w-3xl">
         CRXaminer shows what a Chrome extension is able to do before you install it.
         It reads the extension's package and its Chrome Web Store listing. It never runs the extension.
       </p>
 
-      <h2 class="<%= heading_class %>">What a scan does</h2>
-      <ol class="list-decimal ml-5 space-y-2">
-        <li><strong class="text-gray-700 dark:text-gray-200">Reads the store listing:</strong> name, developer, users, rating and last update.</li>
-        <li>
-          <strong class="text-gray-700 dark:text-gray-200">Downloads the package</strong> from Google and reads its
-          <code class="font-mono text-sm">manifest.json</code>, the file where an extension declares what it needs.
-          It also lists the URLs that appear in the extension's files.
-        </li>
-        <li><strong class="text-gray-700 dark:text-gray-200">Applies the rules</strong> below to the manifest.</li>
-        <li>
-          <strong class="text-gray-700 dark:text-gray-200">Asks an AI model for a verdict in context.</strong>
-          The model (Claude) sees the listing, the manifest and the rule findings, and weighs what the extension asks for against what it says it does.
-        </li>
-      </ol>
-      <p class="mt-3">
-        Scans are saved, so everyone sees the same result. A scan older than 24 hours can be run again from its page.
-      </p>
+      <div class="mt-8 grid grid-cols-1 lg:grid-cols-5 gap-x-12 gap-y-8" id="help-columns">
+        <div class="space-y-8 lg:col-span-2">
+          <section aria-labelledby="help-scan">
+            <h2 class="<%= heading_class %>" id="help-scan">What a scan does</h2>
+            <ol class="list-decimal ml-5 space-y-2">
+              <li><strong class="<%= strong_class %>">Reads the store listing:</strong> name, developer, users, rating and last update.</li>
+              <li>
+                <strong class="<%= strong_class %>">Downloads the package</strong> from Google and reads its
+                <code class="font-mono text-sm">manifest.json</code>, the file where an extension declares what it needs.
+                It also lists the URLs that appear in the extension's files.
+              </li>
+              <li><strong class="<%= strong_class %>">Applies the rules</strong> to the manifest.</li>
+              <li>
+                <strong class="<%= strong_class %>">Asks an AI model for a verdict in context.</strong>
+                The model (Claude) sees the listing, the manifest and the rule findings, and weighs what the extension asks for against what it says it does.
+              </li>
+            </ol>
+            <p class="mt-3">
+              Scans are saved, so everyone sees the same result. A scan older than 24 hours can be run again from its page.
+            </p>
+          </section>
 
-      <h2 class="<%= heading_class %>" id="rules">The rule engine</h2>
-      <p>
-        The rules read only the manifest. They rate what the extension is allowed to do, assuming the worst case, not what its code actually does.
-        Each finding has a level, and the rule-based rating is the highest level found. Nothing is added up.
-      </p>
+          <section aria-labelledby="help-result">
+            <h2 class="<%= heading_class %>" id="help-result">Reading the result</h2>
+            <ul class="list-disc ml-5 space-y-2">
+              <li><strong class="<%= strong_class %>">Context-aware verdict:</strong> the AI model's rating. It can be wrong, so treat it as a second opinion.</li>
+              <li><strong class="<%= strong_class %>">Rule-based rating and findings:</strong> always the same for the same manifest.</li>
+              <li>A low rating does not prove an extension is safe. CRXaminer does not review the extension's code.</li>
+            </ul>
+          </section>
+        </div>
 
-      <%= render "levels" %>
+        <section aria-labelledby="rules" class="lg:col-span-3">
+          <h2 class="<%= heading_class %>" id="rules">The rule engine</h2>
+          <p>
+            The rules read only the manifest. They rate what the extension is allowed to do, assuming the worst case, not what its code actually does.
+            Each finding has a level, and the rule-based rating is the highest level found. Nothing is added up.
+          </p>
 
-      <p class="mt-3">
-        Optional permissions are rated one level lower, because Chrome asks you before granting them.
-        On a scan page, the Manifest tab shows the line behind each finding.
-      </p>
+          <%= render "levels" %>
 
-      <h2 class="<%= heading_class %>">Reading the result</h2>
-      <ul class="list-disc ml-5 space-y-2">
-        <li><strong class="text-gray-700 dark:text-gray-200">Context-aware verdict:</strong> the AI model's rating. It can be wrong, so treat it as a second opinion.</li>
-        <li><strong class="text-gray-700 dark:text-gray-200">Rule-based rating and findings:</strong> always the same for the same manifest.</li>
-        <li>A low rating does not prove an extension is safe. CRXaminer does not review the extension's code.</li>
-      </ul>
+          <p class="mt-3">
+            Optional permissions are rated one level lower, because Chrome asks you before granting them.
+            On a scan page, the Manifest tab shows the line behind each finding.
+          </p>
+        </section>
+      </div>
 
       <p class="mt-8 pt-4 border-t border-gray-200 dark:border-gray-700">
         For the full story, read
