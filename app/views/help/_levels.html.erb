@@ -1,8 +1,9 @@
 <%# What puts an extension at each level, from ExtensionAnalyzerData (see HelpController).
-    A level with up to three permissions names them; longer lists are folded so the page stays short. %>
-<dl class="mt-4 space-y-4" id="rating-levels">
+    A level with up to three permissions names them; longer lists are folded so the page stays short.
+    On large screens the levels flow into two columns; a level is never split across them. %>
+<dl class="mt-4 lg:columns-2 lg:gap-x-12" id="rating-levels">
   <% @levels.each do |level| %>
-    <div class="sm:flex sm:gap-4" data-level="<%= level.name %>">
+    <div class="break-inside-avoid mb-4 sm:flex sm:gap-4" data-level="<%= level.name %>">
       <dt class="shrink-0 sm:w-24 mb-1 sm:mb-0">
         <span class="<%= severity_classes(level.name) %> inline-block px-2 py-0.5 rounded font-semibold text-sm"><%= level.name.upcase %></span>
       </dt>
@@ -33,7 +34,7 @@
       </dd>
     </div>
   <% end %>
-  <div class="sm:flex sm:gap-4" data-level="Minimal">
+  <div class="break-inside-avoid mb-4 sm:flex sm:gap-4" data-level="Minimal">
     <dt class="shrink-0 sm:w-24 mb-1 sm:mb-0">
       <span class="<%= severity_classes("Minimal") %> inline-block px-2 py-0.5 rounded font-semibold text-sm">MINIMAL</span>
     </dt>

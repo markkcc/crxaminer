@@ -50,7 +50,9 @@ class HelpControllerTest < ActionDispatch::IntegrationTest
 
     get help_path
     assert_select "#help-page.max-w-7xl", count: 1
-    assert_select "#help-page article #help-columns > *", count: 2, message: "two columns keep the lines readable at that width"
+    assert_select "#help-page article #help-columns > section", count: 2, message: "the two short sections sit side by side"
+    assert_select "#rating-levels.lg\\:columns-2 > .break-inside-avoid", count: ExtensionAnalyzerData::OVERALL_LEVELS.size,
+                  message: "the levels flow into two columns and are never split"
   end
 
   test "the help link in the navigation opens the help page and is marked current there" do
