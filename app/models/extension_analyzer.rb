@@ -22,6 +22,11 @@ class ExtensionAnalyzer
   NOT_IN_STORE_MESSAGE = "This extension is not available in the Chrome Web Store. " \
                          "It may have been removed, or the extension ID may be wrong.".freeze
 
+  # How JSON files inside an extension package are parsed. manifest.json may
+  # contain comments, which Chrome allows, and a key is sometimes repeated.
+  # json 2 read both (the last value won); json 3 only does when asked.
+  PACKAGE_JSON_OPTIONS = { allow_comments: true, allow_duplicate_key: true }.freeze
+
   # The manifest's name for display: the resolved __MSG_ value, else the raw
   # name unless it is an unresolved placeholder. Nil when there is none.
   def self.manifest_display_name(manifest)
@@ -57,7 +62,7 @@ class ExtensionAnalyzer
       entry = zip_file.entries.find { |e| e.name.downcase == path }
       next unless entry
 
-      parsed = JSON.parse(entry.get_input_stream.read.force_encoding("UTF-8").delete_prefix("\uFEFF"))
+      parsed = JSON.parse(entry.get_input_stream.read.force_encoding("UTF-8").delete_prefix("\uFEFF"), **PACKAGE_JSON_OPTIONS)
       return parsed.transform_keys { |k| k.to_s.downcase } if parsed.is_a?(Hash)
     end
     {}
@@ -217,7 +222,7 @@ class ExtensionAnalyzer
         manifest_entry = zip_file.glob('manifest.json').first
         raise "manifest.json not found in extension" unless manifest_entry
         manifest_content = manifest_entry.get_input_stream.read
-        manifest = JSON.parse(manifest_content)
+        manifest = JSON.parse(manifest_content, **PACKAGE_JSON_OPTIONS)
 
         # Scan all files in the ZIP for URLs
         zip_file.each do |entry|
