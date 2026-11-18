@@ -1,6 +1,39 @@
+# Rates an extension from its manifest, then adds the AI context analysis
+# and records the tweet. The rule data (levels, rules, permission ratings,
+# sensitive sites) lives in ExtensionAnalyzerData; match patterns are parsed
+# by MatchPattern.
+#
+# Rating model: every finding has a level (Critical, High, Medium or Low).
+# The overall rating is the highest level found, or Minimal when nothing is
+# found. Nothing is counted: many Low findings stay Low.
+#
+# The rules run on a freshly extracted manifest (top-level symbol keys, raw
+# with string keys) and on a stored one (everything deep-symbolized), and on
+# any junk an extension can ship: they never raise on bad input.
 class ExtensionSecurityAnalyzer
   include ExtensionAnalyzerData
-  
+
+  # Bump when the rules or their texts change, so RuleRerating picks up
+  # every stored scan again. Stored on the overall finding as :rules_version.
+  # Findings written before the version existed carry none (version 1).
+  RULES_VERSION = 2
+
+  OVERALL_TITLE_PREFIX = "Overall Risk: ".freeze
+
+  # Content Security Policy keys of a Manifest V3 object. A Manifest V2
+  # string applies to the extension's own pages, like "extension_pages".
+  CSP_EXTENSION_PAGES = "extension_pages".freeze
+  CSP_KEYS = %w[extension_pages sandbox isolated_world].freeze
+
+  # A match pattern found in the manifest and where it was written.
+  Site = Struct.new(:pattern, :path, :source, keyword_init: true)
+
+  # The rule findings for a manifest (overall finding first), without the AI
+  # step or the tweet. Used by RuleRerating.
+  def self.rule_findings(manifest)
+    new(manifest).rule_findings
+  end
+
   def initialize(manifest, extension_details = nil, extension_name = nil, extension_id = nil, previous_findings: nil, ai_client: :default)
     @manifest = manifest
     @extension_details = extension_details
@@ -13,147 +46,358 @@ class ExtensionSecurityAnalyzer
 
   def analyze
     return [] unless @manifest
-    
-    analyze_security_risks
+
+    @security_findings = rule_findings.map(&:dup)
     analyze_with_claude
     tweet_results
     @security_findings
   end
 
+  # The overall finding followed by every rule finding.
+  def rule_findings
+    @rule_findings ||= begin
+      @findings = []
+      @data = @manifest.is_a?(Hash) ? @manifest : {}
+      analyze_permissions
+      analyze_site_access
+      analyze_combinations
+      analyze_optional
+      analyze_csp
+      analyze_manifest_version
+      [overall_finding] + @findings
+    end
+  end
+
   private
 
-  def analyze_security_risks
-    analyze_permission_risks
-    analyze_host_permission_risks
-    analyze_content_script_risks
-    analyze_manifest_version_risks
-    analyze_csp_risks
-    calculate_overall_risk
+  # --- reading the manifest -------------------------------------------------
+
+  def lookup(hash, key)
+    return nil unless hash.is_a?(Hash)
+
+    hash.key?(key.to_s) ? hash[key.to_s] : hash[key.to_sym]
   end
 
-  def analyze_permission_risks
-    @manifest[:permissions].each do |permission|
-      if HIGH_RISK_PERMISSIONS.key?(permission)
-        add_finding("High", "High-Risk Permission: #{permission}",
-          "This extension has the #{permission} permission. #{HIGH_RISK_PERMISSIONS[permission]}. " +
-          "This could potentially be used maliciously to compromise security or privacy.")
-      elsif MEDIUM_RISK_PERMISSIONS.key?(permission)
-        add_finding("Medium", "Medium-Risk Permission: #{permission}",
-          "This extension has the #{permission} permission. #{MEDIUM_RISK_PERMISSIONS[permission]}.")
+  def raw
+    @raw ||= lookup(@data, :raw).then { |r| r.is_a?(Hash) ? r : {} }
+  end
+
+  # A manifest key as written (raw), falling back to the extracted copy for
+  # manifests stored without raw. Evidence paths always use the key name.
+  def read(key)
+    raw.key?(key.to_s) || raw.key?(key.to_sym) ? lookup(raw, key) : lookup(@data, key)
+  end
+
+  # [entry, index] for each string entry of a list key; [] when not a list.
+  def string_entries(key)
+    list = read(key)
+    return [] unless list.is_a?(Array)
+
+    list.each_with_index.select { |entry, _| entry.is_a?(String) }
+  end
+
+  def manifest_version
+    value = read(:manifest_version)
+    case value
+    when Integer then value
+    when Float then value.to_i if value == value.to_i
+    when String then Integer(value.strip, 10, exception: false)
+    end
+  end
+
+  # Manifest V2 rules (match patterns inside "permissions") apply unless the
+  # manifest says version 3 or later: the conservative reading for junk.
+  def legacy?
+    version = manifest_version
+    version.nil? || version < 3
+  end
+
+  # Required API permissions: name => indexes in "permissions".
+  def required_permissions
+    @required_permissions ||= api_permissions(:permissions)
+  end
+
+  def api_permissions(key)
+    string_entries(key).each_with_object({}) do |(entry, index), names|
+      next if legacy? && MatchPattern.parse(entry).valid?
+
+      (names[entry] ||= []) << index
+    end
+  end
+
+  def required_sites
+    @required_sites ||= begin
+      sites = string_entries(:host_permissions).map { |p, i| site(p, ["host_permissions", i], :host_permissions) }
+      if legacy?
+        sites += string_entries(:permissions).map { |p, i| site(p, ["permissions", i], :permissions) }
       end
-    end
-
-    has_web_request = @manifest[:permissions].include?("webRequest")
-    has_web_request_blocking = @manifest[:permissions].include?("webRequestBlocking")
-    if has_web_request && has_web_request_blocking
-      add_finding("High", "Dangerous Permission Combination: webRequest + webRequestBlocking",
-        "This extension can intercept, modify, and block web requests in real-time. " +
-        "This combination could be used to modify sensitive web traffic or steal data.")
+      sites.select { |s| s.pattern.valid? }
     end
   end
 
-  def analyze_host_permission_risks
-    broad_host_permissions = @manifest[:host_permissions]&.any? do |pattern|
-      RISKY_HOST_PATTERNS.any? { |risky| pattern.include?(risky) }
-    end
+  def content_script_sites
+    @content_script_sites ||= begin
+      scripts = read(:content_scripts)
+      scripts = [] unless scripts.is_a?(Array)
+      scripts.each_with_index.flat_map do |script, i|
+        matches = lookup(script, :matches)
+        next [] unless matches.is_a?(Array)
 
-    if broad_host_permissions
-      add_finding("High", "Broad Host Permissions",
-        "This extension has broad host permissions allowing it to access many or all websites. " +
-        "This could potentially be used to steal sensitive data or track browsing activity.")
-    end
+        matches.each_with_index.filter_map do |pattern, j|
+          next unless pattern.is_a?(String)
 
-    sensitive_domains = @manifest[:host_permissions]&.select do |pattern|
-      # Major Banks
-      pattern.include?("chase") || pattern.include?("bankofamerica") || pattern.include?("wellsfargo") ||
-      pattern.include?("citibank") || pattern.include?("capitalone") || pattern.include?("usbank") ||
-      pattern.include?("barclays") || pattern.include?("hsbc") || pattern.include?("santander") ||
-      pattern.include?("rbcroyalbank") || pattern.include?("scotiabank") || pattern.include?("tdbank") ||
-      
-      # Financial Services
-      pattern.include?("paypal") || pattern.include?("venmo") || pattern.include?("wise") ||
-      pattern.include?("stripe") || pattern.include?("square") || pattern.include?("cashapp") ||
-      pattern.include?("revolut") || pattern.include?("robinhood") || pattern.include?("fidelity") ||
-      pattern.include?("vanguard") || pattern.include?("schwab") || pattern.include?("etrade") ||
-      
-      # Crypto Exchanges & Wallets
-      pattern.include?("coinbase") || pattern.include?("binance") || pattern.include?("kraken") ||
-      pattern.include?("metamask") || pattern.include?("crypto.com") || pattern.include?("gemini") ||
-      pattern.include?("ledger") || pattern.include?("trezor") || pattern.include?("blockchain.com") ||
-      pattern.include?("ftx") || pattern.include?("kucoin") || pattern.include?("bitfinex") ||
-      
-      # Social Media & Email (high-value targets)
-      pattern.include?("google") || pattern.include?("facebook") || pattern.include?("instagram") ||
-      pattern.include?("twitter") || pattern.include?("linkedin") || pattern.include?("outlook") ||
-      pattern.include?("protonmail") || pattern.include?("yahoo") || pattern.include?("gmail") ||
-      
-      # E-commerce & Payment
-      pattern.include?("amazon") || pattern.include?("shopify") || pattern.include?("ebay") ||
-      pattern.include?("walmart") || pattern.include?("bestbuy") || pattern.include?("target") ||
-      
-      # Code Repositories & Development
-      pattern.include?("github") || pattern.include?("gitlab") || pattern.include?("bitbucket") ||
-      pattern.include?("stackoverflow") || pattern.include?("npmjs") || pattern.include?("pypi") ||
-      
-      # CI/CD & Package Management
-      pattern.include?("circleci") || pattern.include?("jenkins") || pattern.include?("travis-ci") ||
-      pattern.include?("dockerhub") || pattern.include?("nuget") || pattern.include?("maven") ||
-      pattern.include?("rubygems") || pattern.include?("packagist") || pattern.include?("crates.io") ||
-      
-      # Generic Financial Terms
-      pattern.include?("banking") || pattern.include?("invest") || pattern.include?("wallet") ||
-      pattern.include?("finance") || pattern.include?("credit") || pattern.include?("debit") ||
-      pattern.include?("bank") || pattern.include?("crypto")
-    end
-
-    if sensitive_domains&.any?
-      add_finding("Medium", "Access to Sensitive Domains",
-        "This extension requests access to sensitive domains: #{sensitive_domains.join(', ')}. " +
-        "Ensure you trust this extension with access to these sites.")
-    end
-  end
-
-  def analyze_content_script_risks
-    if @manifest[:content_scripts]&.any?
-      broad_matches = @manifest[:content_scripts].any? do |script|
-        script['matches']&.any? { |match| RISKY_HOST_PATTERNS.include?(match) }
-      end
-
-      if broad_matches
-        add_finding("High", "Broad Content Script Injection",
-          "This extension can inject scripts into any website. This means it could potentially " +
-          "read sensitive data, modify website content, or steal credentials.")
+          s = site(pattern, ["content_scripts", i, "matches", j], :content_scripts)
+          s if s.pattern.valid?
+        end
       end
     end
   end
 
-  def analyze_manifest_version_risks
-    if @manifest[:manifest_version].to_i < 3
-      add_finding("Medium", "Older Manifest Version",
-        "This extension uses Manifest Version #{@manifest[:manifest_version]}, which has fewer " +
-        "security restrictions than Manifest V3. Consider using extensions that have upgraded to V3.")
+  def optional_sites
+    @optional_sites ||= begin
+      sites = string_entries(:optional_host_permissions).map { |p, i| site(p, ["optional_host_permissions", i], :optional_host_permissions) }
+      if legacy?
+        sites += string_entries(:optional_permissions).map { |p, i| site(p, ["optional_permissions", i], :optional_permissions) }
+      end
+      sites.select { |s| s.pattern.valid? }
     end
   end
 
-  def analyze_csp_risks
-    
-    csp_array = Array(@manifest[:content_security_policy])
-    if csp_array.any? { |policy| policy.include?("'wasm-unsafe-eval'") }
-      add_finding("High", "Unsafe WebAssembly Execution",
-        "This extension's Content Security Policy allows 'wasm-unsafe-eval', which permits " +
-        "potentially dangerous WebAssembly code execution. This could be used to hide malicious " +
-        "code or perform CPU-intensive operations.")
-    elsif csp_array.any? { |policy| policy.include?("'unsafe-eval'") }
+  def site(pattern, path, source)
+    Site.new(pattern: MatchPattern.parse(pattern), path: path, source: source)
+  end
+
+  # --- rules ----------------------------------------------------------------
+
+  def analyze_permissions
+    required_permissions.each do |name, indexes|
+      entry = PERMISSIONS[name]
+      next unless entry
+
+      add_finding(entry.level, "#{entry.level}-Risk Permission: #{name}",
+                  "It asks for the #{name} permission, which lets it #{lower_first(entry.allows)}. " \
+                  "#{entry.why || 'This is a routine permission with little risk on its own.'}",
+                  rule: "permission", evidence: indexes.map { |i| ["permissions", i] })
+    end
+  end
+
+  def analyze_site_access
+    all_sites = required_sites.select { |s| s.pattern.all_sites? }
+    if all_sites.any?
+      add_finding("High", "Access to All Websites",
+                  "It can read and change every website you visit, including sites where you are signed in, " \
+                  "such as email and banking.#{suffix_note(all_sites)}",
+                  rule: "host.all_sites", evidence: all_sites.map(&:path))
+    end
+
+    scripts_everywhere = content_script_sites.select { |s| s.pattern.all_sites? }
+    if scripts_everywhere.any?
+      add_finding("High", "Scripts Run on All Websites",
+                  "Its scripts run automatically in every website you open, where they can read and change the page, " \
+                  "including what you type.#{suffix_note(scripts_everywhere)}",
+                  rule: "content_script.all_sites", evidence: scripts_everywhere.map(&:path))
+    end
+
+    granted = required_sites + content_script_sites
+    files = granted.select { |s| s.pattern.file? }
+    if files.any?
+      add_finding("Low", "Access to Local Files",
+                  "It asks to read files on your computer (file:// addresses). Chrome only allows this if you turn on " \
+                  "\"Allow access to file URLs\" for the extension.",
+                  rule: "host.file", evidence: files.map(&:path))
+    end
+
+    sensitive = sensitive_matches(granted)
+    if sensitive.any?
+      add_finding("Medium", "Access to Sensitive Sites",
+                  "It asks for access to sites where people bank, pay, shop or sign in: #{sensitive_names(sensitive)}. " \
+                  "On these sites it could read what you see and act as you.",
+                  rule: "host.sensitive", evidence: sensitive.map { |s, _| s.path })
+    end
+  end
+
+  # Critical: required access to all websites together with permissions
+  # that turn it into control over accounts or traffic everywhere.
+  def analyze_combinations
+    all_sites = required_sites.select { |s| s.pattern.all_sites? }
+    return if all_sites.empty?
+
+    texts = {
+      "combination.all_sites_cookies" => [
+        "All Websites Plus Cookies",
+        "It has access to every website and the cookies permission. Together they let it read the cookies that keep " \
+        "you signed in on any site and use them to act as you, for example to take over your accounts."
+      ],
+      "combination.all_sites_web_request_blocking" => [
+        "All Websites Plus Blocking Web Requests",
+        "It has access to every website and the webRequest and webRequestBlocking permissions. Together they let it " \
+        "watch, block and change the traffic of every site while it happens."
+      ]
+    }
+    CRITICAL_COMBINATIONS.each do |rule, names|
+      next unless names.all? { |n| required_permissions.key?(n) }
+
+      title, description = texts.fetch(rule)
+      evidence = all_sites.map(&:path) + names.flat_map { |n| required_permissions[n].map { |i| ["permissions", i] } }
+      add_finding("Critical", title, description, rule: rule, evidence: evidence)
+    end
+  end
+
+  # Items it can ask for later. Chrome asks the user first, so each is rated
+  # one level below the same item at install. Items also requested at install
+  # are covered there and not repeated.
+  def analyze_optional
+    api_permissions(:optional_permissions).each do |name, indexes|
+      entry = PERMISSIONS[name]
+      next if entry.nil? || required_permissions.key?(name)
+
+      add_finding(optional_level(entry.level), "Optional Permission: #{name}",
+                  "It can ask for the #{name} permission later; Chrome asks you before granting it. If you agree, " \
+                  "it lets it #{lower_first(entry.allows)}.#{entry.why ? " #{entry.why}" : ''}",
+                  rule: "optional.permission", evidence: indexes.map { |i| ["optional_permissions", i] })
+    end
+
+    already_all = required_sites.any? { |s| s.pattern.all_sites? }
+    all_sites = optional_sites.select { |s| s.pattern.all_sites? }
+    if all_sites.any? && !already_all
+      add_finding(optional_level("High"), "Optional Access to All Websites",
+                  "It can ask for access to every website later; Chrome asks you before granting it. If you agree, it can " \
+                  "read and change every website you visit, including sites where you are signed in.#{suffix_note(all_sites)}",
+                  rule: "optional.host.all_sites", evidence: all_sites.map(&:path))
+    end
+
+    granted = required_sites + content_script_sites
+    files = optional_sites.select { |s| s.pattern.file? }
+    if files.any? && granted.none? { |s| s.pattern.file? }
+      add_finding(optional_level("Low"), "Optional Access to Local Files",
+                  "It can ask to read files on your computer (file:// addresses) later; Chrome asks you before granting it, " \
+                  "and file access also has to be turned on for the extension.",
+                  rule: "optional.host.file", evidence: files.map(&:path))
+    end
+
+    known = sensitive_matches(granted).map { |s, _| s.pattern.registrable_domain }
+    sensitive = sensitive_matches(optional_sites).reject { |s, _| known.include?(s.pattern.registrable_domain) }
+    if sensitive.any?
+      add_finding(optional_level("Medium"), "Optional Access to Sensitive Sites",
+                  "It can ask for access to sites where people bank, pay, shop or sign in later; Chrome asks you before " \
+                  "granting it: #{sensitive_names(sensitive)}.",
+                  rule: "optional.host.sensitive", evidence: sensitive.map { |s, _| s.path })
+    end
+  end
+
+  # Only the policy for the extension's own pages counts: sandboxed pages
+  # have no access to extension APIs, and using eval there is what Chrome
+  # recommends, so a sandbox policy produces no finding.
+  def analyze_csp
+    eval_paths = []
+    wasm_paths = []
+    csp_policies.each do |key, policy, path|
+      next unless key == CSP_EXTENSION_PAGES
+
+      sources = script_sources(policy)
+      eval_paths << path if sources.include?("'unsafe-eval'")
+      wasm_paths << path if sources.include?("'wasm-unsafe-eval'")
+    end
+
+    if eval_paths.any?
       add_finding("High", "Unsafe JavaScript Evaluation",
-        "This extension's Content Security Policy allows 'unsafe-eval', which permits " +
-        "dynamic JavaScript code execution using eval() and similar functions. This is a " +
-        "significant security risk as it could allow execution of malicious code.")
+                  "Its Content Security Policy for its own pages allows 'unsafe-eval', so its code can turn text into code " \
+                  "and run it (eval and similar functions). That makes it easier to run code that was never reviewed, " \
+                  "such as code downloaded later.",
+                  rule: "csp.unsafe_eval", evidence: eval_paths)
+    end
+    if wasm_paths.any?
+      add_finding("Low", "WebAssembly Allowed",
+                  "Its Content Security Policy allows 'wasm-unsafe-eval', which lets its pages run WebAssembly. " \
+                  "This is the standard way to use WebAssembly in Manifest V3 and is not a concern on its own.",
+                  rule: "csp.wasm_unsafe_eval", evidence: wasm_paths)
     end
   end
 
-  # A stored rule finding. Besides the three display fields it can carry:
-  #   rule:     a short stable id for the rule that produced it, for example
-  #             "permission" or "host.all_sites"; the page groups by it.
+  def analyze_manifest_version
+    version = manifest_version
+    return unless version && version < 3
+
+    add_finding("Low", "Older Manifest Version",
+                "It uses Manifest V#{version}, an older format with fewer restrictions than Manifest V3: for example, it " \
+                "can use code hosted on other servers and block web requests. Chrome is phasing Manifest V2 out.",
+                rule: "manifest.v2", evidence: [["manifest_version"]])
+  end
+
+  # --- helpers --------------------------------------------------------------
+
+  # [[key, policy, evidence path]]. The scanner stores an object policy as
+  # "key: value" strings; those are read back when raw is missing.
+  def csp_policies
+    value = raw.key?("content_security_policy") || raw.key?(:content_security_policy) ? lookup(raw, :content_security_policy) : nil
+    case value
+    when String
+      [[CSP_EXTENSION_PAGES, value, ["content_security_policy"]]]
+    when Hash
+      value.filter_map do |key, policy|
+        [key.to_s, policy, ["content_security_policy", key.to_s]] if policy.is_a?(String)
+      end
+    when nil
+      stored = lookup(@data, :content_security_policy)
+      stored = [stored] if stored.is_a?(String)
+      return [] unless stored.is_a?(Array)
+
+      stored.grep(String).map do |policy|
+        key, rest = policy.split(": ", 2)
+        if rest && CSP_KEYS.include?(key)
+          [key, rest, ["content_security_policy", key]]
+        else
+          [CSP_EXTENSION_PAGES, policy, ["content_security_policy"]]
+        end
+      end
+    else
+      []
+    end
+  end
+
+  # The sources that govern eval: script-src, or default-src when there is
+  # no script-src. The first occurrence of a directive wins, as in browsers.
+  def script_sources(policy)
+    directives = {}
+    policy.split(";").each do |directive|
+      name, *sources = directive.strip.split(/\s+/)
+      next if name.nil? || name.empty?
+
+      directives[name.downcase] ||= sources.map(&:downcase)
+    end
+    directives["script-src"] || directives["default-src"] || []
+  end
+
+  # [[site, category]] for named sites on the sensitive list. All-site and
+  # file patterns have their own rules and are never "sensitive sites".
+  def sensitive_matches(sites)
+    sites.filter_map do |s|
+      next if s.pattern.all_sites? || s.pattern.file?
+
+      domain = s.pattern.registrable_domain
+      category = domain && sensitive_category(domain, s.pattern.domain_label)
+      [s, category] if category
+    end
+  end
+
+  def sensitive_names(matches)
+    matches.map { |s, category| "#{s.pattern.registrable_domain} (#{category})" }.uniq.join(", ")
+  end
+
+  def suffix_note(sites)
+    wide = sites.map(&:pattern).select(&:public_suffix_wildcard?).uniq(&:to_s)
+    return "" if wide.empty?
+
+    wide.map { |p| " The pattern \"#{p}\" covers every site ending in .#{p.domain}, so it counts as all websites." }.join
+  end
+
+  def lower_first(text)
+    text.empty? ? text : text[0].downcase + text[1..]
+  end
+
+  # A stored rule finding. Besides the three display fields it carries:
+  #   rule:     the stable id of the rule that produced it (see
+  #             ExtensionAnalyzerData::RULES); the page groups by it.
   #   evidence: the places in manifest.json the finding points at, as a list
   #             of paths into the manifest as written (the stored :raw), each
   #             a list of object keys (strings) and array indexes (integers):
@@ -163,43 +407,25 @@ class ExtensionSecurityAnalyzer
   def add_finding(severity, title, description, rule: nil, evidence: [])
     finding = { severity: severity, title: title, description: description }
     finding[:rule] = rule if rule
-    finding[:evidence] = evidence if evidence.any?
-    @security_findings << finding
+    finding[:evidence] = evidence.uniq if evidence.any?
+    @findings << finding
   end
 
-  def calculate_overall_risk
-    high_findings = @security_findings.count { |f| f[:severity] == "High" }
-    critical_findings = @security_findings.count { |f| f[:severity] == "Critical" }
-    medium_findings = @security_findings.count { |f| f[:severity] == "Medium" }
-
-    overall_risk = if high_findings > 3
-      "Critical"
-    elsif high_findings > 1
-      "High"
-    elsif medium_findings > 1 || high_findings > 0
-      "Medium"
-    elsif medium_findings > 0
-      "Low"
+  # The highest level found; Minimal when nothing was found. Carries the
+  # rules version so stored scans can be re-rated when the rules change.
+  def overall_finding
+    level = highest_level(@findings.map { |f| f[:severity] }) || "Minimal"
+    description = if @findings.empty?
+      "No rule found anything to flag, so the rating is Minimal."
     else
-      "Minimal"
+      counts = LEVELS.filter_map do |l|
+        n = @findings.count { |f| f[:severity] == l }
+        "#{n} #{l}" if n.positive?
+      end
+      noun = @findings.size == 1 ? "finding" : "findings"
+      "The rating is the highest level among #{@findings.size} rule #{noun} (#{counts.join(', ')})."
     end
-
-    # Build description with only critical and high-risk counts
-    description = if critical_findings > 0 && high_findings > 0
-      "Based on #{@security_findings.size} total findings, including #{critical_findings} critical and #{high_findings} high-risk findings."
-    elsif critical_findings > 0
-      "Based on #{@security_findings.size} total findings, including #{critical_findings} critical #{critical_findings == 1 ? 'finding' : 'findings'}."
-    elsif high_findings > 0
-      "Based on #{@security_findings.size} total findings, including #{high_findings} high-risk #{high_findings == 1 ? 'finding' : 'findings'}."
-    else
-      "Based on #{@security_findings.size} total findings."
-    end
-
-    @security_findings.unshift({
-      severity: "#{overall_risk}",
-      title: "Overall Risk: #{overall_risk}",
-      description: description
-    })
+    { severity: level, title: "#{OVERALL_TITLE_PREFIX}#{level}", description: description, rules_version: RULES_VERSION }
   end
 
   def analyze_with_claude
@@ -227,24 +453,24 @@ class ExtensionSecurityAnalyzer
 
   def format_tweet_text
     ai_analysis = @security_findings.find { |f| f[:severity] == "Info" && f[:title] == "AI Context Analysis" }
-    
+
     risk_level = if ai_analysis&.[](:description)&.start_with?("Risk Level:")
       ai_analysis[:description].split("\n").first.split("Risk Level:").last&.strip
     else
       "N/A"
     end
-    
+
     overall_risk = @security_findings.find { |f| f[:title]&.downcase&.include?('overall risk') }&.[](:severity) || "N/A"
-    
+
     combined_risk = if risk_level == overall_risk
       "Risk: #{risk_level}"
     else
       "Risk: #{risk_level} / #{overall_risk}"
     end
-  
+
     [
       @extension_name.presence || "Unknown Extension",
-      "#{(@extension_details[:rating].present? && @extension_details[:rating_count].present?) ? 
+      "#{(@extension_details[:rating].present? && @extension_details[:rating_count].present?) ?
         "#{@extension_details[:rating]} ★ (#{@extension_details[:rating_count]})" : "? ★"}, #{@extension_details[:size].presence || "?KiB"}",
       combined_risk,
       "https://crxaminer.tech/scan/#{@extension_id}"
@@ -254,4 +480,4 @@ class ExtensionSecurityAnalyzer
     "Scan complete! https://crxaminer.tech/scan/#{@extension_id}"
   end
 
-end 
+end

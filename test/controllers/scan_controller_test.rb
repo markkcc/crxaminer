@@ -353,7 +353,7 @@ class ScanControllerTest < ActionDispatch::IntegrationTest
     rows = css_select("#permissions-required-table tbody tr")
     assert_equal %w[tabs storage notifications activeTab action], rows.map { |r| r.at_css("th[scope=row] > span.font-mono").text.strip }
     tabs = rows.first
-    assert_equal "High", tabs.at_css("td:nth-of-type(2) span").text.strip
+    assert_equal "Medium", tabs.at_css("td:nth-of-type(2) span").text.strip
     assert_equal ["https://developer.chrome.com/docs/extensions/reference/api/tabs"], tabs.css("a").map { |a| a["href"] }.uniq
     assert_equal "noopener noreferrer", tabs.at_css("a")["rel"]
     action = rows.last

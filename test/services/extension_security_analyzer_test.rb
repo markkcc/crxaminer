@@ -51,7 +51,7 @@ class ExtensionSecurityAnalyzerTest < ActiveSupport::TestCase
         findings = ExtensionSecurityAnalyzer.new(MANIFEST, DETAILS, "Demo", "e" * 32,
                                                  ai_client: FakeAnthropic::Client.new(failure)).analyze
       end
-      assert findings.any? { |f| f[:title] == "High-Risk Permission: tabs" }
+      assert findings.any? { |f| f[:title] == "Medium-Risk Permission: tabs" }
       assert_nil AiContextAnalysis.find_in(findings)
     end
 

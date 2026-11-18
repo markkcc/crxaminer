@@ -3,18 +3,17 @@ require "test_helper"
 class ScanPage::PermissionCatalogTest < ActiveSupport::TestCase
   Catalog = ScanPage::PermissionCatalog
 
-  test "ratings match the rule engine's lists exactly" do
-    ExtensionAnalyzerData::HIGH_RISK_PERMISSIONS.each_key { |name| assert_equal "High", Catalog.rating(name) }
-    ExtensionAnalyzerData::MEDIUM_RISK_PERMISSIONS.each_key { |name| assert_equal "Medium", Catalog.rating(name) }
-    assert_nil Catalog.rating("alarms")
+  test "ratings come from the rule engine's permission table" do
+    ExtensionAnalyzerData::PERMISSIONS.each_value do |entry|
+      assert_equal entry.level, Catalog.rating(entry.name)
+      assert_equal entry.allows, Catalog.description(entry.name)
+    end
+    assert_equal "Critical", Catalog.rating("debugger")
+    assert_equal "High", Catalog.rating("debugger", optional: true)
+    assert_equal "Low", Catalog.rating("alarms")
+    assert_equal "Low", Catalog.rating("tabs", optional: true)
     assert_nil Catalog.rating("Tabs")
-  end
-
-  test "every permission the rule engine knows has a description, except non-extension ones" do
-    known = ExtensionAnalyzerData::HIGH_RISK_PERMISSIONS.keys + ExtensionAnalyzerData::MEDIUM_RISK_PERMISSIONS.keys
-    missing = known.reject { |name| Catalog.description(name) }
-    # <all_urls> is a site pattern, webview is for Chrome apps.
-    assert_equal ["<all_urls>", "webview"], missing.sort
+    assert_nil Catalog.rating("<all_urls>")
   end
 
   test "doc links use API pages, variants map to their API, the rest use the list page" do
@@ -30,7 +29,7 @@ class ScanPage::PermissionCatalogTest < ActiveSupport::TestCase
   end
 
   test "every doc link is on developer.chrome.com" do
-    Catalog::ENTRIES.each_key do |name|
+    ExtensionAnalyzerData::PERMISSIONS.each_key do |name|
       assert Catalog.doc_url(name).start_with?("https://developer.chrome.com/docs/extensions/reference/"), name
     end
   end
@@ -40,7 +39,7 @@ class ScanPage::PermissionCatalogTest < ActiveSupport::TestCase
     rows = catalog.required
 
     assert_equal ["tabs", "action", "5", '{"fileSystem":["write"]}'], rows.map(&:name)
-    assert_equal "High", rows.first.rating
+    assert_equal "Medium", rows.first.rating
     assert_nil rows[1].description
     assert_nil rows[1].doc_url
     assert_nil rows[2].rating
@@ -57,6 +56,8 @@ class ScanPage::PermissionCatalogTest < ActiveSupport::TestCase
   test "optional permissions are separate" do
     catalog = Catalog.new(manifest_version: 3, permissions: ["storage"], optional_permissions: ["tabs", "bookmarks"])
     assert_equal %w[tabs bookmarks], catalog.optional.map(&:name)
+    assert_equal %w[Low Low], catalog.optional.map(&:rating) # Medium at install, one level lower when optional
+    assert_equal ["Low"], catalog.required.map(&:rating)
   end
 
   test "junk manifests give empty tables" do
