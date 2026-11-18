@@ -32,8 +32,10 @@ class HelpControllerTest < ActionDispatch::IntegrationTest
         assert_includes row.text, rule.name
         assert_includes row.text, rule.summary
       end
-      assert_equal data.permissions_by_level[level].join(", "), row.css("details p").text.strip
+      data.permissions_by_level[level].each { |name| assert_includes row.css("[data-permissions]").text, name }
     end
+    assert_select "#rating-levels [data-level='Critical'] details", count: 0, message: "a short list is shown, not folded"
+    assert_select "#rating-levels [data-level='Low'] details summary", text: /\d+ routine permissions/
 
     critical = css_select("#rating-levels [data-level='Critical']").first.text
     assert_includes critical, "debugger"

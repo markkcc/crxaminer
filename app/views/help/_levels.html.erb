@@ -1,5 +1,5 @@
 <%# What puts an extension at each level, from ExtensionAnalyzerData (see HelpController).
-    Permission lists are folded so the page stays short. %>
+    A level with up to three permissions names them; longer lists are folded so the page stays short. %>
 <dl class="mt-4 space-y-4" id="rating-levels">
   <% @levels.each do |level| %>
     <div class="sm:flex sm:gap-4" data-level="<%= level.name %>">
@@ -11,13 +11,21 @@
           <% level.rules.each do |rule| %>
             <li><strong class="text-gray-700 dark:text-gray-200"><%= rule.name %>.</strong> <%= rule.summary %></li>
           <% end %>
-          <% if level.permissions.any? %>
+          <% if level.permissions.size.between?(1, 3) %>
+            <li data-permissions>
+              <strong class="text-gray-700 dark:text-gray-200">The <span class="font-mono text-sm"><%= level.permissions.to_sentence %></span> <%= "permission".pluralize(level.permissions.size) %>.</strong>
+              <% if level.permissions.size == 1 %>
+                <% allows = ExtensionAnalyzerData.permission(level.permissions.first).allows %>
+                It lets the extension <%= allows[0].downcase + allows[1..] %>.
+              <% end %>
+            </li>
+          <% elsif level.permissions.any? %>
             <li>
               <details class="group">
                 <summary class="cursor-pointer rounded text-brand-700 dark:text-brand-300 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
                   <%= pluralize(level.permissions.size, level.name == "Low" ? "routine permission" : "permission") %>
                 </summary>
-                <p class="mt-1 font-mono text-xs leading-relaxed break-words"><%= level.permissions.join(", ") %></p>
+                <p class="mt-1 font-mono text-xs leading-relaxed break-words" data-permissions><%= level.permissions.join(", ") %></p>
               </details>
             </li>
           <% end %>
