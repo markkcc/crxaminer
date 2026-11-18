@@ -16,9 +16,12 @@ class RefreshStatsJob < ApplicationJob
       severity_counts[severity] += 1 if severity && severity_counts.key?(severity)
     end
 
-    # Get top 5 "spiciest" extensions (most findings)
+    # Top 5 "spiciest" extensions: the most rule findings, not counting the
+    # overall rating, the AI verdict or routine permissions (rated Low in
+    # ExtensionAnalyzerData::PERMISSIONS), so a long list of harmless
+    # permissions does not count as spicy.
     spiciest_extensions = ScanResult.all.map do |scan|
-      finding_count = scan.security_findings&.count { |f| !f[:title]&.downcase&.include?('overall risk') } || 0
+      finding_count = ScanPage::FindingGroups.new(scan.security_findings).areas.sum { |area| area.findings.size }
       {
         extension_id: scan.extension_id,
         extension_name: scan.extension_name,
