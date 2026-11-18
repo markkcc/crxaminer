@@ -151,12 +151,20 @@ class ExtensionSecurityAnalyzer
     end
   end
 
-  def add_finding(severity, title, description)
-    @security_findings << {
-      severity: severity,
-      title: title,
-      description: description
-    }
+  # A stored rule finding. Besides the three display fields it can carry:
+  #   rule:     a short stable id for the rule that produced it, for example
+  #             "permission" or "host.all_sites"; the page groups by it.
+  #   evidence: the places in manifest.json the finding points at, as a list
+  #             of paths into the manifest as written (the stored :raw), each
+  #             a list of object keys (strings) and array indexes (integers):
+  #             [["permissions", 3], ["content_scripts", 0, "matches", 1]].
+  # The Manifest tab annotates those lines with the finding. Findings stored
+  # before these fields existed have neither.
+  def add_finding(severity, title, description, rule: nil, evidence: [])
+    finding = { severity: severity, title: title, description: description }
+    finding[:rule] = rule if rule
+    finding[:evidence] = evidence if evidence.any?
+    @security_findings << finding
   end
 
   def calculate_overall_risk

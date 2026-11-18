@@ -3,7 +3,11 @@ module ScanPage
   # separates routine permissions so they can be collapsed into one line.
   # Severities and texts are passed through unchanged.
   class FindingGroups
-    Finding = Struct.new(:severity, :title, :description, :permission, keyword_init: true)
+    # rule and evidence are only present on findings written by the current
+    # rule engine (see ExtensionSecurityAnalyzer#add_finding): rule is its
+    # stable id, evidence the manifest paths the finding points at. Findings
+    # stored by older versions have neither (nil and []).
+    Finding = Struct.new(:severity, :title, :description, :permission, :rule, :evidence, keyword_init: true)
 
     Area = Struct.new(:key, :name, :findings, :routine, keyword_init: true) do
       def empty?
@@ -101,7 +105,9 @@ module ScanPage
         severity: ScanPage.value(hash, :severity).to_s,
         title: title,
         description: ScanPage.value(hash, :description).then { |d| d.nil? ? "" : ScanPage.text(d) },
-        permission: title[PERMISSION_TITLE, 1]
+        permission: title[PERMISSION_TITLE, 1],
+        rule: ScanPage.value(hash, :rule).then { |r| r.is_a?(String) ? r : nil },
+        evidence: ScanPage.paths(ScanPage.value(hash, :evidence))
       )
     end
 
