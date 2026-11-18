@@ -46,6 +46,30 @@ module ExtensionAnalyzerData
       summary: "Its pages may run WebAssembly; this is the standard way to do so in Manifest V3." },
     { id: "manifest.v2", severity: "Low", name: "Manifest V2",
       summary: "It uses the older Manifest V2 format, which has fewer restrictions and is being phased out." },
+    { id: "settings.search_provider", severity: "High", name: "Changes your search engine",
+      summary: "Searches you type in the address bar go to a site it names, which sees every search." },
+    { id: "content_script.main_world_all_sites", severity: "High", name: "Scripts inside every website's own code",
+      summary: "Its scripts run in the page's own JavaScript on every website, where they can change what the page's code does." },
+    { id: "update_url.external", severity: "High", name: "Updates from outside the Chrome Web Store",
+      summary: "Its updates would come from a server other than the Chrome Web Store, so they skip the store's review." },
+    { id: "settings.homepage", severity: "Medium", name: "Changes your homepage or startup pages",
+      summary: "It sets the page Chrome opens at startup or for the home button." },
+    { id: "url_overrides", severity: "Medium", name: "Replaces Chrome pages",
+      summary: "It shows its own page instead of Chrome's new tab, history or bookmarks page." },
+    { id: "content_script.main_world", severity: "Medium", name: "Scripts inside named sites' own code",
+      summary: "Its scripts run in the page's own JavaScript on the sites it names, where they can change what the page's code does." },
+    { id: "externally_connectable.wide", severity: "Medium", name: "Messages from many web pages",
+      summary: "Pages on whole groups of subdomains, or over plain http, can send messages to the extension." },
+    { id: "web_accessible_resources.everything", severity: "Medium", name: "Every file open to all websites",
+      summary: "Any website can load every file in the extension." },
+    { id: "oauth2.account_data", severity: "Medium", name: "Google account data",
+      summary: "It asks for access to data in your Google account, such as mail, files or calendar." },
+    { id: "externally_connectable", severity: "Low", name: "Messages from named websites",
+      summary: "The websites it lists can send messages to the extension; a flaw in how it handles them could be used by those sites." },
+    { id: "web_accessible_resources.all_sites", severity: "Low", name: "Files open to all websites",
+      summary: "Any website can load some of its files, which lets sites detect that you have it." },
+    { id: "oauth2.sign_in", severity: "Low", name: "Google sign-in",
+      summary: "It can sign you in with your Google account and read your name and email address." },
     { id: "optional.permission", severity: nil, name: "Optional permission",
       summary: "A permission it can ask for later; Chrome asks you first. Rated one level below the same permission at install." },
     { id: "optional.host.all_sites", severity: "Medium", name: "Optional access to all websites",
@@ -65,6 +89,25 @@ module ExtensionAnalyzerData
     "combination.all_sites_cookies" => %w[cookies],
     "combination.all_sites_web_request_blocking" => %w[webRequest webRequestBlocking]
   }.freeze
+
+  # Google OAuth scopes (manifest "oauth2.scopes") that reach account data,
+  # matched on the scope name after "https://www.googleapis.com/auth/" (up to
+  # the first "."), and the kind of data each reaches. Sign-in scopes are
+  # listed separately; any other scope counts as account data.
+  OAUTH_DATA_SCOPES = {
+    "gmail" => "Gmail", "mail.google.com" => "Gmail", "drive" => "Google Drive", "documents" => "Google Docs",
+    "spreadsheets" => "Google Sheets", "presentations" => "Google Slides", "calendar" => "Google Calendar",
+    "contacts" => "contacts", "photoslibrary" => "Google Photos", "cloud-platform" => "Google Cloud",
+    "youtube" => "YouTube"
+  }.freeze
+  OAUTH_SIGN_IN_SCOPES = %w[openid email profile userinfo].freeze
+
+  # The update server of the Chrome Web Store.
+  STORE_UPDATE_HOST = "clients2.google.com".freeze
+
+  # Chrome pages an extension can replace (chrome_url_overrides), as named
+  # in findings.
+  URL_OVERRIDE_PAGES = { "newtab" => "new tab page", "history" => "history page", "bookmarks" => "bookmarks page" }.freeze
 
   Permission = Struct.new(:name, :level, :allows, :why, :doc_page, keyword_init: true)
 
