@@ -16,11 +16,23 @@ module ScanPage
     # do not drown the ones that matter.
     QUIET = %w[low minimal info].freeze
 
-    # One finding as shown in a note. ref is its position in the findings
-    # list, shared with the Overview's "Show line" button.
-    Note = Struct.new(:finding, :ref, :severity, :label, keyword_init: true) do
+    # One finding as shown in the note on one line. ref is its position in
+    # the findings list, shared with the Overview's "Show line" button;
+    # first_line is the lowest line the finding points at, where its full
+    # note is shown.
+    Note = Struct.new(:finding, :ref, :severity, :label, :line, :first_line, keyword_init: true) do
       def quiet?
         QUIET.include?(severity)
+      end
+
+      # The same finding on a later line: shown slim, pointing at first_line.
+      def repeat?
+        line != first_line
+      end
+
+      # Shown as a slim row that opens to the description.
+      def slim?
+        quiet? || repeat?
       end
     end
 
@@ -44,9 +56,13 @@ module ScanPage
       @by_line ||= begin
         map = Hash.new { |h, k| h[k] = [] }
         @findings.each_with_index do |finding, ref|
-          note = Note.new(finding: finding, ref: ref, severity: self.class.severity_key(finding.severity),
-                          label: self.class.severity_label(finding.severity))
-          lines_for(finding).each { |line| map[line] << note }
+          lines = lines_for(finding)
+          severity = self.class.severity_key(finding.severity)
+          label = self.class.severity_label(finding.severity)
+          lines.each do |line|
+            map[line] << Note.new(finding: finding, ref: ref, severity: severity, label: label,
+                                  line: line, first_line: lines.first)
+          end
         end
         map.transform_values { |notes| notes.sort_by.with_index { |n, i| [SEVERITIES.index(n.severity) || SEVERITIES.size, i] } }
            .sort.to_h
@@ -62,10 +78,11 @@ module ScanPage
       notes_for(line).first&.severity
     end
 
-    # True when every note on the line is quiet (see QUIET).
-    def quiet?(line)
+    # True when every note on the line is slim (quiet or a repeat), so the
+    # line gets a slim note instead of a card.
+    def slim?(line)
       notes = notes_for(line)
-      notes.any? && notes.all?(&:quiet?)
+      notes.any? && notes.all?(&:slim?)
     end
 
     def lines

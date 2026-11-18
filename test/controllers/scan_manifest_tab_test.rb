@@ -159,8 +159,8 @@ class ScanManifestTabTest < ActionDispatch::IntegrationTest
     # A line with only Low notes: a slim note, closed, title in the summary.
     storage = line_of('"storage",')
     assert_select "#manifest-code .ml[data-line='#{storage}'][data-sev=low]"
-    assert_select "#manifest-note-#{storage}[data-quiet]" do
-      assert_select ".mn-item[data-quiet] > details:not([open])", count: 1
+    assert_select "#manifest-note-#{storage}[data-slim]" do
+      assert_select ".mn-item[data-slim] > details:not([open])", count: 1
       assert_select "summary .mn-sev[data-sev=low]", text: "Low"
       assert_select "summary .mn-title", text: "Low-Risk Permission: storage"
       assert_select "summary .mn-why[aria-hidden=true]", text: "Why?"
@@ -169,21 +169,21 @@ class ScanManifestTabTest < ActionDispatch::IntegrationTest
 
     # Next to a higher note, the line keeps its card; the Low note inside stays slim.
     cookies = line_of('"cookies"')
-    assert_select "#manifest-note-#{cookies}:not([data-quiet])" do
+    assert_select "#manifest-note-#{cookies}:not([data-slim])" do
       assert_equal ["All sites plus cookies", "Low-Risk Permission: cookies"], css_select("#manifest-note-#{cookies} .mn-title").map(&:text)
-      assert_select ".mn-item:not([data-quiet]) details", count: 0
-      assert_select ".mn-item:not([data-quiet]) > .mn-desc", text: "Account takeover."
-      assert_select ".mn-item[data-quiet] > details .mn-desc", text: "Cookie basics."
+      assert_select ".mn-item:not([data-slim]) details", count: 0
+      assert_select ".mn-item:not([data-slim]) > .mn-desc", text: "Account takeover."
+      assert_select ".mn-item[data-slim] > details .mn-desc", text: "Cookie basics."
     end
 
     # A Low note with nothing to open is a plain row.
     tabs = line_of('"tabs",')
-    assert_select "#manifest-note-#{tabs}[data-quiet] .mn-item[data-quiet] details", count: 0
+    assert_select "#manifest-note-#{tabs}[data-slim] .mn-item[data-slim] details", count: 0
     assert_select "#manifest-note-#{tabs} .mn-title", text: "Low without text"
 
     # Medium and higher keep the open card.
     site = line_of('"https://site1.test/*",')
-    assert_select "#manifest-note-#{site}:not([data-quiet]) .mn-item:not([data-quiet]) > .mn-desc", text: "Asked later."
+    assert_select "#manifest-note-#{site}:not([data-slim]) .mn-item:not([data-slim]) > .mn-desc", text: "Asked later."
 
     assert_select "#manifest", text: /Low-risk notes are kept to one line; open one to see why\./
     assert_not_includes response.body, HOSTILE
@@ -197,8 +197,52 @@ class ScanManifestTabTest < ActionDispatch::IntegrationTest
     create("ml" * 16)
     assert_select "#manifest", text: /Low-risk notes/, count: 1 # "Optional history" is Low
     create("mm" * 16, findings: [OVERALL, { severity: "High", title: "Cookies", description: "x", rule: "p", evidence: [["permissions", 2]] }])
-    assert_select "#manifest-code [data-quiet]", count: 0
+    assert_select "#manifest-code [data-slim]", count: 0
     assert_no_match(/Low-risk notes/, css_select("#manifest").text)
+  end
+
+  test "a finding on several lines shows its full note once and a slim row on the later lines" do
+    create("mn" * 16, findings: [
+      OVERALL,
+      { severity: "High", title: "Everywhere #{HOSTILE}", description: "Why #{HOSTILE}.", rule: "w",
+        evidence: [["host_permissions", 0], ["permissions", 1], ["permissions", 0]] },
+      { severity: "Medium", title: "Tabs alone", description: "Tab text.", rule: "t", evidence: [["permissions", 1]] }
+    ])
+    storage, tabs, all = line_of('"storage",'), line_of('"tabs",'), line_of('"<all_urls>"')
+    assert storage.to_i < tabs.to_i && tabs.to_i < all.to_i
+
+    # First line: the open card, as before.
+    assert_select "#manifest-note-#{storage}:not([data-slim]) .mn-item:not([data-slim])" do
+      assert_select "details", count: 0
+      assert_select ".mn-title", text: "Everywhere #{HOSTILE}"
+      assert_select "> .mn-desc", text: "Why #{HOSTILE}."
+    end
+
+    # A later line where it is the only note: no card, a slim row pointing back.
+    assert_select "#manifest-code .ml[data-line='#{all}'][data-sev=high]", count: 1
+    assert_select "#manifest-note-#{all}[data-slim] .mn-item[data-slim] > details:not([open])" do
+      assert_select "summary .mn-sev[data-sev=high]", text: "High"
+      assert_select "summary .mn-title", text: "Everywhere #{HOSTILE}"
+      assert_select "summary .mn-ref", text: "· explained at line #{storage}"
+      assert_select ".mn-desc", text: "Why #{HOSTILE}."
+      assert_select "button.mn-goto[type=button][data-goto-line='#{storage}']", text: "Go to line #{storage}"
+    end
+
+    # A later line with another finding's first note: the card stays, most severe first.
+    assert_select "#manifest-note-#{tabs}:not([data-slim])" do
+      assert_equal [["Everywhere #{HOSTILE}", true], ["Tabs alone", false]],
+                   css_select("#manifest-note-#{tabs} .mn-item").map { |i| [i.at_css(".mn-title").text, i.key?("data-slim")] }
+      assert_select ".mn-item[data-slim] .mn-ref", text: "· explained at line #{storage}"
+      assert_select ".mn-item:not([data-slim]) > .mn-desc", text: "Tab text."
+    end
+
+    # One reference per finding, shared by all its notes and the Overview button.
+    refs = css_select("#manifest-code .mn-item").group_by { |i| i.at_css(".mn-title").text }.transform_values { |is| is.map { |i| i["data-note-for"] }.uniq }
+    assert_equal 1, refs["Everywhere #{HOSTILE}"].size
+    assert_select "#manifest-summary", text: /3 lines have notes:\s+3 high\./
+    assert_not_includes response.body, HOSTILE
+    text = css_select("#manifest-code .ml").map(&:text).join("\n")
+    assert_no_match(/explained|Go to line|Everywhere/, text)
   end
 
   test "no stored manifest keeps a clear empty state" do

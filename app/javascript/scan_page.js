@@ -388,6 +388,13 @@
     }
 
     code.addEventListener('click', function (e) {
+      // "Go to line N" in a repeated note: open the finding's full note.
+      const goto = e.target.closest('[data-goto-line]');
+      if (goto) {
+        const item = goto.closest('.mn-item');
+        show([Number(goto.dataset.gotoLine)], item ? item.dataset.noteFor : '');
+        return;
+      }
       const button = e.target.closest('[data-group-toggle]');
       if (!button) return;
       const id = button.dataset.groupToggle;
@@ -524,8 +531,11 @@
       const targets = numbers.map(lineAt).filter(Boolean);
       if (targets.length === 0) return;
       targets.forEach(unfoldAround);
-      const items = /^\d+$/.test(ref || '')
-        ? Array.from(code.querySelectorAll('.mn-item[data-note-for="' + ref + '"]'))
+      // Only the entry on the line it lands on, the finding's first: the
+      // later lines carry slim repeats of the same note, left closed.
+      const note = document.getElementById('manifest-note-' + targets[0].dataset.line);
+      const items = note && /^\d+$/.test(ref || '')
+        ? Array.from(note.querySelectorAll('.mn-item[data-note-for="' + ref + '"]'))
         : [];
       expand(items);
       open(targets[0], targets.slice(1).concat(items), true);
