@@ -2,12 +2,18 @@ module ScanPage
   # Sorts the rule engine's findings into areas for the Overview tab, and
   # separates routine permissions so they can be collapsed into one line.
   # Severities and texts are passed through unchanged.
+  #
+  # Findings written by the current engine carry a rule id (see
+  # ExtensionAnalyzerData::RULES) and are grouped by it. Findings stored by
+  # older versions (about 20,000 scans) have only a title and are grouped by
+  # the legacy title mapping below.
   class FindingGroups
     # rule and evidence are only present on findings written by the current
     # rule engine (see ExtensionSecurityAnalyzer#add_finding): rule is its
     # stable id, evidence the manifest paths the finding points at. Findings
-    # stored by older versions have neither (nil and []).
-    Finding = Struct.new(:severity, :title, :description, :permission, :rule, :evidence, keyword_init: true)
+    # stored by older versions have neither (nil and []). optional is true
+    # for items the extension can only ask for later.
+    Finding = Struct.new(:severity, :title, :description, :permission, :rule, :evidence, :optional, keyword_init: true)
 
     Area = Struct.new(:key, :name, :findings, :routine, keyword_init: true) do
       def empty?
@@ -21,7 +27,8 @@ module ScanPage
       # "5 routine permissions: storage · notifications · ..."
       def routine_label
         noun = routine.size == 1 ? "permission" : "permissions"
-        "#{routine.size} routine #{noun}: #{routine.map(&:permission).join(' · ')}"
+        names = routine.map { |f| f.optional ? "#{f.permission} (optional)" : f.permission }
+        "#{routine.size} routine #{noun}: #{names.join(' · ')}"
       end
     end
 
@@ -33,13 +40,25 @@ module ScanPage
       other: "Other"
     }.freeze
 
-    # Permissions whose findings are collapsed by default. They keep their
-    # stored severity when expanded; this only changes how much space they take.
-    ROUTINE_PERMISSIONS = %w[storage unlimitedStorage notifications contextMenus activeTab].freeze
+    # Areas by rule id, matched on the id with any "optional." prefix removed.
+    RULE_AREAS = {
+      "permission" => :browser,
+      "combination" => :browser,
+      "host" => :site_access,
+      "content_script" => :site_access,
+      "csp" => :code_policy,
+      "manifest" => :code_policy
+    }.freeze
 
-    # Titles written by ExtensionSecurityAnalyzer. Anything else (including
-    # titles from older versions of the engine) lands in "Other".
+    OPTIONAL_PREFIX = "optional.".freeze
+
+    # Titles the current engine gives permission findings.
     PERMISSION_TITLE = /\A\w+-Risk Permission: (.+)\z/m
+    OPTIONAL_PERMISSION_TITLE = /\AOptional Permission: (.+)\z/m
+
+    # Legacy: how findings stored before rule ids existed are recognised.
+    # COMBINATION_PREFIX and the titles below are only written by older
+    # versions of the engine; anything unknown lands in "Other".
     COMBINATION_PREFIX = "Dangerous Permission Combination:".freeze
     TITLE_AREAS = {
       "Broad Host Permissions" => :site_access,
@@ -56,6 +75,14 @@ module ScanPage
 
     def self.ai?(finding)
       ScanPage.value(finding, :severity) == "Info" && ScanPage.value(finding, :title) == "AI Context Analysis"
+    end
+
+    # The rules version stored on the overall finding; 1 for scans rated
+    # before versions were recorded.
+    def self.rules_version(findings)
+      overall = ScanPage.list(findings).find { |f| f.is_a?(Hash) && overall?(f) }
+      version = ScanPage.value(overall, :rules_version)
+      version.is_a?(Integer) ? version : 1
     end
 
     def initialize(security_findings)
@@ -86,6 +113,11 @@ module ScanPage
     end
 
     def area_for(finding)
+      if finding.rule
+        area = RULE_AREAS[finding.rule.delete_prefix(OPTIONAL_PREFIX).split(".").first]
+        return area if area
+      end
+
       title = finding.title.to_s
       if finding.permission
         host_pattern?(finding.permission) ? :site_access : :browser
@@ -101,18 +133,24 @@ module ScanPage
     def build(hash)
       title = ScanPage.value(hash, :title)
       title = title.nil? ? "" : ScanPage.text(title)
+      rule = ScanPage.value(hash, :rule).then { |r| r.is_a?(String) ? r : nil }
+      optional_name = title[OPTIONAL_PERMISSION_TITLE, 1] if rule
       Finding.new(
         severity: ScanPage.value(hash, :severity).to_s,
         title: title,
         description: ScanPage.value(hash, :description).then { |d| d.nil? ? "" : ScanPage.text(d) },
-        permission: title[PERMISSION_TITLE, 1],
-        rule: ScanPage.value(hash, :rule).then { |r| r.is_a?(String) ? r : nil },
-        evidence: ScanPage.paths(ScanPage.value(hash, :evidence))
+        permission: title[PERMISSION_TITLE, 1] || optional_name,
+        rule: rule,
+        evidence: ScanPage.paths(ScanPage.value(hash, :evidence)),
+        optional: rule.to_s.start_with?(OPTIONAL_PREFIX)
       )
     end
 
+    # Permissions the shared table rates Low are folded into one line,
+    # whatever severity the finding was stored with (old scans stored them
+    # as Medium). Optional ones fold only when the permission itself is Low.
     def routine?(finding)
-      ROUTINE_PERMISSIONS.include?(finding.permission)
+      ExtensionAnalyzerData.permission_level(finding.permission) == "Low"
     end
 
     # "<all_urls>" and match patterns are about which sites, not which APIs.
