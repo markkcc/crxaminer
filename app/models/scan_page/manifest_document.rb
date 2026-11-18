@@ -3,8 +3,10 @@ module ScanPage
   # classes for highlighting, plus where each key and array entry sits so a
   # finding can point at the lines that produced it.
   #
-  # Tokens are plain text with Rouge's CSS class names (so rouge.css styles
-  # them); the view escapes them like any other value.
+  # Tokens are plain text with a short class name each, styled by the
+  # manifest viewer rules in application.css: "k" object key, "s" string,
+  # "n" number, "l" true/false/null, "p" punctuation, nil for indentation.
+  # The view escapes them like any other value.
   class ManifestDocument
     Line = Struct.new(:number, :tokens, :groups, keyword_init: true) do
       def text
@@ -17,9 +19,14 @@ module ScanPage
 
     COLLAPSE_OVER = 20
     INDENT = "  ".freeze
-    RISKY_HOST_PATTERNS = ExtensionAnalyzerData::RISKY_HOST_PATTERNS
-    PERMISSION_TITLE = FindingGroups::PERMISSION_TITLE
-    COMBINATION_PREFIX = FindingGroups::COMBINATION_PREFIX
+
+    # The rule engine that wrote findings before they carried evidence paths
+    # (every scan stored before evidence existed). legacy_lines_for finds
+    # lines from those findings' titles, so these copies describe that old
+    # engine and must not follow changes to the current one.
+    LEGACY_RISKY_HOST_PATTERNS = ["*://*/*", "<all_urls>", "*://*", "file:///*", "*"].freeze
+    LEGACY_PERMISSION_TITLE = /\A\w+-Risk Permission: (.+)\z/m
+    LEGACY_COMBINATION_PREFIX = "Dangerous Permission Combination:".freeze
 
     attr_reader :lines, :groups
 
@@ -47,20 +54,35 @@ module ScanPage
       @ranges[path]&.first
     end
 
-    # Line numbers for a finding title, following the rule that produced it.
-    # Where the rule cannot be traced to entries, this points at the key; for
-    # titles it does not know, it returns nothing rather than guess.
-    def lines_for(title)
+    # The line for an evidence path, or for its nearest parent that exists
+    # when the path does not resolve (the manifest changed shape, or an index
+    # is out of range). The top-level object itself is never the answer:
+    # pointing at its opening brace would tell the reader nothing.
+    def resolve(path)
+      return nil unless path.is_a?(Array)
+
+      path.size.downto(1) do |size|
+        line = line_of(path.first(size))
+        return line if line
+      end
+      nil
+    end
+
+    # Line numbers for a finding stored without evidence, from its title and
+    # the old engine's rules (see LEGACY_*). Where the rule cannot be traced
+    # to entries, this points at the key; for titles it does not know, it
+    # returns nothing rather than guess.
+    def legacy_lines_for(title)
       title = title.to_s
-      if (name = title[PERMISSION_TITLE, 1])
+      if (name = title[LEGACY_PERMISSION_TITLE, 1])
         entry_lines("permissions") { |v| v == name }
-      elsif title.start_with?(COMBINATION_PREFIX)
-        names = title.delete_prefix(COMBINATION_PREFIX).split("+").map(&:strip)
+      elsif title.start_with?(LEGACY_COMBINATION_PREFIX)
+        names = title.delete_prefix(LEGACY_COMBINATION_PREFIX).split("+").map(&:strip)
         entry_lines("permissions") { |v| names.include?(v) }
       else
         case title
         when "Broad Host Permissions"
-          entry_lines("host_permissions") { |v| v.is_a?(String) && RISKY_HOST_PATTERNS.any? { |r| v.include?(r) } }
+          entry_lines("host_permissions") { |v| v.is_a?(String) && LEGACY_RISKY_HOST_PATTERNS.any? { |r| v.include?(r) } }
         when "Access to Sensitive Domains"
           # The domain list lives inside the rule, not in a shared constant.
           key_lines("host_permissions")
@@ -86,7 +108,7 @@ module ScanPage
           add_line(depth, prefix + [["p", "{"]], false)
           value.each_with_index do |(key, child), index|
             key = key.to_s
-            walk(child, depth + 1, path + [key], [["nl", scalar(key)], ["p", ":"], [nil, " "]], index < value.size - 1)
+            walk(child, depth + 1, path + [key], [["k", scalar(key)], ["p", ":"], [nil, " "]], index < value.size - 1)
           end
           add_line(depth, [["p", "}"]], comma)
         end
@@ -138,11 +160,9 @@ module ScanPage
 
     def token_class(value)
       case value
-      when String then "s2"
-      when Integer then "mi"
-      when Float then "mf"
-      when true, false, nil then "kc"
-      else "s2"
+      when Integer, Float then "n"
+      when true, false, nil then "l"
+      else "s"
       end
     end
 
@@ -170,7 +190,7 @@ module ScanPage
         matches = ScanPage.value(script, :matches)
         next [] unless matches.is_a?(Array)
 
-        matches.each_index.select { |j| RISKY_HOST_PATTERNS.include?(matches[j]) }
+        matches.each_index.select { |j| LEGACY_RISKY_HOST_PATTERNS.include?(matches[j]) }
           .filter_map { |j| line_of(["content_scripts", i, "matches", j]) }
       end
       found.empty? ? key_lines("content_scripts") : found

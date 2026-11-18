@@ -1,53 +1,127 @@
-<%# The raw manifest, pretty-printed by ScanPage::ManifestDocument. Tokens carry Rouge's
-    class names for colour and are escaped like any other text. Lines that produced
-    findings are marked; arrays longer than ManifestDocument::COLLAPSE_OVER start folded. %>
+<%# The raw manifest, pretty-printed by ScanPage::ManifestDocument, with a note under
+    each line that a rule finding points at (ScanPage::ManifestNotes). Tokens and
+    notes are escaped like any other text. Per-line styles live in application.css
+    (the "Manifest viewer" rules) so long manifests stay small; scan_page.js runs
+    the tools, the note navigation and the folds.
+
+    Folding: arrays longer than ManifestDocument::COLLAPSE_OVER start folded, except
+    those holding a line with a note, which start open so no note is hidden. Their
+    fold button can still close them and says how many notes are inside. %>
 <% doc = @report.manifest_document %>
-<% flagged = @report.flagged_lines %>
-<% button_class = "px-3 py-1 text-sm font-medium rounded border border-brand-600 text-brand-700 hover:bg-brand-50 dark:border-brand-300 dark:text-brand-200 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" %>
+<% notes = @report.manifest_notes %>
+<% tool_class = "px-2 sm:px-2.5 py-1 text-xs sm:text-sm font-medium rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 aria-pressed:border-brand-500 aria-pressed:bg-brand-50 aria-pressed:text-brand-800 dark:aria-pressed:border-brand-300 dark:aria-pressed:bg-brand-900 dark:aria-pressed:text-brand-100 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" %>
 <section class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6" aria-labelledby="manifest-heading">
-  <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
-    <h2 id="manifest-heading" class="text-xl font-semibold text-gray-700 dark:text-gray-200">Manifest</h2>
-    <% unless doc.empty? %>
-      <div class="flex flex-wrap gap-2" role="group" aria-label="Manifest tools">
-        <button type="button" id="manifest-copy" class="<%= button_class %>">Copy</button>
-        <button type="button" id="manifest-download" class="<%= button_class %>">Download manifest.json</button>
-        <button type="button" id="manifest-wrap" class="<%= button_class %>" aria-pressed="false">Wrap lines</button>
-      </div>
-    <% end %>
-  </div>
+  <h2 id="manifest-heading" class="text-xl font-semibold text-gray-700 dark:text-gray-200">Manifest</h2>
 
   <% if doc.empty? %>
-    <p class="text-gray-600 dark:text-gray-300">No manifest data available.</p>
+    <p class="mt-2 text-gray-600 dark:text-gray-300">No manifest data available. This scan did not keep a copy of the extension's manifest.json.</p>
   <% else %>
-    <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
-      Pretty-printed from the stored manifest; key order may differ from the original file.
-      <% if flagged.any? %>
-        Lines marked <span aria-hidden="true" class="text-brand-600 dark:text-brand-300">●</span> produced findings.
-      <% end %>
-    </p>
-    <p class="sr-only" id="manifest-status" aria-live="polite"></p>
-    <div id="manifest-code" class="highlight rounded-lg py-3 overflow-x-auto font-mono text-xs leading-5" data-wrap="false">
-      <%# Line numbers come from data-line via CSS, so they are not copied with the text.
-          Per-line styles live in application.css to keep long manifests small. %>
-      <% groups_by_line = doc.groups.index_by(&:first) %>
-      <% doc.lines.each do |line| %>
-        <% titles = flagged[line.number] %>
-        <%= tag.div id: "manifest-line-#{line.number}",
-                    class: ["manifest-line", ("manifest-flagged" if titles.present?)],
-                    hidden: line.groups.any?,
-                    data: { line: line.number, groups: line.groups.presence&.join(" ") } do %><% if titles.present? %><span class="manifest-mark" aria-hidden="true">●</span><span class="sr-only">Line <%= line.number %>, flagged by: <%= titles.join("; ") %>.</span><% end %><code class="manifest-text"><% line.tokens.each do |css, text| %><% if css %><span class="<%= css %>"><%= text %></span><% else %><%= text %><% end %><% end %></code><% end %>
-        <% if (group = groups_by_line[line.number]) %>
-          <%= tag.div class: "manifest-fold", hidden: line.groups.any?, data: { groups: line.groups.presence&.join(" ") } do %>
-            <button type="button"
-                    class="my-0.5 px-2 rounded text-gray-200 bg-gray-700 hover:bg-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
-                    data-group-toggle="<%= group.id %>"
-                    data-size="<%= group.size %>"
-                    aria-expanded="false">
-              Show <%= group.size %> hidden entries (lines <%= group.first + 1 %>–<%= group.last - 1 %>)
-            </button>
-          <% end %>
+    <% annotated = notes.lines %>
+    <% folded = doc.groups.reject { |g| annotated.any? { |n| n > g.first && n < g.last } }.map(&:id) %>
+    <% groups_by_line = doc.groups.index_by(&:first) %>
+    <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+      The extension's settings file, laid out from the stored copy. Key order may differ from the original.
+      <% if notes.any? %>
+        A note under a line explains each finding that line raised.
+        <% if notes.by_line.values.flatten.any?(&:quiet?) %>Low-risk notes are kept to one line; open one to see why.<% end %>
+        <% if (unplaced = notes.unplaced_count).positive? %>
+          <%= unplaced == 1 ? "1 finding does not point at a line" : "#{unplaced} findings do not point at a line" %>; the Overview tab lists every finding.
         <% end %>
       <% end %>
+    </p>
+
+    <div class="manifest-viewer mt-4">
+      <div class="mv-bar">
+        <p class="mv-facts">
+          <span class="font-mono font-semibold text-gray-800 dark:text-gray-100">manifest.json</span>
+          <span><%= pluralize(number_with_delimiter(doc.lines.size), "line") %></span>
+          <% if notes.any? %><span><%= number_with_delimiter(annotated.size) %> with notes</span><% end %>
+        </p>
+        <div class="flex flex-wrap gap-2" role="group" aria-label="Manifest tools">
+          <button type="button" id="manifest-copy" class="<%= tool_class %>">Copy</button>
+          <button type="button" id="manifest-download" class="<%= tool_class %>">Download manifest.json</button>
+          <button type="button" id="manifest-wrap" class="<%= tool_class %>" aria-pressed="false">Wrap lines</button>
+          <% if notes.any? %>
+            <button type="button" id="manifest-notes-toggle" class="<%= tool_class %>" aria-pressed="true">Show notes</button>
+          <% end %>
+        </div>
+      </div>
+
+      <%= tag.div class: "mv-summary", id: "manifest-summary", data: { sticky: ("" if notes.any?) } do %>
+        <% if notes.any? %>
+          <p class="min-w-0">
+            <strong class="font-semibold"><%= annotated.size == 1 ? "1 line has a note" : "#{number_with_delimiter(annotated.size)} lines have notes" %>:</strong>
+            <% notes.line_counts.each_with_index do |(key, count), index| %><span class="mv-count" data-sev="<%= key %>"><%= count %> <%= key %></span><%= index < notes.line_counts.size - 1 ? "," : "." %>
+            <% end %>
+          </p>
+          <div class="flex items-center gap-2" role="group" aria-label="Go through the notes">
+            <span id="manifest-position" class="empty:hidden text-xs sm:text-sm tabular-nums text-gray-600 dark:text-gray-300"></span>
+            <button type="button" id="manifest-prev" class="<%= tool_class %>"><span aria-hidden="true">↑ </span>Previous</button>
+            <button type="button" id="manifest-next" class="<%= tool_class %>"><span aria-hidden="true">↓ </span>Next</button>
+          </div>
+        <% elsif notes.findings? %>
+          <p id="manifest-no-notes">None of the findings point at a specific line of this file, so no lines have notes. The Overview tab lists them.</p>
+        <% else %>
+          <p id="manifest-no-notes">No rule-based findings were raised for this extension, so no lines have notes.</p>
+        <% end %>
+      <% end %>
+
+      <p class="sr-only" id="manifest-status" aria-live="polite"></p>
+      <%# A focusable region so the keyboard can scroll it sideways. Line numbers come from
+          data-line via CSS, so they are not copied with the text; notes sit outside the lines
+          and are left out of Copy and Download. %>
+      <div id="manifest-code" tabindex="0" role="region" aria-label="manifest.json"
+           data-wrap="false" data-notes="on" data-digits="<%= [doc.lines.size.to_s.size, 2].max %>">
+        <div class="mv-rows">
+          <% doc.lines.each do |line| %>
+            <% n = line.number %>
+            <% line_notes = notes.notes_for(n) %>
+            <% hidden = line.groups.any? { |id| folded.include?(id) } %>
+            <% groups = line.groups.presence&.join(" ") %>
+            <%= tag.div class: "ml", hidden: hidden,
+                        data: { line: n, sev: line_notes.first&.severity, groups: groups },
+                        aria: { describedby: ("manifest-note-#{n}" if line_notes.any?) } do %><code><% line.tokens.each do |css, text| %><% if css %><span class="<%= css %>"><%= text %></span><% else %><%= text %><% end %><% end %></code><% end %>
+            <% if line_notes.any? %>
+              <%# Low, Minimal and Info notes are one slim row that opens to the description;
+                  a line with only those gets a slim note instead of a card (data-quiet). %>
+              <%= tag.div class: "mn", id: "manifest-note-#{n}", hidden: hidden,
+                          data: { for: n, groups: groups, quiet: ("" if notes.quiet?(n)) } do %>
+                <div class="mn-card" data-sev="<%= line_notes.first.severity %>">
+                  <span class="sr-only">Line <%= n %>:</span>
+                  <ul>
+                    <% line_notes.each do |note| %>
+                      <% heading = capture do %><span class="mn-sev" data-sev="<%= note.severity %>"><%= note.label %></span> <strong class="mn-title"><%= note.finding.title.presence || "Untitled finding" %></strong><% end %>
+                      <%= tag.li class: "mn-item", data: { note_for: note.ref, quiet: ("" if note.quiet?) } do %>
+                        <% if note.quiet? && note.finding.description.present? %>
+                          <details>
+                            <summary><%= heading %><span class="mn-why" aria-hidden="true">Why?</span></summary>
+                            <p class="mn-desc"><%= note.finding.description %></p>
+                          </details>
+                        <% else %>
+                          <p><%= heading %></p>
+                          <% if note.finding.description.present? %>
+                            <p class="mn-desc"><%= note.finding.description %></p>
+                          <% end %>
+                        <% end %>
+                      <% end %>
+                    <% end %>
+                  </ul>
+                </div>
+              <% end %>
+            <% end %>
+            <% if (group = groups_by_line[n]) %>
+              <% inside = annotated.count { |a| a > group.first && a < group.last } %>
+              <% closed = "Show #{group.size} hidden entries (lines #{group.first + 1}–#{group.last - 1})#{", #{inside} with notes" if inside.positive?}" %>
+              <% open = "Hide these #{group.size} entries" %>
+              <%= tag.div class: "mf", hidden: hidden, data: { groups: groups } do %>
+                <button type="button" data-group-toggle="<%= group.id %>"
+                        data-open-label="<%= open %>" data-closed-label="<%= closed %>"
+                        aria-expanded="<%= !folded.include?(group.id) %>"><%= folded.include?(group.id) ? closed : open %></button>
+              <% end %>
+            <% end %>
+          <% end %>
+        </div>
+      </div>
     </div>
   <% end %>
 </section>

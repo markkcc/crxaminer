@@ -1,5 +1,6 @@
-<%# One rule finding, with a control that opens the manifest lines it came from. %>
-<% lines = @report.finding_lines.fetch(finding.title, []) %>
+<%# One rule finding, with a control that opens the manifest lines it came from and
+    points out its note there (data-manifest-finding matches the note's data-note-for). %>
+<% lines = @report.finding_lines(finding) %>
 <li class="border dark:border-gray-700 rounded-lg p-3" data-finding>
   <div class="flex items-start gap-2">
     <% if finding.severity.present? %>
@@ -17,7 +18,8 @@
   <% if lines.any? %>
     <button type="button"
             class="mt-2 text-xs font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200 underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
-            data-manifest-lines="<%= lines.join(" ") %>">
+            data-manifest-lines="<%= lines.join(" ") %>"
+            data-manifest-finding="<%= @report.manifest_notes.ref_for(finding) %>">
       <% if lines.size == 1 %>Show line <%= lines.first %><% elsif lines.size <= 3 %>Show lines <%= lines.to_sentence %><% else %>Show the <%= lines.size %> lines<% end %> in the manifest
     </button>
   <% end %>

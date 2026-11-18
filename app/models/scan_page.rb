@@ -20,6 +20,16 @@ module ScanPage
     list(value).grep(String)
   end
 
+  # Manifest paths as stored on a finding's evidence: a list of paths, each a
+  # list of object keys (strings) and array indexes (integers), for example
+  # [["permissions", 3], ["content_scripts", 0, "matches", 1]]. Anything else
+  # is dropped.
+  def paths(value)
+    list(value).select do |path|
+      path.is_a?(Array) && path.any? && path.all? { |step| step.is_a?(String) || step.is_a?(Integer) }
+    end
+  end
+
   # A stored value as display text; non-strings become their JSON form.
   def text(value)
     return value if value.is_a?(String)

@@ -29,8 +29,8 @@
           <h3 class="text-sm font-medium text-gray-600 dark:text-gray-400"><%= ScanPage::SiteAccess::SOURCES[source] %></h3>
           <ul class="mt-1 space-y-1">
             <% patterns.each do |p| %>
-              <%# The rule engine rates entries of "permissions" only, so only those get a chip. %>
-              <% rating = ScanPage::PermissionCatalog.rating(p.pattern) if source == :permissions %>
+              <%# The level the rule engine gives this pattern on its own (all sites, local files, a sensitive site). %>
+              <% rating = p.rating %>
               <li class="font-mono text-xs text-gray-700 dark:text-gray-300 break-all"><%= p.pattern %><% if rating %> <span class="<%= severity_classes(rating) %> ml-1 px-1.5 py-0.5 rounded font-sans font-semibold">Rated <%= rating %></span><% end %></li>
             <% end %>
           </ul>
@@ -42,10 +42,10 @@
   <% if site.optional_patterns.any? %>
     <div class="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
       <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200">Sites it can request later</h3>
-      <p class="text-xs <%= muted %> mt-1">Chrome asks you before granting these.</p>
+      <p class="text-xs <%= muted %> mt-1">Chrome asks you before granting these, so they are rated one level lower.</p>
       <ul class="mt-2 space-y-1">
         <% site.optional_patterns.each do |p| %>
-          <li class="font-mono text-xs text-gray-700 dark:text-gray-300 break-all"><%= p.pattern %></li>
+          <li class="font-mono text-xs text-gray-700 dark:text-gray-300 break-all"><%= p.pattern %><% if p.rating %> <span class="<%= severity_classes(p.rating) %> ml-1 px-1.5 py-0.5 rounded font-sans font-semibold">Rated <%= p.rating %></span><% end %></li>
         <% end %>
       </ul>
     </div>
@@ -53,7 +53,7 @@
 </section>
 
 <% [[:required, "API permissions", "Requested at install", catalog.required],
-    [:optional, "API permissions it can request later", "Chrome asks you before granting these", catalog.optional]].each do |key, heading, intro, rows| %>
+    [:optional, "API permissions it can request later", "Chrome asks you before granting these, so each is rated one level lower than at install", catalog.optional]].each do |key, heading, intro, rows| %>
   <% next if key == :optional && rows.empty? %>
   <section class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 mb-6" aria-labelledby="permissions-<%= key %>-heading">
     <h2 id="permissions-<%= key %>-heading" class="text-xl font-semibold text-gray-700 dark:text-gray-200"><%= heading %></h2>

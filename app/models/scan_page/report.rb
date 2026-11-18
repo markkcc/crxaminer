@@ -52,16 +52,21 @@ module ScanPage
       permissions.required.size + site_access.patterns.map(&:pattern).uniq.size
     end
 
-    # Manifest line numbers for each rule finding, keyed by title.
-    def finding_lines
-      @finding_lines ||= finding_groups.findings.to_h { |f| [f.title, manifest_document.lines_for(f.title)] }
+    # Where each rule finding sits in the manifest, and the notes shown there.
+    def manifest_notes
+      @manifest_notes ||= ManifestNotes.new(manifest_document, finding_groups.findings)
     end
 
-    # Line number => titles of the findings that point at it.
+    # Manifest line numbers for one rule finding (a FindingGroups::Finding
+    # from finding_groups), ascending.
+    def finding_lines(finding)
+      manifest_notes.lines_for(finding)
+    end
+
+    # Line number => the notes (ManifestNotes::Note) on that line, most
+    # severe first.
     def flagged_lines
-      @flagged_lines ||= finding_lines.each_with_object(Hash.new { |h, k| h[k] = [] }) do |(title, numbers), map|
-        numbers.each { |n| map[n] << title }
-      end
+      manifest_notes.by_line
     end
   end
 end

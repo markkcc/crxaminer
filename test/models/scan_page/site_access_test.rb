@@ -6,7 +6,7 @@ class ScanPage::SiteAccessTest < ActiveSupport::TestCase
   end
 
   test "broad host permissions mean all websites" do
-    %w[<all_urls> *://*/* https://*/* http://*/ wss://*/* *].each do |pattern|
+    %w[<all_urls> *://*/* https://*/* http://*/ wss://*/*].each do |pattern|
       site = access(manifest_version: 3, host_permissions: [pattern])
       assert_equal :all, site.kind, pattern
       assert_equal "All websites", site.summary

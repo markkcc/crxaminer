@@ -270,6 +270,8 @@ class ExtensionAnalyzer
           permissions: manifest['permissions'] || [],
           optional_permissions: manifest['optional_permissions'] || [],
           host_permissions: manifest['host_permissions'] || [],
+          # Added after many scans were stored; readers fall back to raw.
+          optional_host_permissions: manifest['optional_host_permissions'] || [],
           content_scripts: manifest['content_scripts'],
           embedded_urls: urls.uniq,
           content_security_policy: content_security_policy,

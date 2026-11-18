@@ -20,7 +20,11 @@
           <% if ai_analysis %>
             This section provides a Claude-based AI analysis that applies additional context to the risk. Results are not guaranteed to be accurate.
           <% else %>
-            This rating comes only from CRXaminer's rule-based checks of the manifest. AI context is unavailable for this scan.
+            This rating comes only from CRXaminer's rule-based checks of the manifest: it is the highest level among the findings
+            (Critical, High, Medium or Low), or Minimal when no rule flags anything. AI context is unavailable for this scan.
+            <% if ScanPage::FindingGroups.rules_version(@security_findings) < ExtensionSecurityAnalyzer::RULES_VERSION %>
+              This scan was rated with an earlier version of the rules, which counted findings instead.
+            <% end %>
           <% end %>
         </div>
       </div>
