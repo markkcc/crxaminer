@@ -39,8 +39,10 @@ class ScanPage::ReportTest < ActiveSupport::TestCase
       security_findings: [{ severity: "High", title: "High-Risk Permission: tabs", description: "x" }]
     )
     assert_equal 3, report.permission_count # two API permissions and one distinct site pattern
-    assert_equal({ "High-Risk Permission: tabs" => [3] }, report.finding_lines)
-    assert_equal({ 3 => ["High-Risk Permission: tabs"] }, report.flagged_lines)
+    finding = report.finding_groups.findings.first
+    assert_equal [3], report.finding_lines(finding)
+    assert_equal [3], report.flagged_lines.keys
+    assert_equal ["High-Risk Permission: tabs"], report.flagged_lines[3].map { |note| note.finding.title }
   end
 
   test "a missing or junk manifest gives an empty report" do
