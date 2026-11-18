@@ -32,3 +32,22 @@ class ExtensionSecurityAnalyzerOrderTest < ActiveSupport::TestCase
     assert_includes sent, "Medium: Medium-Risk Permission: cookies"
   end
 end
+
+class ExtensionSecurityAnalyzerUpdateUrlTest < ActiveSupport::TestCase
+  def rules_for(update_url)
+    ExtensionSecurityAnalyzer.rule_findings({ manifest_version: 3, raw: { "manifest_version" => 3, "update_url" => update_url } })
+                             .filter_map { |f| f[:rule] }
+  end
+
+  test "an update URL with no readable host raises nothing" do
+    ["not a url", "javascript:alert(1)", "//", "ftp://updates.example.net/x", " "].each do |value|
+      assert_empty rules_for(value), value.inspect
+    end
+  end
+
+  test "an http or https update URL on another host is flagged" do
+    assert_equal ["update_url.external"], rules_for("https://updates.example.net/crx/update.xml")
+    assert_equal ["update_url.external"], rules_for("http://Updates.Example.net")
+    assert_empty rules_for("https://clients2.google.com/service/update2/crx")
+  end
+end

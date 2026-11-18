@@ -518,11 +518,12 @@ class ExtensionSecurityAnalyzer
     url = read(:update_url)
     return unless url.is_a?(String) && !url.strip.empty?
 
+    # A value with no readable host is not an update server Chrome could use.
     host = url_host(url)
-    return if host == STORE_UPDATE_HOST
+    return if host.nil? || host == STORE_UPDATE_HOST
 
     add_finding("High", "Updates From Outside the Chrome Web Store",
-                "Its updates would come from #{host || 'a server it names'} instead of the Chrome Web Store, so new " \
+                "Its updates would come from #{host} instead of the Chrome Web Store, so new " \
                 "versions would skip the store's review and could change what it does at any time.",
                 rule: "update_url.external", evidence: [["update_url"]])
   end
@@ -548,7 +549,7 @@ class ExtensionSecurityAnalyzer
       add_finding("Medium", "Asks for Google Account Data",
                   "It asks for access to data in your Google account: #{short_list(data.map(&:first).uniq)}. " \
                   "Once you agree, it can use that data through Google's services, outside the browser too.",
-                  rule: "oauth2.account_data", evidence: (data + sign_in).map(&:last).sort_by(&:last))
+                  rule: "oauth2.account_data", evidence: data.map(&:last))
     elsif sign_in.any?
       add_finding("Low", "Google Sign-In",
                   "Once you agree, it can sign you in with your Google account and read your name and email address.",

@@ -207,7 +207,8 @@ class ExtensionSecurityAnalyzerManifestKeysTest < ActiveSupport::TestCase
                                 ] }), "oauth2.account_data").sole
     assert_equal "Medium", data[:severity]
     assert_includes data[:description], "Gmail, Google Drive, Google Calendar"
-    assert_equal (0..4).map { |i| ["oauth2", "scopes", i] }, data[:evidence]
+    assert_equal (1..3).map { |i| ["oauth2", "scopes", i] }, data[:evidence],
+                 "the note goes under the scopes that reach data, not the sign-in ones"
 
     sign_in = by_rule(findings_for("oauth2" => { "scopes" => %w[openid email profile https://www.googleapis.com/auth/userinfo.profile] }),
                       "oauth2.sign_in").sole
