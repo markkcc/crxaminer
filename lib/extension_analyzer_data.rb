@@ -241,17 +241,6 @@ module ExtensionAnalyzerData
 
   SENSITIVE_DOMAINS = SENSITIVE_SITES.flat_map { |category, domains| domains.map { |d| [d, category] } }.to_h.freeze
 
-  # Legacy: the patterns the engine used before RULES_VERSION 2. Kept only so
-  # code that reads findings stored by older versions keeps working; the
-  # current engine uses MatchPattern instead.
-  RISKY_HOST_PATTERNS = [
-    "*://*/*",      # All URLs
-    "<all_urls>",   # All URLs
-    "*://*",        # All URLs
-    "file:///*",    # Local file access
-    "*"             # Wildcard
-  ].freeze
-
   # The one severity palette. The colours are theme tokens defined in
   # app/assets/tailwind/application.css; read these through
   # ScanHelper#severity_classes rather than directly.
