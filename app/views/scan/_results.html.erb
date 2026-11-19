@@ -13,6 +13,13 @@
         <h1 class="text-2xl font-bold text-gray-700 dark:text-gray-200 break-words">
           <%= @extension_name || "Unknown Extension" %>
         </h1>
+        <%# The rating on every tab: the overall level and the two ratings behind it. %>
+        <% rating = @report.rating %>
+        <p class="mt-1.5 mb-1 flex flex-wrap items-center gap-1.5" id="header-rating">
+          <%= overall_badge(rating.overall, size: :sm) %>
+          <%= access_badge(rating.access, size: :sm, label: :visible) %>
+          <%= trust_badge(rating.trust, size: :sm, label: :visible) %>
+        </p>
         <% if @manifest[:version] %>
           <%# The store version is filled in by scan_page.js once known (or here from the cache). %>
           <div class="text-gray-600 dark:text-gray-300">

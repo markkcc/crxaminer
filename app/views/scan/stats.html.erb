@@ -54,28 +54,27 @@
             </div>
           </div>
 
-          <!-- Severity Distribution Card -->
+          <!-- Overall rating distribution card -->
           <div class="bg-brand-50 dark:bg-gray-700 rounded-lg p-6 border border-brand-200 dark:border-gray-600">
-            <h2 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-4">Severity Distribution</h2>
-            <div class="space-y-2" role="group" aria-label="Filter recent scans by risk level">
+            <h2 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Overall ratings</h2>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Select a level to list its recent scans.</p>
+            <% total_count = @severity_counts.values.sum %>
+            <div class="space-y-1" role="group" aria-label="Filter recent scans by overall rating">
               <% @severity_counts.each do |severity, count| %>
-                <%
-                  total_count = @severity_counts.values.sum
-                  percentage = total_count > 0 ? (count.to_f / total_count * 100).round : 0
-                %>
+                <% percentage = total_count > 0 ? (count.to_f / total_count * 100).round : 0 %>
                 <button type="button"
                         class="severity-filter-btn block w-full text-left p-2 hover:bg-brand-100 dark:hover:bg-gray-600 rounded transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 dark:focus-visible:ring-brand-300"
                         data-severity="<%= severity %>"
                         aria-pressed="false">
-                  <span class="flex items-center justify-between mb-1">
-                    <span class="text-sm text-gray-700 dark:text-gray-200"><%= severity %></span>
-                    <span class="flex items-center space-x-2">
+                  <span class="flex items-center justify-between gap-3 mb-1.5">
+                    <%= overall_badge(severity, size: :sm) %>
+                    <span class="flex items-baseline gap-2 tabular-nums">
                       <span class="text-xs text-gray-600 dark:text-gray-400"><%= percentage %>%</span>
                       <span class="text-sm font-semibold text-brand-700 dark:text-brand-200"><%= number_with_delimiter(count) %></span>
                     </span>
                   </span>
-                  <span class="block w-full bg-gray-200 dark:bg-gray-600 rounded-full h-3 relative">
-                    <span class="block <%= severity_classes(severity) %> h-3 rounded-full" style="width: <%= percentage %>%;"></span>
+                  <span class="block w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 relative" aria-hidden="true">
+                    <span class="block <%= severity_classes(severity) %> h-2 rounded-full" style="width: <%= percentage %>%;"></span>
                   </span>
                 </button>
               <% end %>
@@ -88,14 +87,14 @@
         <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Recent Scans</h2>
         
         <div class="overflow-x-auto w-full">
-          <table class="w-full">
+          <table class="w-full table-fixed min-w-[42rem]">
             <thead class="bg-gray-50 dark:bg-gray-900">
               <tr>
                 <th scope="col" class="w-5/12 px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b-2 border-gray-300 dark:border-gray-600">
                   Extension
                 </th>
                 <th scope="col" class="w-2/12 px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b-2 border-gray-300 dark:border-gray-600">
-                  Risk Level
+                  Rating
                 </th>
                 <th scope="col" class="w-3/12 px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b-2 border-gray-300 dark:border-gray-600">
                   Scan Date

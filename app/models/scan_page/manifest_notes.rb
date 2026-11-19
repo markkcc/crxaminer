@@ -116,12 +116,14 @@ module ScanPage
 
     LABEL_MAX = 20
 
-    # Known severities read as "High"; anything else is shown as stored
-    # (escaped by the view, cut to LABEL_MAX characters), or "Unrated" when
-    # blank.
+    # Finding levels read as their access tier ("High" is "Broad reach", see
+    # ScanRating::ACCESS_TIERS); Minimal and Info keep their names. Anything
+    # else is shown as stored (escaped by the view, cut to LABEL_MAX
+    # characters), or "Unrated" when blank.
     def self.severity_label(severity)
       text = ScanPage.text(severity).strip
       return "Unrated" if text.empty? || severity.nil?
+      return ScanRating.access_tier(text).name if ExtensionAnalyzerData::OVERALL_LEVELS.include?(text.capitalize)
       return text.capitalize if SEVERITIES.include?(text.downcase)
 
       text.length > LABEL_MAX ? "#{text[0, LABEL_MAX - 1]}…" : text

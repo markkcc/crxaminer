@@ -19,9 +19,7 @@
       </div>
     </td>
     <td class="px-6 py-4">
-      <span class="<%= severity_classes(display_severity) %> inline-block whitespace-nowrap px-2 py-0.5 rounded text-xs font-semibold">
-        <%= display_severity&.upcase || 'UNKNOWN' %>
-      </span>
+      <%= overall_badge(display_severity, size: :sm) %>
     </td>
     <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
       <time datetime="<%= scan.created_at.utc.iso8601 %>"><%= scan.created_at.utc.strftime("%Y-%m-%d %H:%M") %> UTC</time>

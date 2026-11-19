@@ -36,20 +36,20 @@ class ScanRuleFindingsTest < ActionDispatch::IntegrationTest
     assert_select "#overview [data-area=code_policy] [data-finding]", text: /WebAssembly Allowed/
     assert_select "#overview [data-area=browser] details[data-routine] summary",
                   text: /3 routine permissions: alarms · storage · contextMenus \(optional\)/
-    assert_select "#overview details[data-routine] .bg-severity-low", text: "LOW", count: 3
+    assert_select "#overview details[data-routine] .bg-severity-low", text: "Routine", count: 3
     # Rated with the current rules: no note about an earlier version.
     assert_select "#older-rules-note", count: 0
-    assert_select "#info-popup", text: /highest level among the findings/
+    assert_select "#info-popup", text: /Two ratings make up the result/
     assert_select "#info-popup", text: /earlier version of the rules/, count: 0
-    assert_select "#security-info-popup", text: /rated one level lower/
+    assert_select "#security-info-popup", text: /one tier lower/
   end
 
   test "the overall card shows the rating and its basis" do
     create_new_scan("o" * 32)
     get scan_path("o" * 32), xhr: true
 
-    assert_select ".bg-severity-critical", text: "CRITICAL"
-    assert_includes response.body, "Access: Full control (the highest of"
+    assert_select ".bg-severity-critical", text: "Full control"
+    assert_select "#verdict-access [data-based-on]", text: /Based on the manifest, by fixed rules: \d+ findings\./
   end
 
   test "the Permissions tab rates from the same table, optional ones one level lower" do
@@ -59,16 +59,16 @@ class ScanRuleFindingsTest < ActionDispatch::IntegrationTest
     required = css_select("#permissions-required-table tbody tr").to_h do |row|
       [row.at_css("th[scope=row] > span.font-mono").text.strip, row.at_css("td:nth-of-type(2) span").text.strip]
     end
-    assert_equal({ "storage" => "Low", "alarms" => "Low", "tabs" => "Medium", "cookies" => "Medium" }, required)
+    assert_equal({ "storage" => "Routine", "alarms" => "Routine", "tabs" => "Scoped", "cookies" => "Scoped" }, required)
     optional = css_select("#permissions-optional-table tbody tr").to_h do |row|
       [row.at_css("th[scope=row] > span.font-mono").text.strip, row.at_css("td:nth-of-type(2) span").text.strip]
     end
-    assert_equal({ "history" => "Medium", "contextMenus" => "Low" }, optional)
+    assert_equal({ "history" => "Scoped", "contextMenus" => "Routine" }, optional)
 
     # Site patterns carry the engine's level for each pattern.
-    assert_select "#permissions li", text: /<all_urls>\s+Rated High/
-    assert_select "#permissions li", text: %r{https://www\.paypal\.com/\*\s+Rated Medium}
-    assert_select "#permissions li", text: %r{file:///\*\s+Rated Low}
+    assert_select "#permissions li", text: /<all_urls>\s+Broad reach/
+    assert_select "#permissions li", text: %r{https://www\.paypal\.com/\*\s+Scoped}
+    assert_select "#permissions li", text: %r{file:///\*\s+Routine}
   end
 
   test "an old scan still shows its stored findings, with a note about the earlier rules" do
@@ -85,7 +85,7 @@ class ScanRuleFindingsTest < ActionDispatch::IntegrationTest
     assert_select "#older-rules-note"
     assert_select "#info-popup", text: /earlier version of the rules/
     assert_select "#overview [data-area=browser] > ul [data-finding]", text: /Old tabs text\./
-    assert_select "#overview details[data-routine] .bg-severity-medium", text: "MEDIUM", count: 1
+    assert_select "#overview details[data-routine] .bg-severity-medium", text: "Scoped", count: 1
     assert_select "#overview [data-area=code_policy] [data-finding]", text: /Old wasm text\./
   end
 end

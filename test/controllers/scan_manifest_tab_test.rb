@@ -49,7 +49,7 @@ class ScanManifestTabTest < ActionDispatch::IntegrationTest
     cookies = line_of('"cookies"')
     assert_select "#manifest-code .ml[data-line='#{cookies}'][data-sev=critical][aria-describedby='manifest-note-#{cookies}']"
     assert_equal ["Reads cookies on every site", "Cookies #{HOSTILE}"], note_titles(cookies)
-    assert_equal %w[Critical High], css_select("#manifest-note-#{cookies} .mn-sev").map(&:text)
+    assert_equal ["Full control", "Broad reach"], css_select("#manifest-note-#{cookies} .mn-sev").map(&:text)
     assert_select "#manifest-note-#{cookies} .mn-desc", text: "Combination #{HOSTILE}."
     assert_select "#manifest-note-#{cookies} .sr-only", text: "Line #{cookies}:"
 
@@ -60,7 +60,7 @@ class ScanManifestTabTest < ActionDispatch::IntegrationTest
     # Neither the overall rating nor the AI verdict is ever a note.
     assert_select "#manifest-code .mn-title", text: /Overall Risk|AI Context/, count: 0
 
-    assert_select "#manifest-summary[data-sticky]", text: /4 lines have notes:\s+2 critical,\s+1 medium,\s+1 low\./
+    assert_select "#manifest-summary[data-sticky]", text: /4 lines have notes:\s+2 Full control,\s+1 Scoped,\s+1 Routine\./
     assert_select "#manifest-notes-toggle[aria-pressed=true]", text: "Show notes"
     assert_select "#manifest-prev", text: /Previous/
     assert_select "#manifest-next", text: /Next/
@@ -161,7 +161,7 @@ class ScanManifestTabTest < ActionDispatch::IntegrationTest
     assert_select "#manifest-code .ml[data-line='#{storage}'][data-sev=low]"
     assert_select "#manifest-note-#{storage}[data-slim]" do
       assert_select ".mn-item[data-slim] > details:not([open])", count: 1
-      assert_select "summary .mn-sev[data-sev=low]", text: "Low"
+      assert_select "summary .mn-sev[data-sev=low]", text: "Routine"
       assert_select "summary .mn-title", text: "Low-Risk Permission: storage"
       assert_select "summary .mn-why[aria-hidden=true]", text: "Why?"
       assert_select "details > .mn-desc", text: "Routine #{HOSTILE}."
@@ -221,7 +221,7 @@ class ScanManifestTabTest < ActionDispatch::IntegrationTest
     # A later line where it is the only note: no card, a slim row pointing back.
     assert_select "#manifest-code .ml[data-line='#{all}'][data-sev=high]", count: 1
     assert_select "#manifest-note-#{all}[data-slim] .mn-item[data-slim] > details:not([open])" do
-      assert_select "summary .mn-sev[data-sev=high]", text: "High"
+      assert_select "summary .mn-sev[data-sev=high]", text: "Broad reach"
       assert_select "summary .mn-title", text: "Everywhere #{HOSTILE}"
       assert_select "summary .mn-ref", text: "· explained at line #{storage}"
       assert_select ".mn-desc", text: "Why #{HOSTILE}."
@@ -239,7 +239,7 @@ class ScanManifestTabTest < ActionDispatch::IntegrationTest
     # One reference per finding, shared by all its notes and the Overview button.
     refs = css_select("#manifest-code .mn-item").group_by { |i| i.at_css(".mn-title").text }.transform_values { |is| is.map { |i| i["data-note-for"] }.uniq }
     assert_equal 1, refs["Everywhere #{HOSTILE}"].size
-    assert_select "#manifest-summary", text: /3 lines have notes:\s+3 high\./
+    assert_select "#manifest-summary", text: /3 lines have notes:\s+3 Broad reach\./
     assert_not_includes response.body, HOSTILE
     text = css_select("#manifest-code .ml").map(&:text).join("\n")
     assert_no_match(/explained|Go to line|Everywhere/, text)

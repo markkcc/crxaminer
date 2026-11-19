@@ -1,0 +1,103 @@
+<%# The rating at a glance (ScanRating, from @report.rating): the overall level with its
+    headline and advice, then the two ratings it combines, side by side. Access lists the
+    notable capabilities the rules found (Medium and above, each a link to its finding
+    below); trust lists the evidence it rests on. Works for every stored scan: older ones
+    are rated from their stored level and listing in the same way. %>
+<% rating = @report.rating %>
+<% groups = @report.finding_groups %>
+<% ai = local_assigns[:ai_check] %>
+<% shown = groups.areas.flat_map(&:findings) %>
+<% notable = groups.findings.select { |f| %w[Critical High Medium].include?(f.severity.strip.capitalize) && shown.any? { |s| s.equal?(f) } } %>
+<% others = groups.findings.size - notable.size %>
+<% older_rules = ScanPage::FindingGroups.rules_version(@security_findings) < ExtensionSecurityAnalyzer::RULES_VERSION %>
+<% label_class = "text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400" %>
+<% muted = "text-sm text-gray-500 dark:text-gray-400" %>
+<section id="verdict" class="bg-white dark:bg-gray-800 rounded-lg shadow-lg mb-6 overflow-hidden" aria-labelledby="verdict-heading" data-overall="<%= rating.overall %>">
+  <div class="h-1.5 <%= severity_classes(rating.overall) %>" aria-hidden="true"></div>
+  <div class="p-4 sm:p-6">
+    <div class="flex items-center gap-2 mb-3 relative">
+      <h2 id="verdict-heading" class="<%= label_class %>">Rating</h2>
+      <button type="button"
+              class="text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 leading-none rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+              data-popover-target="info-popup"
+              aria-controls="info-popup"
+              aria-expanded="false"
+              aria-label="About this rating">
+        <span aria-hidden="true">ⓘ</span>
+      </button>
+      <div id="info-popup"
+           class="hidden absolute left-0 top-full mt-2 z-50 w-full max-w-md bg-white dark:bg-gray-700 border border-brand-200 dark:border-gray-600 shadow-lg p-4 rounded-lg text-brand-700 dark:text-brand-200 text-sm normal-case tracking-normal font-normal">
+        <p>
+          Two ratings make up the result. <strong>Access</strong> is what the extension could do if it turned bad; fixed rules
+          read it from the manifest. <strong>Trust</strong> is what the store listing shows about who publishes it and how it is
+          received; the AI check can lower it, never raise it. Together they give the overall level.
+        </p>
+        <% if older_rules %>
+          <p class="mt-2">This scan was checked with an earlier version of the rules, so its access rating may differ from a new scan.</p>
+        <% end %>
+        <p class="mt-2"><%= link_to "How the ratings work", help_path, class: "underline" %></p>
+      </div>
+    </div>
+
+    <div class="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+      <%= overall_badge(rating.overall, size: :lg) %>
+      <p class="text-xl sm:text-2xl font-semibold text-gray-800 dark:text-gray-100" id="verdict-headline"><%= rating.headline %></p>
+    </div>
+    <p class="mt-2 text-gray-600 dark:text-gray-300" id="verdict-advice"><%= rating.advice %></p>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 border-t border-gray-200 dark:border-gray-700 divide-y md:divide-y-0 md:divide-x divide-gray-200 dark:divide-gray-700">
+    <section class="p-4 sm:p-6 min-w-0" id="verdict-access" aria-labelledby="verdict-access-heading">
+      <h3 id="verdict-access-heading" class="<%= label_class %> mb-2">Access <span class="font-normal normal-case tracking-normal">· what it could do</span></h3>
+      <%= access_badge(rating.access, label: nil) %>
+      <p class="mt-2 text-gray-700 dark:text-gray-200"><%= rating.access.summary %></p>
+      <p class="mt-1 <%= muted %>" data-based-on>
+        Based on the manifest, by <%= older_rules ? "an earlier version of the rules" : "fixed rules" %>:
+        <%= groups.findings.empty? ? "nothing was flagged." : "#{pluralize(groups.findings.size, 'finding')}." %>
+      </p>
+      <% if notable.any? %>
+        <ul class="mt-4 space-y-2 text-sm" aria-label="Notable capabilities" id="verdict-capabilities">
+          <% notable.group_by { |f| f.severity.strip.capitalize }.each do |level, findings| %>
+            <li class="flex items-start gap-3" data-tier="<%= level.downcase %>">
+              <span class="shrink-0 w-28"><%= finding_badge(level) %></span>
+              <span class="min-w-0 leading-[22px] text-gray-700 dark:text-gray-200 break-words">
+                <% findings.each_with_index do |finding, index| %><%= tag.a finding.permission || finding.title.presence || "Untitled finding",
+                      href: "#finding-#{@report.manifest_notes.ref_for(finding)}", data: { capability: "" },
+                      class: "underline decoration-gray-300 dark:decoration-gray-500 underline-offset-2 hover:decoration-current rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" %><%= index < findings.size - 1 ? " · " : "" %><% end %>
+              </span>
+            </li>
+          <% end %>
+        </ul>
+      <% end %>
+      <% if others.positive? %>
+        <p class="mt-2 <%= muted %>" data-capability-more>
+          <% if notable.any? %>
+            Also <a href="#findings-heading" class="underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"><%= pluralize(others, "routine or minor finding") %></a>.
+          <% else %>
+            <a href="#findings-heading" class="underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"><%= pluralize(others, "routine or minor finding") %></a>, listed below.
+          <% end %>
+        </p>
+      <% end %>
+    </section>
+
+    <section class="p-4 sm:p-6 min-w-0" id="verdict-trust" aria-labelledby="verdict-trust-heading">
+      <h3 id="verdict-trust-heading" class="<%= label_class %> mb-2">Trust <span class="font-normal normal-case tracking-normal">· who stands behind it</span></h3>
+      <%= trust_badge(rating.trust, label: nil) %>
+      <p class="mt-2 text-gray-700 dark:text-gray-200"><%= rating.trust.summary %></p>
+      <p class="mt-1 <%= muted %>" data-based-on>
+        <% if ai.nil? %>
+          Based on the store listing alone: this scan has no AI check.
+        <% elsif ai.current? %>
+          Based on the store listing and the <a href="#ai-check" class="underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">AI check</a>.
+        <% else %>
+          Based on the store listing. This scan's <a href="#ai-check" class="underline rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">AI analysis</a> is in an earlier format and does not count.
+        <% end %>
+      </p>
+      <ul class="mt-3 flex flex-wrap gap-1.5" aria-label="Trust signals" id="verdict-signals">
+        <% rating.signals.each do |signal| %>
+          <li class="max-w-full"><%= signal_chip(signal) %></li>
+        <% end %>
+      </ul>
+    </section>
+  </div>
+</section>

@@ -51,7 +51,7 @@
         <% if notes.any? %>
           <p class="min-w-0">
             <strong class="font-semibold"><%= annotated.size == 1 ? "1 line has a note" : "#{number_with_delimiter(annotated.size)} lines have notes" %>:</strong>
-            <% notes.line_counts.each_with_index do |(key, count), index| %><span class="mv-count" data-sev="<%= key %>"><%= count %> <%= key %></span><%= index < notes.line_counts.size - 1 ? "," : "." %>
+            <% notes.line_counts.each_with_index do |(key, count), index| %><span class="mv-count" data-sev="<%= key %>"><%= count %> <%= key == "unrated" ? "unrated" : ScanPage::ManifestNotes.severity_label(key) %></span><%= index < notes.line_counts.size - 1 ? "," : "." %>
             <% end %>
           </p>
           <div class="flex items-center gap-2" role="group" aria-label="Go through the notes">
