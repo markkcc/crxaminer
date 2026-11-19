@@ -1,4 +1,6 @@
 class RefreshStatsJob < ApplicationJob
+  ALL_URLS_JSON = '["<all_urls>"]'.freeze
+
   queue_as :default
 
   def perform
@@ -33,14 +35,13 @@ class RefreshStatsJob < ApplicationJob
     # Calculate scans in last 30 days
     scans_last_30_days = ScanResult.where("created_at >= ?", 30.days.ago).count
 
-    # Calculate extensions with <all_urls> permissions
-    # Use PostgreSQL to check if '<all_urls>' exists in either permissions or host_permissions arrays
+    # Extensions with <all_urls> in permissions or host_permissions. A stored
+    # manifest can hold anything in those keys (a string, null, an object), and
+    # jsonb_array_elements_text raises on anything but a list, which would stop
+    # the whole job; the containment operator simply does not match.
     all_urls_count = ScanResult.where(
-      "EXISTS (
-        SELECT 1 FROM jsonb_array_elements_text(manifest->'permissions') AS perm WHERE perm = '<all_urls>'
-      ) OR EXISTS (
-        SELECT 1 FROM jsonb_array_elements_text(manifest->'host_permissions') AS perm WHERE perm = '<all_urls>'
-      )"
+      "manifest->'permissions' @> ?::jsonb OR manifest->'host_permissions' @> ?::jsonb",
+      ALL_URLS_JSON, ALL_URLS_JSON
     ).count
 
     # Save to cache (only keep one record)
