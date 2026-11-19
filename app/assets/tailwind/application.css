@@ -248,11 +248,12 @@ main {
    Every line, note and fold row is styled here by a short class name rather
    than utility classes, so manifests with thousands of lines stay small:
      .ml  a line: data-line (number, drawn by ::before so it is not copied),
-          data-sev (most severe note on it), a <code> with token spans
-          (.k key, .s string, .n number, .l true/false/null, .p punctuation)
+          data-sev (most severe note on it), a <code> holding the line's
+          indentation (.mi) and the rest (.mc) with token spans (.k key,
+          .s string, .n number, .l true/false/null, .p punctuation)
      .mn  the notes under a line, .mn-card / .mn-item / .mn-sev inside
      .mf  the button row that folds a long array
-   #manifest-code carries data-wrap, data-notes ("on"/"off") and data-digits.
+   #manifest-code carries data-notes ("on"/"off") and data-digits.
 
    Colours are tokens below, one set per theme. Measured contrast (WCAG):
    tokens and text >= 4.95:1 on every line background, tinted lines
@@ -418,15 +419,13 @@ main {
   background: var(--sev);
 }
 
-/* The code. It scrolls sideways on its own; the line numbers and the notes
-   stay put while it does. It is the size container for the notes' width. */
+/* The code. Long lines wrap inside the visible width, so it never scrolls
+   sideways. */
 #manifest-code {
   border-radius: 0 0 calc(0.5rem - 1px) calc(0.5rem - 1px);
   --mv-code-size: 0.8125rem;
   --mv-digits-n: 3;
   --mv-gutter: calc(var(--mv-digits-n) * 1ch + 1.5rem);
-  container-type: inline-size;
-  overflow-x: auto;
   padding: 0.5rem 0 0.75rem;
   background: var(--mv-bg);
   font-family: var(--font-mono);
@@ -439,21 +438,6 @@ main {
 #manifest-code[data-digits="5"] { --mv-digits-n: 5; }
 #manifest-code[data-digits="6"] { --mv-digits-n: 6; }
 
-#manifest-code:focus {
-  outline: none;
-}
-
-#manifest-code:focus-visible {
-  outline: 2px solid var(--mv-focus);
-  outline-offset: -2px;
-}
-
-/* As wide as the longest line, so sticky parts can travel the whole width. */
-#manifest-code .mv-rows {
-  width: max-content;
-  min-width: 100%;
-}
-
 #manifest-code .ml {
   display: flex;
   scroll-margin-top: calc(var(--mv-sticky-top, 4.1rem) + var(--mv-summary-h, 0px) + 1.5rem);
@@ -461,9 +445,6 @@ main {
 
 #manifest-code .ml::before {
   content: attr(data-line);
-  position: sticky;
-  left: 0;
-  z-index: 1;
   flex: none;
   box-sizing: border-box;
   width: var(--mv-gutter);
@@ -476,11 +457,32 @@ main {
   user-select: none;
 }
 
+/* A wrapped line continues under its own text (after the indentation),
+   2ch further in: a hanging indent made of padding and a negative
+   text-indent, so the first row starts where it always did. */
 #manifest-code .ml > code {
-  flex: 1 0 auto;
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
   padding: 0 1.5rem 0 1rem;
   font: inherit;
+}
+
+/* Indentation never takes more than half the width, so a very deeply nested
+   line still fits; beyond that it is clipped on screen (Copy keeps it). */
+#manifest-code .mi {
+  flex: none;
+  max-width: 50%;
+  overflow: hidden;
   white-space: pre;
+}
+
+#manifest-code .mc {
+  min-width: 0;
+  padding-left: 2ch;
+  text-indent: -2ch;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 #manifest-code .k { color: var(--mv-key); }
@@ -516,21 +518,15 @@ main {
   outline-offset: -2px;
 }
 
-/* Rows that are not code (notes, fold buttons) span the visible width only
-   and stay in view when the code scrolls sideways. The gradient continues
-   the gutter through them. */
+/* Rows that are not code (notes, fold buttons) start where the code does.
+   The gradient continues the gutter through them. */
 #manifest-code .mn,
 #manifest-code .mf {
-  position: sticky;
-  left: 0;
-  box-sizing: border-box;
-  width: 100cqw;
   padding: 0.25rem 1rem 0.625rem calc(var(--mv-gutter) + 1rem);
   background-image: linear-gradient(to right,
     var(--mv-gutter-bg) calc(var(--mv-gutter) - 1px),
     var(--mv-rule) calc(var(--mv-gutter) - 1px) var(--mv-gutter),
     transparent var(--mv-gutter));
-  white-space: normal;
 }
 
 #manifest-code .mf {
@@ -726,18 +722,6 @@ main {
 #manifest-code .mf button:focus-visible {
   outline: 2px solid var(--mv-focus);
   outline-offset: 1px;
-}
-
-/* Wrap lines: long values wrap inside the visible width instead of scrolling. */
-#manifest-code[data-wrap="true"] .mv-rows {
-  width: auto;
-}
-
-#manifest-code[data-wrap="true"] .ml > code {
-  flex: 1 1 0;
-  min-width: 0;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }
 
 /* Hide notes: the plain file. */

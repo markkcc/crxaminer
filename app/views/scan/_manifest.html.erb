@@ -40,7 +40,6 @@
         <div class="flex flex-wrap gap-2" role="group" aria-label="Manifest tools">
           <button type="button" id="manifest-copy" class="<%= tool_class %>">Copy</button>
           <button type="button" id="manifest-download" class="<%= tool_class %>">Download manifest.json</button>
-          <button type="button" id="manifest-wrap" class="<%= tool_class %>" aria-pressed="false">Wrap lines</button>
           <% if notes.any? %>
             <button type="button" id="manifest-notes-toggle" class="<%= tool_class %>" aria-pressed="true">Show notes</button>
           <% end %>
@@ -67,11 +66,12 @@
       <% end %>
 
       <p class="sr-only" id="manifest-status" aria-live="polite"></p>
-      <%# A focusable region so the keyboard can scroll it sideways. Line numbers come from
-          data-line via CSS, so they are not copied with the text; notes sit outside the lines
-          and are left out of Copy and Download. %>
-      <div id="manifest-code" tabindex="0" role="region" aria-label="manifest.json"
-           data-wrap="false" data-notes="on" data-digits="<%= [doc.lines.size.to_s.size, 2].max %>">
+      <%# Long lines wrap. Line numbers come from data-line via CSS, so they are not copied
+          with the text; notes sit outside the lines and are left out of Copy and Download.
+          A line's code is its indentation (.mi) and the rest (.mc), so a wrapped line
+          continues under its own text, a little indented, not under the line number. %>
+      <div id="manifest-code" role="region" aria-label="manifest.json"
+           data-notes="on" data-digits="<%= [doc.lines.size.to_s.size, 2].max %>">
         <div class="mv-rows">
           <% doc.lines.each do |line| %>
             <% n = line.number %>
@@ -80,7 +80,7 @@
             <% groups = line.groups.presence&.join(" ") %>
             <%= tag.div class: "ml", hidden: hidden,
                         data: { line: n, sev: line_notes.first&.severity, groups: groups },
-                        aria: { describedby: ("manifest-note-#{n}" if line_notes.any?) } do %><code><% line.tokens.each do |css, text| %><% if css %><span class="<%= css %>"><%= text %></span><% else %><%= text %><% end %><% end %></code><% end %>
+                        aria: { describedby: ("manifest-note-#{n}" if line_notes.any?) } do %><% indent, *rest = line.tokens.first&.first.nil? ? line.tokens : [nil, *line.tokens] %><code><% if indent %><span class="mi"><%= indent.last %></span><% end %><span class="mc"><% rest.each do |css, text| %><% if css %><span class="<%= css %>"><%= text %></span><% else %><%= text %><% end %><% end %></span></code><% end %>
             <% if line_notes.any? %>
               <%# Slim notes are one row that opens to the description: Low, Minimal and Info
                   findings, and any finding on a line after the first it points at (its full
