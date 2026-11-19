@@ -17,20 +17,23 @@
 
   /* Severity colours, most to least severe, plus Info: the app's original
      palette (Tailwind's violet-600, red-600, orange-500, yellow-500,
-     green-500 and blue-500, all with white text). White on the Low, Minimal
-     and Medium chips is below 4.5:1; change the matching -fg token to adjust. */
+     green-500 and blue-500). They are the same in both themes. Text on them
+     is white where white reaches 4.5:1 (Critical 5.89, High 4.77) and a
+     very dark shade of the same hue where it does not (white measured 2.89
+     on Medium, 1.91 on Low, 2.22 on Minimal, 3.76 on Info; the dark inks
+     reach 5.42, 7.63, 6.72 and 5.36). */
   --color-severity-critical: var(--color-violet-600);
   --color-severity-critical-fg: #ffffff;
   --color-severity-high: var(--color-red-600);
   --color-severity-high-fg: #ffffff;
   --color-severity-medium: var(--color-orange-500);
-  --color-severity-medium-fg: #ffffff;
+  --color-severity-medium-fg: #431407;
   --color-severity-low: var(--color-yellow-500);
-  --color-severity-low-fg: #ffffff;
+  --color-severity-low-fg: #422006;
   --color-severity-minimal: var(--color-green-500);
-  --color-severity-minimal-fg: #ffffff;
+  --color-severity-minimal-fg: #052e16;
   --color-severity-info: var(--color-blue-500);
-  --color-severity-info-fg: #ffffff;
+  --color-severity-info-fg: #020617;
 }
 
 /* Tailwind 4 made a bare `border` use currentColor. Restore a light neutral
@@ -95,6 +98,144 @@ main {
 /* Tab panels clear the sticky tab bar when scrolled to. */
 [role="tabpanel"] {
   scroll-margin-top: 5rem;
+}
+
+/* ---- Rating badges ----------------------------------------------------------
+   One family of badges for every rating, level and signal, built by
+   app/helpers/rating_badges_helper.rb:
+     data-badge="overall"  the overall level: solid severity colours, icon
+     data-badge="access"   an access tier: solid severity colours, a meter
+     data-badge="finding"  a level with no tier (Info, unknown): same look
+     data-badge="trust"    a trust level: tinted, outlined, its own palette
+     data-badge="signal"   a piece of evidence: a lighter chip, by tone
+   data-size is sm, md or lg. Severity colours come from the utility classes
+   the helper adds; the trust and tone palettes are the tokens below, one set
+   per theme. Measured text contrast (WCAG) is at least 4.5:1 for every
+   pair in both themes; see the numbers next to each set. */
+:root {
+  /* Trust: green, blue, slate and rose, unlike any severity colour.
+     Light: text on background 7.10, 8.16, 9.38, 7.35. */
+  --trust-established-bg: #ecfdf5; --trust-established-fg: #065f46; --trust-established-line: #6ee7b7;
+  --trust-some-bg: #eff6ff; --trust-some-fg: #1e40af; --trust-some-line: #93c5fd;
+  --trust-unproven-bg: #f1f5f9; --trust-unproven-fg: #334155; --trust-unproven-line: #cbd5e1;
+  --trust-concerns-bg: #fff1f2; --trust-concerns-fg: #9f1239; --trust-concerns-line: #fda4af;
+  --trust-unknown-bg: #f3f4f6; --trust-unknown-fg: #374151; --trust-unknown-line: #d1d5db;
+  /* Signals by tone. Light: 6.85, 7.56, 6.37, 6.29. */
+  --tone-good-bg: #f0fdf4; --tone-good-fg: #166534; --tone-good-line: #bbf7d0;
+  --tone-neutral-bg: #f9fafb; --tone-neutral-fg: #374151; --tone-neutral-line: #e5e7eb;
+  --tone-caution-bg: #fffbeb; --tone-caution-fg: #92400e; --tone-caution-line: #fde68a;
+  --tone-bad-bg: #fff1f2; --tone-bad-fg: #be123c; --tone-bad-line: #fecdd3;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Dark: 9.98, 9.57, 9.10, 10.46. */
+    --trust-established-bg: #052e26; --trust-established-fg: #a7f3d0; --trust-established-line: #047857;
+    --trust-some-bg: #172554; --trust-some-fg: #bfdbfe; --trust-some-line: #1d4ed8;
+    --trust-unproven-bg: #334155; --trust-unproven-fg: #f1f5f9; --trust-unproven-line: #64748b;
+    --trust-concerns-bg: #4c0519; --trust-concerns-fg: #fecdd3; --trust-concerns-line: #e11d48;
+    --trust-unknown-bg: #374151; --trust-unknown-fg: #f3f4f6; --trust-unknown-line: #6b7280;
+    /* Dark: 10.03, 9.53, 10.57, 9.20. */
+    --tone-good-bg: #0b2e1c; --tone-good-fg: #bbf7d0; --tone-good-line: #166534;
+    --tone-neutral-bg: #2b3544; --tone-neutral-fg: #e5e7eb; --tone-neutral-line: #4b5563;
+    --tone-caution-bg: #3a2306; --tone-caution-fg: #fde68a; --tone-caution-line: #92400e;
+    --tone-bad-bg: #440a1c; --tone-bad-fg: #fecdd3; --tone-bad-line: #9f1239;
+  }
+}
+
+/* In the components layer, so utility classes on a badge (a margin) still apply. */
+@layer components {
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  max-width: 100%;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.badge[data-size="md"] {
+  padding: 0.1875rem 0.625rem;
+  font-size: 0.875rem;
+}
+
+.badge[data-size="lg"] {
+  gap: 0.5rem;
+  padding: 0.375rem 0.875rem;
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.badge-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.badge-label {
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+.badge-icon {
+  flex: none;
+  width: 1.1em;
+  height: 1.1em;
+}
+
+.badge-meter {
+  flex: none;
+  width: 1.3em;
+  height: 0.85em;
+}
+
+.badge[data-badge="trust"] {
+  background: var(--b-bg);
+  color: var(--b-fg);
+  border-color: var(--b-line);
+}
+
+.badge[data-badge="trust"][data-level="established"] { --b-bg: var(--trust-established-bg); --b-fg: var(--trust-established-fg); --b-line: var(--trust-established-line); }
+.badge[data-badge="trust"][data-level="some"] { --b-bg: var(--trust-some-bg); --b-fg: var(--trust-some-fg); --b-line: var(--trust-some-line); }
+.badge[data-badge="trust"][data-level="unproven"] { --b-bg: var(--trust-unproven-bg); --b-fg: var(--trust-unproven-fg); --b-line: var(--trust-unproven-line); }
+.badge[data-badge="trust"][data-level="concerns"] { --b-bg: var(--trust-concerns-bg); --b-fg: var(--trust-concerns-fg); --b-line: var(--trust-concerns-line); }
+.badge[data-badge="trust"][data-level="unknown"] { --b-bg: var(--trust-unknown-bg); --b-fg: var(--trust-unknown-fg); --b-line: var(--trust-unknown-line); }
+
+/* Signal chips: rounder and lighter than the rating badges, and allowed to
+   wrap, since their labels are sentences. */
+.badge[data-badge="signal"] {
+  align-items: flex-start;
+  gap: 0.3rem;
+  padding: 0.125rem 0.625rem 0.125rem 0.4375rem;
+  border-radius: 9999px;
+  background: var(--b-bg);
+  color: var(--b-fg);
+  border-color: var(--b-line);
+  font-weight: 500;
+  white-space: normal;
+}
+
+.badge[data-badge="signal"] .badge-icon {
+  margin-top: 0.15rem;
+}
+
+.badge[data-badge="signal"][data-level="good"] { --b-bg: var(--tone-good-bg); --b-fg: var(--tone-good-fg); --b-line: var(--tone-good-line); }
+.badge[data-badge="signal"][data-level="neutral"] { --b-bg: var(--tone-neutral-bg); --b-fg: var(--tone-neutral-fg); --b-line: var(--tone-neutral-line); }
+.badge[data-badge="signal"][data-level="caution"] { --b-bg: var(--tone-caution-bg); --b-fg: var(--tone-caution-fg); --b-line: var(--tone-caution-line); }
+.badge[data-badge="signal"][data-level="bad"] { --b-bg: var(--tone-bad-bg); --b-fg: var(--tone-bad-fg); --b-line: var(--tone-bad-line); }
+
+}
+
+/* A finding jumped to from the verdict card's list of capabilities. */
+[data-finding]:target {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 2px;
 }
 
 /* ---- Scan page: manifest viewer -------------------------------------------
@@ -426,9 +567,8 @@ main {
   color: var(--ink);
   font-size: 0.6875rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
   line-height: 1.25rem;
-  text-transform: uppercase;
+  white-space: nowrap;
   vertical-align: 1px;
 }
 
