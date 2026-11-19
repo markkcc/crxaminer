@@ -94,8 +94,8 @@ class AiContextAnalysisTest < ActiveSupport::TestCase
   test "the system prompt explains store badges and the prompt version is bumped" do
     assert_includes AiContextAnalysis::SYSTEM_PROMPT,
                     "store_badges, when present, are badges the Chrome Web Store shows on the listing; " \
-                    "count them as trust factors, but they are not proof of safety."
-    assert_equal "2026-11-18.1", AiContextAnalysis::PROMPT_VERSION
+                    "they are already counted and are not proof of safety."
+    assert_equal "2026-11-19.1", AiContextAnalysis::PROMPT_VERSION
   end
 
   # --- payload (B3) ---
@@ -108,7 +108,7 @@ class AiContextAnalysisTest < ActiveSupport::TestCase
     assert_equal({ service_worker: "bg.js" }, payload[:background])
     assert_equal ["inject.js", "img/*.png"], payload[:web_accessible_resources]
     assert_equal ["https://*.example.com/*"], payload[:content_script_matches]
-    assert_equal ["Medium: Overall Risk: Medium", "High: High-Risk Permission: tabs"], payload[:findings]
+    assert_equal ["High: High-Risk Permission: tabs"], payload[:findings], "the overall line is never sent"
   end
 
   test "payload is identical for a stored (deep-symbolized) manifest" do
@@ -148,7 +148,7 @@ class AiContextAnalysisTest < ActiveSupport::TestCase
 
   test "the AI finding itself is never sent back as a rule finding" do
     findings = rule_findings + [{ severity: "Info", title: "AI Context Analysis", description: "Risk Level: Low" }]
-    assert_equal 2, build(findings: findings).payload[:findings].size
+    assert_equal 1, build(findings: findings).payload[:findings].size
   end
 
   test "extension text is wrapped in delimiters it cannot close" do
@@ -349,7 +349,9 @@ class AiContextAnalysisTest < ActiveSupport::TestCase
     assert_equal "low", params.dig(:output_config, :effort)
     assert_equal "json_schema", params.dig(:output_config, :format, :type)
     assert_equal AiContextAnalysis::SCHEMA, params.dig(:output_config, :format, :schema)
-    assert_equal %w[Critical High Medium Low Minimal], params.dig(:output_config, :format, :schema, :properties, :risk_level, :enum)
+    assert_equal %w[none some serious], params.dig(:output_config, :format, :schema, :properties, :concern_level, :enum)
+    assert_equal %w[fits broader_than_needed does_not_fit], params.dig(:output_config, :format, :schema, :properties, :purpose_fit, :enum)
+    assert_not params.dig(:output_config, :format, :schema, :properties).key?(:risk_level)
     %i[temperature top_p top_k thinking tool_choice stream].each { |key| assert_not params.key?(key), "#{key} must not be sent" }
     assert_equal :default, params[:fallbacks]
     assert_equal ["server-side-fallback-2026-07-01"], params[:betas]
@@ -368,30 +370,33 @@ class AiContextAnalysisTest < ActiveSupport::TestCase
 
   # --- response handling ---
 
-  test "a valid reply becomes a legacy-compatible finding with structured data" do
+  test "a valid reply becomes a finding with structured data and a plain description" do
     client = FakeAnthropic::Client.new(FakeAnthropic.json_response)
     finding = build(client: client).call
 
     assert_equal 1, client.calls.size
     assert_equal "Info", finding[:severity]
     assert_equal "AI Context Analysis", finding[:title]
-    assert_equal "Risk Level: High", finding[:description].split("\n").first
+    assert_equal "Broad access with an unclear purpose.\nIt asks for more than its stated purpose needs. Some concerns.",
+                 finding[:description].split("\n").first(2).join("\n")
     assert_includes finding[:description], "Concerns:\n- Reads every page"
-    assert_equal "High", finding[:ai][:risk_level]
+    assert_not finding[:description].start_with?("Risk Level:")
+    assert_equal %w[some broader_than_needed], finding[:ai].values_at(:concern_level, :purpose_fit)
+    assert_not finding[:ai].key?(:risk_level)
     assert_equal "claude-opus-5-5", finding[:ai][:model]
     assert_equal AiContextAnalysis::PROMPT_VERSION, finding[:ai][:prompt_version]
     assert_equal build.input_digest, finding[:ai][:input_digest]
     assert Time.iso8601(finding[:ai][:analyzed_at])
   end
 
-  test "the stored description keeps working with the existing first-line parsers" do
+  test "a new AI finding gives no level of its own: an older scan shows its overall level" do
     finding = build(client: FakeAnthropic::Client.new(FakeAnthropic.json_response)).call
     scan = ScanResult.create!(extension_id: "c" * 32, manifest: fresh_manifest, extension_details: details,
                               security_findings: rule_findings + [finding])
 
-    assert_equal "High", RefreshStatsJob.new.send(:get_display_severity, scan)
-    assert_equal "High", ScanController.new.send(:get_display_severity, scan)
-    assert_equal "High", scan.security_findings.last[:ai][:risk_level]
+    assert_equal "Medium", RefreshStatsJob.new.send(:get_display_severity, scan)
+    assert_equal "Medium", ScanController.new.send(:get_display_severity, scan)
+    assert_equal "some", scan.security_findings.last[:ai][:concern_level]
   end
 
   test "long or excessive list items are trimmed when stored" do
@@ -421,7 +426,10 @@ class AiContextAnalysisTest < ActiveSupport::TestCase
     {
       "not json" => /invalid JSON/,
       JSON.generate(FakeAnthropic::VALID_RESULT.except("concerns")) => /did not match/,
-      JSON.generate(FakeAnthropic::VALID_RESULT.merge("risk_level" => "Severe")) => /did not match/,
+      JSON.generate(FakeAnthropic::VALID_RESULT.merge("concern_level" => "Severe")) => /did not match/,
+      JSON.generate(FakeAnthropic::VALID_RESULT.merge("purpose_fit" => "High")) => /did not match/,
+      JSON.generate(FakeAnthropic::VALID_RESULT.except("purpose_fit")) => /did not match/,
+      JSON.generate(FakeAnthropic::VALID_RESULT.except("concern_level", "purpose_fit").merge("risk_level" => "Low")) => /did not match/,
       JSON.generate(FakeAnthropic::VALID_RESULT.merge("concerns" => "one string")) => /did not match/,
       "[]" => /did not match/
     }.each do |text, pattern|

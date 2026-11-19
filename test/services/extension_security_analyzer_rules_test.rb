@@ -89,7 +89,7 @@ class ExtensionSecurityAnalyzerRulesTest < ActiveSupport::TestCase
 
     assert_equal [["permissions", 1], ["permissions", 2]], all[:evidence]
     # They are patterns, not API permissions.
-    assert_equal ["Medium-Risk Permission: tabs"], by_rule(findings, "permission").map { |f| f[:title] }
+    assert_equal ["Permission: tabs"], by_rule(findings, "permission").map { |f| f[:title] }
   end
 
   test "Manifest V3 ignores match patterns in permissions, as Chrome does" do
@@ -160,13 +160,13 @@ class ExtensionSecurityAnalyzerRulesTest < ActiveSupport::TestCase
   # --- defect 6: Critical was only a count -----------------------------------
 
   test "defect 6: many High permissions stay High; Critical needs an explicit rule" do
-    many = findings_for("permissions" => %w[history management proxy privacy nativeMessaging webNavigation])
+    many = findings_for("permissions" => %w[history privacy webNavigation browsingData clipboardRead tabCapture])
     assert_equal 6, by_rule(many, "permission").count { |f| f[:severity] == "High" }
     assert_equal "High", overall(many)
 
     debugger = findings_for("permissions" => %w[debugger])
     assert_equal "Critical", overall(debugger)
-    assert_equal "Critical-Risk Permission: debugger", debugger[1][:title]
+    assert_equal "Permission: debugger", debugger[1][:title]
   end
 
   test "all sites plus cookies is one Critical finding pointing at every entry, and the parts are still reported" do
@@ -178,7 +178,7 @@ class ExtensionSecurityAnalyzerRulesTest < ActiveSupport::TestCase
     assert_equal "Critical", overall(findings)
     assert_equal [["host_permissions", 0], ["host_permissions", 1], ["permissions", 1]], combo[:evidence]
     assert by_rule(findings, "host.all_sites").one?
-    assert by_rule(findings, "permission").any? { |f| f[:title] == "Medium-Risk Permission: cookies" }
+    assert by_rule(findings, "permission").any? { |f| f[:title] == "Permission: cookies" }
   end
 
   test "all sites plus webRequest and webRequestBlocking is Critical; either one alone is not" do
@@ -206,8 +206,8 @@ class ExtensionSecurityAnalyzerRulesTest < ActiveSupport::TestCase
 
     assert_equal %w[Low Low Low Low], by_rule(findings, "permission").map { |f| f[:severity] }
     assert_equal "Low", overall(findings)
-    assert_equal ["Low-Risk Permission: storage", "Low-Risk Permission: notifications",
-                  "Low-Risk Permission: contextMenus", "Low-Risk Permission: activeTab"], findings.drop(1).map { |f| f[:title] }
+    assert_equal ["Permission: storage", "Permission: notifications",
+                  "Permission: contextMenus", "Permission: activeTab"], findings.drop(1).map { |f| f[:title] }
   end
 
   test "names that are not in the table produce no finding" do
@@ -259,8 +259,10 @@ class ExtensionSecurityAnalyzerRulesTest < ActiveSupport::TestCase
   test "the overall finding states its basis and the rules version" do
     findings = findings_for("permissions" => %w[tabs storage history])
     assert_equal({ severity: "High", title: "Overall Risk: High",
-                   description: "The rating is the highest level among 3 rule findings (1 High, 1 Medium, 1 Low).",
-                   rules_version: ExtensionSecurityAnalyzer::RULES_VERSION }, findings.first)
+                   description: "Access: Broad reach (the highest of 3 rule findings). Trust: Unproven. " \
+                                "Install it only if you know and trust the publisher.",
+                   rules_version: ExtensionSecurityAnalyzer::RULES_VERSION, access: "High", trust: "unproven",
+                   headline: "Powerful, unproven publisher" }, findings.first)
 
     none = findings_for({})
     assert_equal "Overall Risk: Minimal", none.first[:title]
@@ -269,7 +271,7 @@ class ExtensionSecurityAnalyzerRulesTest < ActiveSupport::TestCase
 
   test "repeated entries are one finding pointing at each" do
     findings = findings_for("permissions" => %w[tabs storage tabs])
-    assert_equal [["permissions", 0], ["permissions", 2]], findings.find { |f| f[:title] == "Medium-Risk Permission: tabs" }[:evidence]
+    assert_equal [["permissions", 0], ["permissions", 2]], findings.find { |f| f[:title] == "Permission: tabs" }[:evidence]
   end
 
   test "every evidence path resolves to the entry in the raw manifest" do
@@ -346,7 +348,7 @@ class ExtensionSecurityAnalyzerRulesTest < ActiveSupport::TestCase
 
     by_level = data.permissions_by_level
     assert_equal data::LEVELS, by_level.keys
-    assert_equal ["debugger"], by_level["Critical"]
+    assert_equal %w[debugger management nativeMessaging proxy], by_level["Critical"]
     assert_equal data::PERMISSIONS.size, by_level.values.sum(&:size)
     assert_includes by_level["Low"], "activeTab"
     data::PERMISSIONS.each_value do |p|

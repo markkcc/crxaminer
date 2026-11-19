@@ -103,7 +103,7 @@ class ExtensionSecurityAnalyzerManifestKeysTest < ActiveSupport::TestCase
 
   # --- content scripts ---------------------------------------------------------
 
-  test "main-world scripts are High on all sites and Medium on named sites" do
+  test "main-world scripts are Critical on all sites and Medium on named sites" do
     findings = findings_for("content_scripts" => [
                               { "matches" => ["<all_urls>"], "js" => ["a.js"], "world" => "MAIN" },
                               { "matches" => ["https://*.shop.example/*"], "js" => ["b.js"], "world" => "MAIN" },
@@ -112,7 +112,7 @@ class ExtensionSecurityAnalyzerManifestKeysTest < ActiveSupport::TestCase
     everywhere = by_rule(findings, "content_script.main_world_all_sites").sole
     named = by_rule(findings, "content_script.main_world").sole
 
-    assert_equal "High", everywhere[:severity]
+    assert_equal "Critical", everywhere[:severity]
     assert_equal [["content_scripts", 0, "world"]], everywhere[:evidence]
     assert_includes everywhere[:description], "page's own JavaScript"
     assert_equal "Medium", named[:severity]
@@ -188,9 +188,9 @@ class ExtensionSecurityAnalyzerManifestKeysTest < ActiveSupport::TestCase
 
   # --- update_url --------------------------------------------------------------------
 
-  test "an update URL that is not Google's is High; the store's is nothing" do
+  test "an update URL that is not Google's is Critical; the store's is nothing" do
     other = by_rule(findings_for("update_url" => "https://updates.example.com/crx.xml"), "update_url.external").sole
-    assert_equal "High", other[:severity]
+    assert_equal "Critical", other[:severity]
     assert_equal [["update_url"]], other[:evidence]
     assert_includes other[:description], "updates.example.com"
 
@@ -233,7 +233,7 @@ class ExtensionSecurityAnalyzerManifestKeysTest < ActiveSupport::TestCase
 
   test "each new rule is listed with a fixed level, a name and a summary" do
     expected = {
-      "settings.search_provider" => "High", "content_script.main_world_all_sites" => "High", "update_url.external" => "High",
+      "settings.search_provider" => "High", "content_script.main_world_all_sites" => "Critical", "update_url.external" => "Critical",
       "settings.homepage" => "Medium", "url_overrides" => "Medium", "content_script.main_world" => "Medium",
       "externally_connectable.wide" => "Medium", "web_accessible_resources.everything" => "Medium",
       "oauth2.account_data" => "Medium", "externally_connectable" => "Low", "web_accessible_resources.all_sites" => "Low",
@@ -244,7 +244,7 @@ class ExtensionSecurityAnalyzerManifestKeysTest < ActiveSupport::TestCase
       assert_equal level, rule&.severity, id
       assert rule.name.present? && rule.summary.present?, id
     end
-    assert_equal 3, ExtensionSecurityAnalyzer::RULES_VERSION
+    assert_equal 4, ExtensionSecurityAnalyzer::RULES_VERSION
   end
 
   test "the new rules land in sensible Overview areas" do

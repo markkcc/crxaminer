@@ -49,7 +49,7 @@ class ScanRuleFindingsTest < ActionDispatch::IntegrationTest
     get scan_path("o" * 32), xhr: true
 
     assert_select ".bg-severity-critical", text: "CRITICAL"
-    assert_includes response.body, "The rating is the highest level among"
+    assert_includes response.body, "Access: Full control (the highest of"
   end
 
   test "the Permissions tab rates from the same table, optional ones one level lower" do

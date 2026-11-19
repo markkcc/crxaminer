@@ -18,7 +18,7 @@ class ExtensionSecurityAnalyzerTest < ActiveSupport::TestCase
     assert findings.first[:title].start_with?("Overall Risk:")
     assert_equal "AI Context Analysis", findings.last[:title]
     assert_equal 1, NoTweetsInTests::POSTED.size
-    assert_includes NoTweetsInTests::POSTED.first, "Risk: High"
+    assert_includes NoTweetsInTests::POSTED.first, "Overall: Critical (Very powerful, warning signs)"
   end
 
   test "a failed AI call leaves the rule-based findings intact" do
@@ -51,7 +51,7 @@ class ExtensionSecurityAnalyzerTest < ActiveSupport::TestCase
         findings = ExtensionSecurityAnalyzer.new(MANIFEST, DETAILS, "Demo", "e" * 32,
                                                  ai_client: FakeAnthropic::Client.new(failure)).analyze
       end
-      assert findings.any? { |f| f[:title] == "Medium-Risk Permission: tabs" }
+      assert findings.any? { |f| f[:title] == "Permission: tabs" }
       assert_nil AiContextAnalysis.find_in(findings)
     end
 

@@ -2,6 +2,11 @@
 # Used by `bin/rails ai_verdict:backfill`. Never posts to X, and writes with
 # update_columns so updated_at ("last scanned") is left unchanged.
 #
+# The AI check is given the rule findings and access tier of the current
+# rules, as on a fresh scan, and the scan's whole verdict is then rebuilt
+# from stored data with the new AI finding (ExtensionSecurityAnalyzer.rated_findings),
+# so its overall finding reflects the check and the current rules version.
+#
 # Failures specific to one scan (refusal, max_tokens, invalid output, a 400
 # for that input) are reported and skipped. Systemic failures (missing key,
 # 401/403, 404, 429, 5xx, connection errors and timeouts) stop the run after
@@ -120,19 +125,22 @@ class AiVerdictBackfill
 
   # Returns [analysis, :updated | :write_conflict | :systemic | :skipped].
   def backfill(scan)
-    findings = scan.security_findings || []
+    rules = ExtensionSecurityAnalyzer.new(scan.manifest)
     analysis = AiContextAnalysis.new(
       manifest: scan.manifest,
       extension_details: scan.extension_details,
       extension_name: scan.extension_name,
-      findings: findings,
+      findings: rules.rule_findings.drop(1),
+      access: ScanRating.access_tier(rules.access_level).name,
       client: @client,
       data_captured_at: scan.updated_at
     )
     finding = analysis.call
     return [analysis, analysis.failed_systemically? ? :systemic : :skipped] unless finding
 
-    saved = scan.update_columns(security_findings: findings + [finding])
+    findings = ExtensionSecurityAnalyzer.rated_findings(scan.manifest, extension_details: scan.extension_details,
+                                                        ai_findings: [finding])
+    saved = scan.update_columns(security_findings: findings)
     [analysis, saved ? :updated : :write_conflict]
   rescue ActiveRecord::ActiveRecordError => e
     Rails.logger.error "AI backfill could not save #{scan.extension_id}: #{e.class}: #{e.message}"

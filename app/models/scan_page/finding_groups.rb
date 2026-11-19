@@ -60,8 +60,9 @@ module ScanPage
 
     OPTIONAL_PREFIX = "optional.".freeze
 
-    # Titles the current engine gives permission findings.
-    PERMISSION_TITLE = /\A\w+-Risk Permission: (.+)\z/m
+    # Titles of permission findings: "Permission: tabs" from rules version 4,
+    # "High-Risk Permission: tabs" on scans stored before it.
+    PERMISSION_TITLE = /\A(?:\w+-Risk )?Permission: (.+)\z/m
     OPTIONAL_PERMISSION_TITLE = /\AOptional Permission: (.+)\z/m
 
     # Legacy: how findings stored before rule ids existed are recognised.
@@ -97,12 +98,14 @@ module ScanPage
       @raw = ScanPage.list(security_findings).select { |f| f.is_a?(Hash) }
     end
 
-    # The rule findings: everything except the overall rating and the AI verdict.
+    # The rule findings: everything except the overall rating and the AI verdict,
+    # most severe first; within a level, items it asks for at install come
+    # before optional ones, then by title.
     def findings
       @findings ||= @raw
         .reject { |f| self.class.overall?(f) || self.class.ai?(f) }
         .map { |f| build(f) }
-        .sort_by { |f| [ExtensionAnalyzerData::SEVERITY_ORDER.fetch(f.severity.to_s.downcase, 999), f.title.to_s] }
+        .sort_by { |f| [ExtensionAnalyzerData::SEVERITY_ORDER.fetch(f.severity.to_s.downcase, 999), f.optional ? 1 : 0, f.title.to_s] }
     end
 
     # Every area in a fixed order, so empty ones can say so. "Other" is only

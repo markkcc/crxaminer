@@ -17,9 +17,9 @@ class RuleReratingVersionTest < ActiveSupport::TestCase
     assert_equal 1, result.updated
     assert_equal({ %w[Minimal Medium] => 1 }, result.changes)
     findings = v2.reload.security_findings
-    assert_equal 3, findings.first[:rules_version]
+    assert_equal 4, findings.first[:rules_version]
     assert_equal ["url_overrides"], findings.drop(1).map { |f| f[:rule] }
     assert_empty RuleRerating.candidates
-    assert current.reload.security_findings.first[:rules_version] == 3
+    assert current.reload.security_findings.first[:rules_version] == 4
   end
 end

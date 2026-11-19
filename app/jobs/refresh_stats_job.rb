@@ -21,7 +21,7 @@ class RefreshStatsJob < ApplicationJob
     # ExtensionAnalyzerData::PERMISSIONS), so a long list of harmless
     # permissions does not count as spicy.
     spiciest_extensions = ScanResult.all.map do |scan|
-      finding_count = ScanPage::FindingGroups.new(scan.security_findings).areas.sum { |area| area.findings.size }
+      finding_count = ScanPage::FindingGroups.new(scan.read_attribute(:security_findings)).areas.sum { |area| area.findings.size }
       {
         extension_id: scan.extension_id,
         extension_name: scan.extension_name,
@@ -57,17 +57,9 @@ class RefreshStatsJob < ApplicationJob
 
   private
 
-  # Get display severity - prefers AI context-aware verdict, falls back to overall risk
+  # The level shown for a scan (ScanDisplayLevel), read from the column as
+  # stored so a junk row cannot stop the job.
   def get_display_severity(scan)
-    # First, try to get AI context-aware verdict
-    ai_analysis = scan.security_findings&.find { |f| f[:severity] == "Info" && f[:title] == "AI Context Analysis" }
-    if ai_analysis && ai_analysis[:description]&.start_with?("Risk Level:")
-      risk_level = ai_analysis[:description].split("\n").first.split("Risk Level:").last&.strip
-      return risk_level&.capitalize
-    end
-
-    # Fall back to overall risk
-    overall_risk = scan.security_findings&.find { |f| f[:title]&.downcase&.include?('overall risk') }
-    overall_risk[:severity]&.capitalize if overall_risk
+    ScanDisplayLevel.for(scan.read_attribute(:security_findings))
   end
 end
