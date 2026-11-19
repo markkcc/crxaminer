@@ -5,6 +5,11 @@ on:
   push:
     branches: [ main ]
 
+# The job only reads the repository (check out, install gems, run Brakeman),
+# so its token is limited to that whatever the repository default becomes.
+permissions:
+  contents: read
+
 jobs:
   scan_ruby:
     runs-on: ubuntu-latest
