@@ -1,12 +1,12 @@
 <% content_for :title, @extension_name.presence || "Scan of #{@extension_id}" %>
-<div class="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
+<div class="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900">
   <div class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
     <%= render "shared/header" %>
 
     <!-- Analysis Status -->
     <div id="analysis_status">
       <% if @extension_id && (!ScanResult.exists?(extension_id: @extension_id) || params[:force] == 'true') %>
-        <%= render "loading_status", message: "Starting analysis..." %>
+        <%= render "loading_status", extension_id: @extension_id, extension_name: @extension_name %>
       <% end %>
     </div>
 
@@ -19,23 +19,22 @@
 
     <script>
       document.addEventListener('DOMContentLoaded', function() {
-        // Only check for loading bar elements if we're starting a new scan
+        // Only look for the progress card if we're starting a new scan
         const isNewScan = <%= @extension_id && (!ScanResult.exists?(extension_id: @extension_id) || params[:force] == 'true') %>;
         const isForceRefresh = '<%= params[:force] %>' === 'true';
-        
+
         // Clear the flag if we're not doing a force refresh
         if (!isForceRefresh) {
           sessionStorage.removeItem('justCompleted');
         }
-        
+
         if (isNewScan || isForceRefresh) {
-          const progressBar = document.getElementById('progress-bar');
+          const panel = document.getElementById('scan-progress');
           const progressMessage = document.getElementById('progress-message');
           const analysisStatus = document.getElementById('analysis_status');
           const analysisResults = document.getElementById('analysis_results');
 
-          // Check if we need to start analysis
-          if (!progressBar || !progressMessage || !analysisStatus || !analysisResults) {
+          if (!panel || !progressMessage || !analysisStatus || !analysisResults) {
             return;
           }
 
@@ -45,31 +44,43 @@
             return;
           }
 
-          const messages = [
-            'Starting analysis...',
-            'Fetching extension details...',
-            'Downloading extension...',
-            'Analyzing permissions...',
-            'Checking security...',
-            'Finalizing analysis...'
+          // The browser cannot see the scan's real progress (it is one request),
+          // so the steps light up on a timer as a rough guide. The last step
+          // stays active until the reply arrives, however long that takes.
+          const steps = Array.from(panel.querySelectorAll('.scan-step'));
+          const sentences = [
+            'Reading the Chrome Web Store listing.',
+            'Downloading the extension package.',
+            'Checking the manifest against the rules.',
+            'Running the AI check.'
           ];
-          let currentProgress = 0;
-          let messageIndex = 0;
+          const stepAt = [0, 1200, 2600, 4200];
+          const slowAfter = 12000;
+          const timers = [];
 
-          // Update progress every 300ms
-          const progressInterval = setInterval(() => {
-            if (currentProgress < 90) {
-              currentProgress += Math.random() * 15;
-              currentProgress = Math.min(currentProgress, 90);
-              progressBar.style.width = currentProgress + '%';
-              
-              // Update message periodically
-              if (currentProgress > (messageIndex + 1) * 15 && messageIndex < messages.length - 1) {
-                messageIndex++;
-                progressMessage.textContent = messages[messageIndex];
-              }
+          function showStep(index) {
+            steps.forEach(function(step, i) {
+              step.dataset.step = i < index ? 'done' : (i === index ? 'active' : 'todo');
+            });
+            // One polite announcement per step, never repeated.
+            if (sentences[index] && progressMessage.textContent !== sentences[index]) {
+              progressMessage.textContent = sentences[index];
             }
-          }, 300);
+          }
+
+          stepAt.forEach(function(delay, index) {
+            if (index > 0) timers.push(setTimeout(function() { showStep(index); }, delay));
+          });
+          timers.push(setTimeout(function() {
+            const hint = document.getElementById('scan-progress-hint');
+            if (hint) hint.textContent = hint.dataset.slowText;
+            progressMessage.textContent = 'Still working. ' + sentences[sentences.length - 1];
+          }, slowAfter));
+          showStep(0);
+
+          function stopTimers() {
+            timers.forEach(clearTimeout);
+          }
 
           // Start the analysis immediately
           fetch('/scan/analyze?id=<%= @extension_id %>&force=<%= params[:force] %>', {
@@ -91,15 +102,23 @@
             if (data.error) {
               throw new Error(data.error);
             }
-            
-            // Complete the progress bar
-            clearInterval(progressInterval);
-            progressBar.style.width = '100%';
-            progressMessage.textContent = 'Analysis complete!';
-            
+
+            // The finished state: every step done, the bar full.
+            stopTimers();
+            steps.forEach(function(step) { step.dataset.step = 'done'; });
+            panel.dataset.state = 'done';
+            panel.setAttribute('aria-busy', 'false');
+            const title = document.getElementById('scan-progress-title');
+            if (title) title.textContent = title.dataset.doneText;
+            const hint = document.getElementById('scan-progress-hint');
+            if (hint) hint.textContent = 'Loading the results.';
+            const bar = panel.querySelector('[role=progressbar]');
+            if (bar) bar.setAttribute('aria-valuetext', 'Complete');
+            progressMessage.textContent = 'Scan complete. Loading the results.';
+
             // Set flag before reloading
             sessionStorage.setItem('justCompleted', 'true');
-            
+
             // Short delay before reloading
             setTimeout(() => {
               // Remove force parameter from URL when reloading
@@ -110,39 +129,68 @@
           })
           .catch(error => {
             console.error('Analysis failed:', error);
-            clearInterval(progressInterval);
+            stopTimers();
             showError(error.message);
           });
         }
       });
 
+      // The failed scan: the progress card goes away and a card with the
+      // server's message takes its place. Built with textContent: the message
+      // comes from the server.
       function showError(message) {
-        // Hide the loading status
         const analysisStatus = document.getElementById('analysis_status');
         if (analysisStatus) {
           analysisStatus.style.display = 'none';
         }
-        
-        // Show error message with link to go back (built with textContent: the message comes from the server)
+
         const analysisResults = document.getElementById('analysis_results');
         if (analysisResults) {
-          const card = document.createElement('div');
-          card.className = 'bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6';
-          const inner = document.createElement('div');
-          inner.className = 'text-center';
-          const errorLine = document.createElement('div');
-          errorLine.className = 'text-red-700 dark:text-red-400 mb-4';
+          const card = document.createElement('section');
+          card.id = 'scan-failed';
+          card.setAttribute('role', 'alert');
+          card.className = 'bg-white dark:bg-gray-800 rounded-lg shadow-lg p-5 sm:p-6 mb-6 border-l-4 border-red-500 dark:border-red-400';
+          const row = document.createElement('div');
+          row.className = 'flex items-start gap-4';
+
+          const mark = document.createElement('div');
+          mark.className = 'flex flex-none items-center justify-center w-12 h-12 rounded-full bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-300';
+          mark.setAttribute('aria-hidden', 'true');
+          const svgNs = 'http://www.w3.org/2000/svg';
+          const icon = document.createElementNS(svgNs, 'svg');
+          icon.setAttribute('viewBox', '0 0 24 24');
+          icon.setAttribute('class', 'w-6 h-6');
+          icon.setAttribute('fill', 'none');
+          icon.setAttribute('stroke', 'currentColor');
+          icon.setAttribute('stroke-width', '2');
+          icon.setAttribute('stroke-linecap', 'round');
+          ['M12 3.5 2.5 20h19z', 'M12 10v4.5M12 17.5v.01'].forEach(function(d) {
+            const path = document.createElementNS(svgNs, 'path');
+            path.setAttribute('d', d);
+            icon.append(path);
+          });
+          mark.append(icon);
+
+          const body = document.createElement('div');
+          body.className = 'min-w-0 flex-1';
+          const heading = document.createElement('h2');
+          heading.className = 'text-lg font-semibold text-gray-800 dark:text-gray-100';
+          heading.textContent = 'The scan did not finish';
+          const errorLine = document.createElement('p');
+          errorLine.className = 'mt-1 text-red-700 dark:text-red-300 [overflow-wrap:anywhere]';
           errorLine.textContent = message;
-          const help = document.createElement('div');
-          help.className = 'text-gray-600 dark:text-gray-400';
+          const help = document.createElement('p');
+          help.className = 'mt-3 text-sm text-gray-600 dark:text-gray-400';
           help.append('Please check the extension ID and try again or ');
           const homeLink = document.createElement('a');
           homeLink.href = '/';
           homeLink.className = 'text-brand-600 hover:text-brand-700 dark:text-brand-300 dark:hover:text-brand-200 underline';
           homeLink.textContent = 'return to home';
-          help.append(homeLink);
-          inner.append(errorLine, help);
-          card.append(inner);
+          help.append(homeLink, '.');
+          body.append(heading, errorLine, help);
+
+          row.append(mark, body);
+          card.append(row);
           analysisResults.replaceChildren(card);
         }
       }

@@ -86,6 +86,24 @@ class ScanManifestTabTest < ActionDispatch::IntegrationTest
     assert_select "#manifest-code .mv-rows > .mn", count: 4
   end
 
+  test "each line keeps its indentation apart from its text, so a wrapped line stays under its text" do
+    create("mg" * 16)
+    lines = css_select("#manifest-code .ml")
+    lines.each do |line|
+      code = line.at_css("> code")
+      parts = code.element_children
+      assert_equal "mc", parts.last["class"], "line #{line['data-line']} ends with its text"
+      indent = parts.size == 2 ? parts.first : nil
+      assert_equal "mi", indent["class"] if indent
+      assert_match(/\A {2,}\z/, indent.text) if indent
+      assert_no_match(/\A /, parts.last.text, "line #{line['data-line']}: no indentation left in its text")
+      assert_equal line.text, "#{indent&.text}#{parts.last.text}"
+    end
+    assert_equal "{", lines.first.text
+    assert_nil lines.first.at_css(".mi")
+    assert_equal "  ", css_select("#manifest-code .ml").find { |l| l.text.start_with?('  "name"') }.at_css(".mi").text
+  end
+
   test "a long array with a note starts open; one without starts folded" do
     create("md" * 16)
     toggles = css_select("#manifest-code [data-group-toggle]")

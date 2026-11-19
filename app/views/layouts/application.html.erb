@@ -27,7 +27,10 @@
     <meta name="twitter:image" content="<%= image_url('crx-title-cover.jpg') %>">
   </head>
 
-  <body class="h-full bg-gray-100 dark:bg-gray-900">
+  <%# A column at least as tall as the window: the site notice, then the page, which fills
+      the rest (pages use flex-1, not min-h-screen, so the notice adds no scrollbar). %>
+  <body class="min-h-full flex flex-col bg-gray-100 dark:bg-gray-900">
+    <%= render "shared/upgrade_notice" %>
     <%= yield %>
     <%= yield :page_scripts %>
   </body>

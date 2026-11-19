@@ -422,13 +422,6 @@
       setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
     });
 
-    const wrap = document.getElementById('manifest-wrap');
-    wrap.addEventListener('click', function () {
-      const on = code.dataset.wrap !== 'true';
-      code.dataset.wrap = on ? 'true' : 'false';
-      wrap.setAttribute('aria-pressed', on ? 'true' : 'false');
-    });
-
     function setNotes(on) {
       code.dataset.notes = on ? 'on' : 'off';
       if (notesToggle) notesToggle.setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -494,7 +487,7 @@
       mark([line].concat(extra || []));
       updatePosition(line);
       measureStickyBars();
-      line.scrollIntoView({ block: 'start', inline: 'start' });
+      line.scrollIntoView({ block: 'start' });
       if (focus) {
         line.setAttribute('tabindex', '-1');
         line.focus({ preventScroll: true });

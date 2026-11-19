@@ -1,11 +1,48 @@
-<div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-  <div class="flex flex-col items-center">
-    <div class="w-full h-2 bg-gray-200 rounded-full mb-4">
-      <div id="progress-bar" 
-           class="h-2 bg-brand-500 rounded-full transition-all duration-500" 
-           style="width: 0%">
-      </div>
+<%# The scan in progress (state "running"), driven by the script in scan/show.html.erb,
+    or finished (state "done", also rendered by _complete_status). The browser cannot
+    know the scan's real progress (it is one request), so nothing here claims a
+    percentage: the bar is indeterminate and the steps light up on a timer as a rough
+    guide. The script never marks the last step done until the reply arrives. Looks:
+    the "Scan progress" rules in application.css (data-state, data-step).
+
+    Locals, all optional: extension_id and extension_name (what is being scanned),
+    message (the first status line), state. %>
+<% state = local_assigns[:state] == "done" ? "done" : "running" %>
+<% done = state == "done" %>
+<% name = local_assigns[:extension_name].presence %>
+<% extension_id = local_assigns[:extension_id].presence %>
+<% steps = [["listing", "Store listing"], ["package", "Package"], ["rules", "Rules"], ["ai", "AI check"]] %>
+<section id="scan-progress" class="scan-progress bg-white dark:bg-gray-800 rounded-lg shadow-lg p-5 sm:p-6 mb-6"
+         data-state="<%= state %>" aria-labelledby="scan-progress-title" aria-busy="<%= !done %>">
+  <div class="flex items-start gap-4">
+    <div class="scan-progress-mark" aria-hidden="true">
+      <svg class="scan-progress-icon scan-progress-icon-working" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 4.5 4.5"/></svg>
+      <svg class="scan-progress-icon scan-progress-icon-done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="m6 12.5 4 4 8-9"/></svg>
     </div>
-    <p id="progress-message" class="text-gray-600 dark:text-gray-300"><%= message %></p>
+    <div class="min-w-0 flex-1">
+      <h2 id="scan-progress-title" class="text-lg font-semibold text-gray-800 dark:text-gray-100 break-words"
+          data-running-text="<%= name ? "Scanning #{name}" : "Scanning this extension" %>"
+          data-done-text="Scan complete"><%= done ? "Scan complete" : (name ? "Scanning #{name}" : "Scanning this extension") %></h2>
+      <% if extension_id %>
+        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400 [overflow-wrap:anywhere]">Extension ID <span class="font-mono"><%= extension_id %></span></p>
+      <% end %>
+      <p class="mt-1 text-sm text-gray-600 dark:text-gray-300" id="scan-progress-hint"
+         data-slow-text="Still working. Large extensions can take a little longer."><%= done ? "Loading the results." : "This usually takes a few seconds." %></p>
+    </div>
   </div>
-</div> 
+
+  <div class="scan-bar mt-5" role="progressbar" aria-labelledby="scan-progress-title" aria-valuetext="<%= done ? "Complete" : "Working" %>">
+    <span class="scan-bar-fill"></span>
+  </div>
+
+  <ol class="scan-steps mt-4" aria-label="Scan steps (approximate)">
+    <% steps.each_with_index do |(key, label), index| %>
+      <li class="scan-step" data-step-key="<%= key %>" data-step="<%= done ? "done" : (index.zero? ? "active" : "todo") %>">
+        <span class="scan-step-dot" aria-hidden="true"></span>
+        <span class="scan-step-label"><%= label %></span>
+      </li>
+    <% end %>
+  </ol>
+
+  <p id="progress-message" class="mt-4 text-sm text-gray-600 dark:text-gray-300" aria-live="polite"><%= done ? "Scan complete. Loading the results." : local_assigns[:message].presence || "Reading the Chrome Web Store listing." %></p>
+</section>

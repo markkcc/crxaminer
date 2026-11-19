@@ -54,67 +54,8 @@
 
       </div>
     </div>
-    
-    <div class="border-t border-gray-200 dark:border-gray-700 pt-4 mb-6">
-      <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-3">Extension Details</h3>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-        <% if @extension_details&.dig(:author).present? %>
-          <div class="flex items-start">
-            <span class="text-gray-500 dark:text-gray-400 w-32">Developer:</span>
-            <span class="text-gray-700 dark:text-gray-200"><%= @extension_details[:author] %></span>
-          </div>
-        <% end %>
-        
-        <% if @extension_details&.dig(:rating).present? %>
-          <div class="flex items-start">
-            <span class="text-gray-500 dark:text-gray-400 w-32">Rating:</span>
-            <span class="text-gray-700 dark:text-gray-200">
-              <%= @extension_details[:rating] %> ★
-              <% if @extension_details[:rating_count].present? %>
-                (<%= @extension_details[:rating_count] %>)
-              <% end %>
-            </span>
-          </div>
-        <% end %>
-        
-        <% if @extension_details&.dig(:size).present? %>
-          <div class="flex items-start">
-            <span class="text-gray-500 dark:text-gray-400 w-32">Size:</span>
-            <span class="text-gray-700 dark:text-gray-200"><%= @extension_details[:size] %></span>
-          </div>
-        <% end %>
-        
-        <% if @extension_details&.dig(:last_updated).present? %>
-          <div class="flex items-start">
-            <span class="text-gray-500 dark:text-gray-400 w-32">Last Updated:</span>
-            <span class="text-gray-700 dark:text-gray-200"><%= @extension_details[:last_updated] %></span>
-          </div>
-        <% end %>
 
-        <% if @extension_details&.dig(:users).present? %>
-          <div class="flex items-start">
-            <span class="text-gray-500 dark:text-gray-400 w-32">Users:</span>
-            <span class="text-gray-700 dark:text-gray-200"><%= @extension_details[:users] %></span>
-          </div>
-        <% end %>
-        
-        <% if @extension_details&.dig(:developer_info).present? %>
-          <div class="flex items-start md:col-span-2">
-            <span class="text-gray-500 dark:text-gray-400 w-32">Developer Info:</span>
-            <span class="text-gray-700 dark:text-gray-200 break-words max-w-[30ch]"><%= @extension_details[:developer_info] %></span>
-          </div>
-        <% end %>
-
-      </div>
-      <%# Store badges, recorded only when present (older scans have none). %>
-      <% store_badges = { featured: "Featured", established_publisher: "Established publisher" }
-                          .select { |key, _| @extension_details&.dig(key) == true }.values %>
-      <% if store_badges.any? %>
-        <p class="mt-3 text-xs text-gray-500 dark:text-gray-400" data-store-badges>
-          Chrome Web Store badges: <%= store_badges.join(" · ") %>
-        </p>
-      <% end %>
-    </div>
+    <%= render "extension_details", details: @extension_details %>
   </div>
 
   <%# Tabs. The active tab is kept in the URL hash (#overview, #permissions, #network, #manifest,
