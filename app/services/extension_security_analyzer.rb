@@ -53,6 +53,21 @@ class ExtensionSecurityAnalyzer
     new(manifest, extension_details).rated_findings(ai_findings)
   end
 
+  # What the statistics count for one manifest, read exactly as the rules
+  # read it, so the dashboard and the scan pages agree:
+  #   manifest_version             2, 3, ... or nil when it is not a number
+  #   permissions                  the API permissions it asks for at install
+  #                                (Manifest V2 match patterns left out)
+  #   all_sites_host_access        does a required host permission cover all sites?
+  #   all_sites_content_scripts    does a content script run on all sites?
+  # No findings are built. Never raises on junk.
+  ManifestSummary = Struct.new(:manifest_version, :permissions, :all_sites_host_access, :all_sites_content_scripts,
+                               keyword_init: true)
+
+  def self.manifest_summary(manifest)
+    new(manifest).manifest_summary
+  end
+
   TWEET_LIMIT = 280
   TWEET_FIELD_LIMIT = 20
 
@@ -148,6 +163,16 @@ class ExtensionSecurityAnalyzer
   # The highest finding level, or "Minimal" when nothing was found.
   def access_level
     highest_level(findings_only.map { |f| f[:severity] }) || "Minimal"
+  end
+
+  def manifest_summary
+    @data = @manifest.is_a?(Hash) ? @manifest : {}
+    ManifestSummary.new(
+      manifest_version: manifest_version,
+      permissions: required_permissions.keys,
+      all_sites_host_access: required_sites.any? { |s| s.pattern.all_sites? },
+      all_sites_content_scripts: content_script_sites.any? { |s| s.pattern.all_sites? }
+    )
   end
 
   private

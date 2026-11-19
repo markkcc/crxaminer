@@ -394,7 +394,7 @@ class AiContextAnalysisTest < ActiveSupport::TestCase
     scan = ScanResult.create!(extension_id: "c" * 32, manifest: fresh_manifest, extension_details: details,
                               security_findings: rule_findings + [finding])
 
-    assert_equal "Medium", RefreshStatsJob.new.send(:get_display_severity, scan)
+    assert_equal 1, ScanStats::Collector.run(ScanResult.where(id: scan.id)).values[:levels]["Medium"]
     assert_equal "Medium", ScanController.new.send(:get_display_severity, scan)
     assert_equal "some", scan.security_findings.last[:ai][:concern_level]
   end

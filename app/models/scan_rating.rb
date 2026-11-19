@@ -103,10 +103,16 @@ class ScanRating
   # listing details and AI check.
   def self.for_scan(security_findings:, extension_details:, as_of: Time.current)
     findings = ScanPage.list(security_findings).select { |f| f.is_a?(Hash) }
-    overall = findings.find { |f| ScanPage::FindingGroups.overall?(f) }
     ai = findings.find { |f| ScanPage::FindingGroups.ai?(f) }
-    level = ScanPage.value(overall, :access) || ScanPage.value(overall, :severity)
-    new(access_level: level, extension_details: extension_details, ai: ScanPage.value(ai, :ai), as_of: as_of)
+    new(access_level: stored_access_level(findings), extension_details: extension_details,
+        ai: ScanPage.value(ai, :ai), as_of: as_of)
+  end
+
+  # The access level a stored scan carries (see .for_scan), as stored: pass
+  # it to .access_tier for the tier. nil when the scan has no overall finding.
+  def self.stored_access_level(security_findings)
+    overall = ScanPage.list(security_findings).find { |f| f.is_a?(Hash) && ScanPage::FindingGroups.overall?(f) }
+    ScanPage.value(overall, :access) || ScanPage.value(overall, :severity)
   end
 
   # access_level: a finding level ("High") or nil. ai: the stored AI check
