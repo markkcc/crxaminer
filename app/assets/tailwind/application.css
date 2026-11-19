@@ -114,13 +114,13 @@ main {
    pair in both themes; see the numbers next to each set. */
 :root {
   /* Trust: green, blue, slate and rose, unlike any severity colour.
-     Light: text on background 7.10, 8.16, 9.38, 7.35. */
+     Light, text on background: 7.29, 8.01, 9.45, 7.30 (unknown 9.37). */
   --trust-established-bg: #ecfdf5; --trust-established-fg: #065f46; --trust-established-line: #6ee7b7;
   --trust-some-bg: #eff6ff; --trust-some-fg: #1e40af; --trust-some-line: #93c5fd;
   --trust-unproven-bg: #f1f5f9; --trust-unproven-fg: #334155; --trust-unproven-line: #cbd5e1;
   --trust-concerns-bg: #fff1f2; --trust-concerns-fg: #9f1239; --trust-concerns-line: #fda4af;
   --trust-unknown-bg: #f3f4f6; --trust-unknown-fg: #374151; --trust-unknown-line: #d1d5db;
-  /* Signals by tone. Light: 6.85, 7.56, 6.37, 6.29. */
+  /* Signals by tone (good, neutral, caution, bad). Light: 6.81, 9.86, 6.84, 5.72. */
   --tone-good-bg: #f0fdf4; --tone-good-fg: #166534; --tone-good-line: #bbf7d0;
   --tone-neutral-bg: #f9fafb; --tone-neutral-fg: #374151; --tone-neutral-line: #e5e7eb;
   --tone-caution-bg: #fffbeb; --tone-caution-fg: #92400e; --tone-caution-line: #fde68a;
@@ -129,13 +129,13 @@ main {
 
 @media (prefers-color-scheme: dark) {
   :root {
-    /* Dark: 9.98, 9.57, 9.10, 10.46. */
+    /* Dark: 11.49, 10.34, 9.45, 11.08 (unknown 9.37). */
     --trust-established-bg: #052e26; --trust-established-fg: #a7f3d0; --trust-established-line: #047857;
     --trust-some-bg: #172554; --trust-some-fg: #bfdbfe; --trust-some-line: #1d4ed8;
     --trust-unproven-bg: #334155; --trust-unproven-fg: #f1f5f9; --trust-unproven-line: #64748b;
     --trust-concerns-bg: #4c0519; --trust-concerns-fg: #fecdd3; --trust-concerns-line: #e11d48;
     --trust-unknown-bg: #374151; --trust-unknown-fg: #f3f4f6; --trust-unknown-line: #6b7280;
-    /* Dark: 10.03, 9.53, 10.57, 9.20. */
+    /* Dark: 12.19, 10.00, 11.85, 11.40. */
     --tone-good-bg: #0b2e1c; --tone-good-fg: #bbf7d0; --tone-good-line: #166534;
     --tone-neutral-bg: #2b3544; --tone-neutral-fg: #e5e7eb; --tone-neutral-line: #4b5563;
     --tone-caution-bg: #3a2306; --tone-caution-fg: #fde68a; --tone-caution-line: #92400e;
@@ -178,9 +178,9 @@ main {
   text-overflow: ellipsis;
 }
 
+/* Lighter by weight only: an opacity would take the text below 4.5:1. */
 .badge-label {
-  font-weight: 500;
-  opacity: 0.85;
+  font-weight: 400;
 }
 
 .badge-icon {
@@ -213,7 +213,7 @@ main {
   align-items: flex-start;
   gap: 0.3rem;
   padding: 0.125rem 0.625rem 0.125rem 0.4375rem;
-  border-radius: 9999px;
+  border-radius: 0.875rem;
   background: var(--b-bg);
   color: var(--b-fg);
   border-color: var(--b-line);
