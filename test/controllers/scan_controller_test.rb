@@ -97,7 +97,7 @@ class ScanControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
     assert_site_notice
 
-    StatCache.stub(:first, -> { raise "boom" }) { get stats_scan_index_path }
+    ScanResult.stub(:count, -> { raise "boom" }) { get stats_scan_index_path }
     assert_response :internal_server_error
     assert_site_notice
     assert_not_includes response.body, "We are pushing major experimental upgrades"

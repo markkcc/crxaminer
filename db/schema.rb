@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_11_11_174937) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_19_040000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -154,6 +154,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_11_174937) do
     t.datetime "updated_at", null: false
     t.integer "scans_last_30_days"
     t.integer "all_urls_count"
+    t.jsonb "metrics"
   end
 
   add_foreign_key "solid_queue_blocked_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade

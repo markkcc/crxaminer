@@ -1,0 +1,18 @@
+<%# The permissions most extensions ask for at install, each with the access
+    tier the rules give it. On wider screens the list runs down two columns. %>
+<div class="<%= StatsHelper::CARD %>" data-stat="permissions">
+  <h2 class="<%= StatsHelper::CARD_TITLE %> mb-1">Most requested permissions</h2>
+  <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+    Share of scanned extensions that ask for each at install, with the access tier it gives.
+  </p>
+  <ol class="md:columns-2 md:gap-x-8">
+    <% permissions.each do |share| %>
+      <li class="break-inside-avoid">
+        <%= render layout: "scan/stats/share", locals: { share: share, bar: share.level ? severity_classes(share.level) : "bg-brand-500 dark:bg-brand-400" } do %>
+          <span class="font-mono text-sm text-gray-700 dark:text-gray-200 break-all"><%= share.label %></span>
+          <% if share.level %><%= finding_badge(share.level, size: :sm) %><% end %>
+        <% end %>
+      </li>
+    <% end %>
+  </ol>
+</div>
