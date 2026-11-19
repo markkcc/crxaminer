@@ -87,19 +87,21 @@
         <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Recent Scans</h2>
         
         <div class="overflow-x-auto w-full">
-          <table class="w-full table-fixed min-w-[42rem]">
+          <%# Fixed layout so long names truncate. On phones only the name and rating show;
+              the name links to the scan, as the Actions column does on wider screens. %>
+          <table class="w-full table-fixed">
             <thead class="bg-gray-50 dark:bg-gray-900">
               <tr>
-                <th scope="col" class="w-5/12 px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b-2 border-gray-300 dark:border-gray-600">
+                <th scope="col" class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b-2 border-gray-300 dark:border-gray-600">
                   Extension
                 </th>
-                <th scope="col" class="w-2/12 px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b-2 border-gray-300 dark:border-gray-600">
+                <th scope="col" class="w-36 sm:w-40 px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b-2 border-gray-300 dark:border-gray-600">
                   Rating
                 </th>
-                <th scope="col" class="w-3/12 px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b-2 border-gray-300 dark:border-gray-600">
+                <th scope="col" class="hidden sm:table-cell w-56 px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b-2 border-gray-300 dark:border-gray-600">
                   Scan Date
                 </th>
-                <th scope="col" class="w-2/12 px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b-2 border-gray-300 dark:border-gray-600">
+                <th scope="col" class="hidden sm:table-cell w-36 px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b-2 border-gray-300 dark:border-gray-600">
                   Actions
                 </th>
               </tr>
