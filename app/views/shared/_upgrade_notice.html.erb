@@ -1,7 +1,12 @@
-<%# Temporary notice shown on the home page. To remove it, delete this file and its render call in scan/index.html.erb. %>
-<div role="status" class="w-full border-b border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
-  <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-3 text-sm text-center">
-    <span class="font-semibold"><time datetime="2026-11-16">November 16, 2026</time>:</span>
-    We are pushing major experimental upgrades, which may affect the app's availability.
-  </div>
-</div>
+<%# Temporary notice at the top of every page, rendered once from layouts/application.html.erb.
+    To remove it, delete this file and the render call in that layout. %>
+<aside id="site-notice" aria-label="Site notice"
+       class="w-full shrink-0 border-b border-brand-200 bg-brand-50 text-brand-900 dark:border-brand-800 dark:bg-brand-900/50 dark:text-brand-100">
+  <p class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 text-sm text-center text-balance">
+    <span class="font-semibold"><time datetime="2026-11-19">November 19, 2026</time>:</span>
+    We have pushed experimental upgrades, please
+    <%= link_to "report any issues in GitHub", "https://github.com/markkcc/crxaminer/issues/new",
+          target: "_blank", rel: "noopener",
+          class: "font-medium underline underline-offset-2 decoration-brand-400 hover:decoration-current rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 text-brand-800 dark:text-brand-200 dark:decoration-brand-300" %>
+  </p>
+</aside>

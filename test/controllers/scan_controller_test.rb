@@ -56,27 +56,61 @@ class ScanControllerTest < ActionDispatch::IntegrationTest
     assert_select "#ai-check [data-ai-list=concerns] li", text: "<b>None</b>"
   end
 
-  test "the home page shows the dated upgrade notice" do
-    get root_path
+  NOTICE = "November 19, 2026: We have pushed experimental upgrades, please report any issues in GitHub".freeze
 
-    assert_response :success
-    assert_select "[role=status]", count: 1 do
-      assert_select "time[datetime='2026-11-16']", text: "November 16, 2026"
+  # The site notice, once, first in the body, with its date and the new-issue link.
+  def assert_site_notice
+    assert_select "body > aside#site-notice:first-child", count: 1
+    assert_select "aside#site-notice", count: 1 do
+      assert_select "time[datetime='2026-11-19']", count: 1, text: "November 19, 2026"
+      assert_select "a", count: 1
+      assert_select "a[href='https://github.com/markkcc/crxaminer/issues/new'][target=_blank][rel~=noopener]",
+                    text: "report any issues in GitHub"
     end
-    notice = css_select("[role=status]").first.text.squish
-    assert_includes notice, "We are pushing major experimental upgrades, which may affect the app's availability."
+    assert_equal NOTICE, css_select("#site-notice").first.text.squish
   end
 
-  test "the upgrade notice is only on the home page" do
+  test "the site notice is at the top of every page, error pages included" do
     create_scan("o" * 32)
+
+    get root_path
+    assert_response :success
+    assert_site_notice
 
     get scan_path("o" * 32)
     assert_response :success
-    assert_select "[role=status]", count: 0
+    assert_site_notice
+
+    get scan_path("p" * 32)
+    assert_response :success
+    assert_site_notice
 
     get stats_scan_index_path
     assert_response :success
-    assert_select "[role=status]", count: 0
+    assert_site_notice
+
+    get help_path
+    assert_response :success
+    assert_site_notice
+
+    get "/no-such-page"
+    assert_response :not_found
+    assert_site_notice
+
+    StatCache.stub(:first, -> { raise "boom" }) { get stats_scan_index_path }
+    assert_response :internal_server_error
+    assert_site_notice
+    assert_not_includes response.body, "We are pushing major experimental upgrades"
+  end
+
+  test "pages fill the window below the notice instead of adding their own screen height" do
+    create_scan("o" * 32)
+    [root_path, scan_path("o" * 32), stats_scan_index_path, help_path, "/no-such-page"].each do |path|
+      get path
+      assert_select "body.min-h-full.flex.flex-col", count: 1
+      assert_select "body > div.flex-1", count: 1
+      assert_select ".min-h-screen", count: 0, message: "#{path} would be a screen tall plus the notice"
+    end
   end
 
   NAV_LABELS = ["[ new scan ]", "[ statistics ]", "[ github ]", "[ help ]"].freeze

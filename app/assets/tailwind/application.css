@@ -82,10 +82,15 @@
   scrollbar-color: var(--color-brand-500) transparent;
 }
 
-/* Base layout */
-html, body {
-  margin: 0;
+/* Base layout: the body is at least as tall as the window and grows with
+   its content (layouts/application.html.erb makes it a flex column). */
+html {
   height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100%;
 }
 
 main {
