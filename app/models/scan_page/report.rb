@@ -22,6 +22,34 @@ module ScanPage
       @rating ||= ScanRating.for_scan(security_findings: @security_findings, extension_details: @extension_details)
     end
 
+    # The level shown for this scan in lists and statistics (ScanDisplayLevel).
+    def display_level
+      @display_level ||= ScanDisplayLevel.for(@security_findings)
+    end
+
+    # The stored AI finding (a hash, symbol or string keys), or nil.
+    def ai_finding
+      @ai_finding ||= ScanPage.list(@security_findings).find { |f| f.is_a?(Hash) && FindingGroups.ai?(f) }
+    end
+
+    AiCheck = Struct.new(:concern_level, :purpose_fit, :summary, :trust_factors, :concerns, :recommendations,
+                         :model, :analyzed_at, keyword_init: true)
+
+    # The AI check in the current format, or nil when there is none or it
+    # was stored in the old format (with a risk level). Lists hold strings only.
+    def ai_check
+      return @ai_check if defined?(@ai_check)
+
+      ai = ScanPage.value(ai_finding, :ai)
+      concern = ScanPage.value(ai, :concern_level)
+      fit = ScanPage.value(ai, :purpose_fit)
+      @ai_check = if ScanRating::CONCERN_LEVELS.include?(concern) && ScanRating::PURPOSE_FITS.include?(fit)
+        texts = %i[summary model analyzed_at].to_h { |key| [key, ScanPage.value(ai, key).then { |v| v.is_a?(String) ? v : nil }] }
+        lists = %i[trust_factors concerns recommendations].to_h { |key| [key, ScanPage.strings(ScanPage.value(ai, key))] }
+        AiCheck.new(concern_level: concern, purpose_fit: fit, **texts, **lists)
+      end
+    end
+
     def finding_groups
       @finding_groups ||= FindingGroups.new(@security_findings)
     end
