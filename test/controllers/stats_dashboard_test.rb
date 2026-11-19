@@ -137,12 +137,16 @@ class StatsDashboardTest < ActionDispatch::IntegrationTest
     assert_select "#stats-updated", count: 0
   end
 
-  test "a queue that cannot take the refresh does not stop the page" do
-    log = capture_rails_log do
-      RefreshStatsJob.stub(:perform_later, -> { raise "queue down" }) { get stats_scan_index_path }
+  test "a queue that cannot take the refresh does not stop the page, and the next view asks again" do
+    Rails.stub(:cache, ActiveSupport::Cache::MemoryStore.new) do
+      log = capture_rails_log do
+        RefreshStatsJob.stub(:perform_later, -> { raise "queue down" }) { get stats_scan_index_path }
+      end
+      assert_response :success
+      assert_match(/statistics refresh could not be queued: RuntimeError: queue down/, log)
+
+      assert_enqueued_jobs(1, only: RefreshStatsJob) { get stats_scan_index_path }
     end
-    assert_response :success
-    assert_match(/statistics refresh could not be queued: RuntimeError: queue down/, log)
   end
 
   test "before the migration has run the page shows the older statistics" do

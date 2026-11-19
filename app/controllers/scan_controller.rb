@@ -187,12 +187,12 @@ class ScanController < ApplicationController
 
   # Queues RefreshStatsJob, at most once per STATS_REFRESH_EVERY for each
   # server, however many people open the page meanwhile. A queue that cannot
-  # take the job does not stop the page.
+  # take the job does not stop the page, and the next view tries again.
   def request_stats_refresh
     return if Rails.cache.read(STATS_REFRESH_KEY)
 
-    Rails.cache.write(STATS_REFRESH_KEY, true, expires_in: STATS_REFRESH_EVERY)
     RefreshStatsJob.perform_later
+    Rails.cache.write(STATS_REFRESH_KEY, true, expires_in: STATS_REFRESH_EVERY)
   rescue StandardError => e
     Rails.logger.error("The statistics refresh could not be queued: #{e.class}: #{e.message}")
   end
