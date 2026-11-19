@@ -61,7 +61,7 @@
             <li class="flex items-start gap-3" data-tier="<%= level.downcase %>">
               <span class="shrink-0 w-28"><%= finding_badge(level) %></span>
               <span class="min-w-0 leading-[22px] text-gray-700 dark:text-gray-200 break-words">
-                <% findings.each_with_index do |finding, index| %><%= tag.a finding.permission || finding.title.presence || "Untitled finding",
+                <% findings.each_with_index do |finding, index| %><%= tag.a finding.title.sub(/\A\w+-Risk Permission: /, "Permission: ").presence || "Untitled finding",
                       href: "#finding-#{@report.manifest_notes.ref_for(finding)}", data: { capability: "" },
                       class: "underline decoration-gray-300 dark:decoration-gray-500 underline-offset-2 hover:decoration-current rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" %><%= index < findings.size - 1 ? " · " : "" %><% end %>
               </span>

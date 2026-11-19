@@ -14,7 +14,15 @@
           <% row.rules.each do |rule| %>
             <li><strong class="<%= strong %>"><%= rule.name %>.</strong> <%= rule.summary %></li>
           <% end %>
-          <% if row.permissions.size.between?(1, 3) %>
+          <% if row.tier.key == "full_control" %>
+            <%# The few permissions that give full control are named, each with its reason. %>
+            <% row.permissions.each do |name| %>
+              <li data-permissions>
+                <strong class="<%= strong %>">The <span class="font-mono text-sm"><%= name %></span> permission.</strong>
+                <%= ExtensionAnalyzerData.full_control_reason(name) %>
+              </li>
+            <% end %>
+          <% elsif row.permissions.size.between?(1, 3) %>
             <li data-permissions>
               <strong class="<%= strong %>">The <span class="font-mono text-sm"><%= row.permissions.to_sentence %></span> <%= "permission".pluralize(row.permissions.size) %>.</strong>
               <% if row.permissions.size == 1 %>
