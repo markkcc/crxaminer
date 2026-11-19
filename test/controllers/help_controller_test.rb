@@ -9,7 +9,7 @@ class HelpControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "title", text: /How it works/
     assert_select "h1", count: 1, text: "How CRXaminer works"
-    assert_equal ["What a scan does", "The rule engine", "Reading the result"], css_select("article h2").map { |h| h.text.strip }
+    assert_equal ["What a scan does", "Reading the result", "The rule engine"], css_select("article h2").map { |h| h.text.strip }
     assert_select "article ol li", count: 4
 
     links = css_select("article a")
@@ -42,6 +42,17 @@ class HelpControllerTest < ActionDispatch::IntegrationTest
     assert_includes critical, "All sites plus cookies"
     assert_no_match(/optional/i, css_select("#rating-levels").text, "optional items are covered by one sentence below the table")
     assert_includes css_select("article").text, "Optional permissions are rated one level lower"
+  end
+
+  test "the help page is as wide as the statistics and scan pages" do
+    get stats_scan_index_path
+    assert_select "div.max-w-7xl", count: 1
+
+    get help_path
+    assert_select "#help-page.max-w-7xl", count: 1
+    assert_select "#help-page article #help-columns > section", count: 2, message: "the two short sections sit side by side"
+    assert_select "#rating-levels.lg\\:columns-2 > .break-inside-avoid", count: ExtensionAnalyzerData::OVERALL_LEVELS.size,
+                  message: "the levels flow into two columns and are never split"
   end
 
   test "the help link in the navigation opens the help page and is marked current there" do

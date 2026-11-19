@@ -47,7 +47,15 @@ module ScanPage
       "host" => :site_access,
       "content_script" => :site_access,
       "csp" => :code_policy,
-      "manifest" => :code_policy
+      "manifest" => :code_policy,
+      # What the extension changes in Chrome, and account access.
+      "settings" => :browser,
+      "url_overrides" => :browser,
+      "oauth2" => :browser,
+      # Which websites can reach the extension.
+      "externally_connectable" => :site_access,
+      "web_accessible_resources" => :site_access,
+      "update_url" => :code_policy
     }.freeze
 
     OPTIONAL_PREFIX = "optional.".freeze

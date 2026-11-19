@@ -95,7 +95,7 @@ class AiContextAnalysisTest < ActiveSupport::TestCase
     assert_includes AiContextAnalysis::SYSTEM_PROMPT,
                     "store_badges, when present, are badges the Chrome Web Store shows on the listing; " \
                     "count them as trust factors, but they are not proof of safety."
-    assert_equal "2026-11-17.1", AiContextAnalysis::PROMPT_VERSION
+    assert_equal "2026-11-18.1", AiContextAnalysis::PROMPT_VERSION
   end
 
   # --- payload (B3) ---

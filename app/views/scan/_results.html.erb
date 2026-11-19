@@ -1,4 +1,8 @@
 <% if @manifest %>
+  <% if @freshness %>
+    <%= render "freshness", freshness: @freshness %>
+  <% end %>
+
   <!-- Extension header section (keep this outside tabs) -->
   <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
     <div class="flex items-center space-x-4 mb-4">
@@ -10,27 +14,33 @@
           <%= @extension_name || "Unknown Extension" %>
         </h1>
         <% if @manifest[:version] %>
-          <p class="text-gray-600 dark:text-gray-300">
-            Version <%= @manifest[:version] %>
+          <%# The store version is filled in by scan_page.js once known (or here from the cache). %>
+          <div class="text-gray-600 dark:text-gray-300">
+            <p>
+              Version <%= @manifest[:version] %><% store_note = @freshness&.store_note %><% differs_class = "font-medium text-gray-800 dark:text-gray-100" %><% quiet_class = "text-sm text-gray-500 dark:text-gray-400" %><span
+                class="<%= @freshness&.version_differs? ? differs_class : quiet_class %>"
+                data-store-version-note data-differs-class="<%= differs_class %>" data-quiet-class="<%= quiet_class %>"><%= " · #{store_note}" if store_note %></span>
 
-            <!-- Chrome Web Store link -->
-            <% if @extension_id %>
-                <%= link_to "View in Chrome Web Store", 
-                    "https://chrome.google.com/webstore/detail/#{@extension_id}", 
-                    target: "_blank", 
-                    class: "text-brand-600 hover:text-brand-700 dark:text-brand-300 dark:hover:text-brand-200 underline" %>
-            <% end %>
+              <!-- Chrome Web Store link -->
+              <% if @extension_id %>
+                  <%= link_to "View in Chrome Web Store", 
+                      "https://chrome.google.com/webstore/detail/#{@extension_id}", 
+                      target: "_blank", 
+                      class: "text-brand-600 hover:text-brand-700 dark:text-brand-300 dark:hover:text-brand-200 underline" %>
+              <% end %>
+            </p>
             <% if @last_scanned %>
-              <div class="text-xs mt-2 text-gray-600 dark:text-gray-400">
+              <p class="text-xs mt-2 text-gray-600 dark:text-gray-400">
                 Last scanned: <%= time_ago_in_words(@last_scanned) %> ago
-                <% if @last_scanned < 24.hours.ago %>
+                <%# Shown when a re-scan is allowed: older than 24 hours, or the store has another version. %>
+                <span data-rescan-link <%= "hidden" unless @freshness.nil? || @freshness.rescan_allowed? %>>
                   | <%= link_to "force re-scan", 
                         scan_path(@extension_id, force: true),
                         class: "text-brand-600 hover:text-brand-700 dark:text-brand-300 dark:hover:text-brand-200" %>
-                <% end %>
-              </div>
+                </span>
+              </p>
             <% end %>
-          </p>
+          </div>
         <% end %>
 
       </div>

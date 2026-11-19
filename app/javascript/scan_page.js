@@ -388,6 +388,13 @@
     }
 
     code.addEventListener('click', function (e) {
+      // "Go to line N" in a repeated note: open the finding's full note.
+      const goto = e.target.closest('[data-goto-line]');
+      if (goto) {
+        const item = goto.closest('.mn-item');
+        show([Number(goto.dataset.gotoLine)], item ? item.dataset.noteFor : '');
+        return;
+      }
       const button = e.target.closest('[data-group-toggle]');
       if (!button) return;
       const id = button.dataset.groupToggle;
@@ -524,8 +531,11 @@
       const targets = numbers.map(lineAt).filter(Boolean);
       if (targets.length === 0) return;
       targets.forEach(unfoldAround);
-      const items = /^\d+$/.test(ref || '')
-        ? Array.from(code.querySelectorAll('.mn-item[data-note-for="' + ref + '"]'))
+      // Only the entry on the line it lands on, the finding's first: the
+      // later lines carry slim repeats of the same note, left closed.
+      const note = document.getElementById('manifest-note-' + targets[0].dataset.line);
+      const items = note && /^\d+$/.test(ref || '')
+        ? Array.from(note.querySelectorAll('.mn-item[data-note-for="' + ref + '"]'))
         : [];
       expand(items);
       open(targets[0], targets.slice(1).concat(items), true);
@@ -541,4 +551,58 @@
       manifestApi.show(this.dataset.manifestLines.split(' ').map(Number), this.dataset.manifestFinding);
     });
   });
+
+  // ---- Store version ------------------------------------------------------
+  // After the page has loaded, asks the server which version the Chrome Web
+  // Store offers now (the server caches Google's answer), then shows it next
+  // to the scanned version and, when they differ, fills in the notice above
+  // the header. The server writes all sentences; they are set as text only.
+  // Failures leave the page as it was rendered.
+  (function initStoreVersion() {
+    const freshness = document.getElementById('scan-freshness');
+    const url = freshness && freshness.dataset.storeVersionUrl;
+    if (!url || !window.fetch) return;
+
+    const banner = freshness.querySelector('[data-freshness-banner]');
+    const message = freshness.querySelector('[data-freshness-message]');
+    const note = document.querySelector('[data-store-version-note]');
+    const rescanLink = document.querySelector('[data-rescan-link]');
+
+    function text(value) {
+      return typeof value === 'string' ? value : '';
+    }
+
+    function swapClasses(node, from, to) {
+      if (!node || from === undefined || to === undefined) return;
+      node.classList.remove.apply(node.classList, from.split(' ').filter(Boolean));
+      node.classList.add.apply(node.classList, to.split(' ').filter(Boolean));
+    }
+
+    fetch(url, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+      .then(function (response) { return response.ok ? response.json() : null; })
+      .then(function (data) {
+        if (!data || typeof data !== 'object') return;
+
+        if (note) {
+          const noteText = text(data.store_note);
+          note.textContent = noteText ? ' · ' + noteText : '';
+          if (data.version_differs === true) {
+            swapClasses(note, note.dataset.quietClass, note.dataset.differsClass);
+          } else {
+            swapClasses(note, note.dataset.differsClass, note.dataset.quietClass);
+          }
+        }
+
+        if (rescanLink && data.rescan_allowed === true) rescanLink.hidden = false;
+
+        // Only touch the live region when the words change, so an unchanged
+        // notice is not read out again.
+        const notice = text(data.notice);
+        if (banner && message && notice) {
+          if (message.textContent.trim() !== notice) message.textContent = notice;
+          banner.hidden = false;
+        }
+      })
+      .catch(function () { /* keep the page as rendered */ });
+  })();
 })();

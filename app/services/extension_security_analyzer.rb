@@ -16,7 +16,7 @@ class ExtensionSecurityAnalyzer
   # Bump when the rules or their texts change, so RuleRerating picks up
   # every stored scan again. Stored on the overall finding as :rules_version.
   # Findings written before the version existed carry none (version 1).
-  RULES_VERSION = 2
+  RULES_VERSION = 3
 
   OVERALL_TITLE_PREFIX = "Overall Risk: ".freeze
 
@@ -64,6 +64,13 @@ class ExtensionSecurityAnalyzer
       analyze_optional
       analyze_csp
       analyze_manifest_version
+      analyze_settings_overrides
+      analyze_url_overrides
+      analyze_main_world_scripts
+      analyze_externally_connectable
+      analyze_web_accessible_resources
+      analyze_update_url
+      analyze_oauth2
       [overall_finding] + most_severe_first(@findings)
     end
   end
@@ -192,10 +199,14 @@ class ExtensionSecurityAnalyzer
 
     scripts_everywhere = content_script_sites.select { |s| s.pattern.all_sites? }
     if scripts_everywhere.any?
+      frames, early = script_detail_paths(scripts_everywhere.map { |s| s.path[1] }.uniq)
+      clauses = []
+      clauses << " They also run inside frames embedded in pages, such as ads and sign-in boxes." if frames.any?
+      clauses << " They start before the page's own scripts, so they can change the page before it loads." if early.any?
       add_finding("High", "Scripts Run on All Websites",
                   "Its scripts run automatically in every website you open, where they can read and change the page, " \
-                  "including what you type.#{suffix_note(scripts_everywhere)}",
-                  rule: "content_script.all_sites", evidence: scripts_everywhere.map(&:path))
+                  "including what you type.#{clauses.join}#{suffix_note(scripts_everywhere)}",
+                  rule: "content_script.all_sites", evidence: scripts_everywhere.map(&:path) + frames + early)
     end
 
     granted = required_sites + content_script_sites
@@ -324,7 +335,292 @@ class ExtensionSecurityAnalyzer
                 rule: "manifest.v2", evidence: [["manifest_version"]])
   end
 
+  # chrome_settings_overrides: the search engine, homepage and startup pages.
+  def analyze_settings_overrides
+    overrides = read(:chrome_settings_overrides)
+    return unless overrides.is_a?(Hash)
+
+    provider = lookup(overrides, :search_provider)
+    if provider.is_a?(Hash)
+      base = ["chrome_settings_overrides", "search_provider"]
+      url = lookup(provider, :search_url)
+      default = lookup(provider, :is_default) == true
+      name = url_host(url) || plain_text(lookup(provider, :name)) || "a site it names"
+      evidence = url.is_a?(String) ? [base + ["search_url"]] : [base]
+      evidence << base + ["is_default"] if default
+      lead = default ? "It makes #{name} your default search engine." : "It adds #{name} as a search engine in Chrome."
+      add_finding("High", "Changes Your Search Engine",
+                  "#{lead} Searches you type in the address bar then go to that site, which sees every search and " \
+                  "chooses which results and ads you get.",
+                  rule: "settings.search_provider", evidence: evidence)
+    end
+
+    pages = []
+    evidence = []
+    homepage = lookup(overrides, :homepage)
+    if homepage.is_a?(String) && !homepage.strip.empty?
+      pages << (url_host(homepage) || "a page it names")
+      evidence << ["chrome_settings_overrides", "homepage"]
+    end
+    startup = lookup(overrides, :startup_pages)
+    if startup.is_a?(Array)
+      startup.each_with_index do |page, i|
+        next unless page.is_a?(String) && !page.strip.empty?
+
+        pages << (url_host(page) || "a page it names")
+        evidence << ["chrome_settings_overrides", "startup_pages", i]
+      end
+    end
+    return if evidence.empty?
+
+    has_home = evidence.any? { |p| p.last == "homepage" }
+    has_startup = evidence.any? { |p| p[1] == "startup_pages" }
+    what = [("Homepage" if has_home), ("Startup Pages" if has_startup)].compact.join(" and ")
+    add_finding("Medium", "Changes Your #{what}",
+                "It sets the #{what.downcase} Chrome opens to #{pages.uniq.join(', ')}. That site then sees each visit " \
+                "and can show you whatever it likes, including ads or misleading pages.",
+                rule: "settings.homepage", evidence: evidence)
+  end
+
+  # chrome_url_overrides: Chrome pages it replaces with its own.
+  def analyze_url_overrides
+    overrides = read(:chrome_url_overrides)
+    return unless overrides.is_a?(Hash)
+
+    replaced = URL_OVERRIDE_PAGES.select { |key, _| lookup(overrides, key).is_a?(String) }
+    return if replaced.empty?
+
+    add_finding("Medium", "Replaces Chrome Pages",
+                "It shows its own page instead of Chrome's #{replaced.values.to_sentence}. What you see there, " \
+                "including any search box, links or ads, comes from the extension.",
+                rule: "url_overrides", evidence: replaced.keys.map { |key| ["chrome_url_overrides", key] })
+  end
+
+  # Content scripts with world "MAIN" run in the page's own JavaScript
+  # context instead of the isolated one extensions normally get.
+  def analyze_main_world_scripts
+    everywhere = []
+    named = []
+    hosts = []
+    content_scripts.each do |script, i|
+      world = lookup(script, :world)
+      next unless world.is_a?(String) && world.casecmp?("MAIN")
+
+      sites = content_script_sites.select { |s| s.path[1] == i }
+      if sites.any? { |s| s.pattern.all_sites? }
+        everywhere << ["content_scripts", i, "world"]
+      elsif sites.any?
+        named << ["content_scripts", i, "world"]
+        hosts.concat(sites.filter_map { |s| s.pattern.domain || (s.pattern.file? ? "local files" : nil) })
+      end
+    end
+
+    explain = "the page's own JavaScript, not the separate space Chrome normally gives extensions. There they can " \
+              "change how the page's own code behaves, for example read or alter what the page sends and receives, " \
+              "and the page's code can reach them too."
+    if everywhere.any?
+      add_finding("High", "Scripts Run Inside Every Website's Own Code",
+                  "On every website, some of its scripts run inside #{explain}",
+                  rule: "content_script.main_world_all_sites", evidence: everywhere)
+    end
+    return if named.empty?
+
+    where = hosts.uniq.any? ? "On #{short_list(hosts.uniq)}" : "On the sites it names"
+    add_finding("Medium", "Scripts Run Inside Sites' Own Code",
+                "#{where}, some of its scripts run inside #{explain}",
+                rule: "content_script.main_world", evidence: named)
+  end
+
+  # externally_connectable.matches: websites allowed to message the
+  # extension. "ids" alone (other extensions) raises nothing.
+  def analyze_externally_connectable
+    connectable = read(:externally_connectable)
+    return unless connectable.is_a?(Hash)
+
+    matches = lookup(connectable, :matches)
+    return unless matches.is_a?(Array)
+
+    sites = matches.each_with_index.filter_map do |pattern, i|
+      parsed = MatchPattern.parse(pattern)
+      [parsed, ["externally_connectable", "matches", i]] if parsed.valid?
+    end
+    return if sites.empty?
+
+    wide = sites.any? do |parsed, _|
+      parsed.all_urls? || parsed.host == "*" || parsed.subdomains? || parsed.scheme != "https"
+    end
+    names = sites.map { |parsed, _| parsed.all_sites? ? "every website" : (parsed.domain || parsed.to_s) }.uniq
+    exposure = "If the extension handles those messages carelessly, a flaw could be used by those sites, or by anyone " \
+               "who manages to put a page on them."
+    if wide
+      add_finding("Medium", "Many Web Pages Can Message It",
+                  "Pages on #{short_list(names)} can send messages to the extension. Some entries cover every subdomain " \
+                  "or allow plain http, so many pages qualify, and a page on an unencrypted connection can be changed " \
+                  "by others on the network. #{exposure}",
+                  rule: "externally_connectable.wide", evidence: sites.map(&:last))
+    else
+      add_finding("Low", "Named Websites Can Message It",
+                  "Pages on #{short_list(names)} can send messages to the extension. #{exposure}",
+                  rule: "externally_connectable", evidence: sites.map(&:last))
+    end
+  end
+
+  # Files any website can load. A Manifest V2 entry is a plain string and
+  # open to every site; a Manifest V3 entry lists the sites in "matches".
+  # extension_ids (other extensions) is not about websites and is ignored.
+  # Medium when a resource glob exposes every file of the extension.
+  def analyze_web_accessible_resources
+    entries = read(:web_accessible_resources)
+    return unless entries.is_a?(Array)
+
+    evidence = []
+    resources = []
+    everything = []
+    entries.each_with_index do |entry, i|
+      if entry.is_a?(String)
+        evidence << ["web_accessible_resources", i]
+        resources << entry
+        everything << ["web_accessible_resources", i] if whole_extension_glob?(entry)
+      elsif entry.is_a?(Hash)
+        matches = lookup(entry, :matches)
+        list = lookup(entry, :resources)
+        next unless matches.is_a?(Array) && list.is_a?(Array)
+
+        open = matches.each_index.select { |j| MatchPattern.parse(matches[j]).all_sites? }
+        files = list.each_index.select { |j| list[j].is_a?(String) }
+        next if open.empty? || files.empty?
+
+        evidence.concat(open.map { |j| ["web_accessible_resources", i, "matches", j] })
+        resources.concat(files.map { |j| list[j] })
+        everything.concat(files.select { |j| whole_extension_glob?(list[j]) }.map { |j| ["web_accessible_resources", i, "resources", j] })
+      end
+    end
+    return if evidence.empty?
+
+    shown = short_list(resources.filter_map { |r| plain_text(r) }.uniq)
+    risk = "That lets any site detect that you have the extension, and pages or scripts among them could be " \
+           "opened or misused by a site."
+    if everything.any?
+      add_finding("Medium", "Every File Open to All Websites",
+                  "Any website can load every file in the extension (#{shown}). #{risk}",
+                  rule: "web_accessible_resources.everything", evidence: evidence + everything)
+    else
+      add_finding("Low", "Files Open to All Websites",
+                  "Any website can load these files from the extension: #{shown}. #{risk}",
+                  rule: "web_accessible_resources.all_sites", evidence: evidence)
+    end
+  end
+
+  # Packages downloaded from the Chrome Web Store always carry Google's
+  # update URL, so this is not expected to fire for scans made here; it
+  # matters for manifests that came from somewhere else.
+  def analyze_update_url
+    url = read(:update_url)
+    return unless url.is_a?(String) && !url.strip.empty?
+
+    # A value with no readable host is not an update server Chrome could use.
+    host = url_host(url)
+    return if host.nil? || host == STORE_UPDATE_HOST
+
+    add_finding("High", "Updates From Outside the Chrome Web Store",
+                "Its updates would come from #{host} instead of the Chrome Web Store, so new " \
+                "versions would skip the store's review and could change what it does at any time.",
+                rule: "update_url.external", evidence: [["update_url"]])
+  end
+
+  # oauth2.scopes: Google account access it asks for through the identity API.
+  def analyze_oauth2
+    oauth = read(:oauth2)
+    return unless oauth.is_a?(Hash)
+
+    scopes = lookup(oauth, :scopes)
+    return unless scopes.is_a?(Array)
+
+    data = []
+    sign_in = []
+    scopes.each_with_index do |scope, i|
+      next unless scope.is_a?(String) && !scope.strip.empty?
+
+      kind = oauth_kind(scope)
+      (kind ? data : sign_in) << [kind, ["oauth2", "scopes", i]]
+    end
+
+    if data.any?
+      add_finding("Medium", "Asks for Google Account Data",
+                  "It asks for access to data in your Google account: #{short_list(data.map(&:first).uniq)}. " \
+                  "Once you agree, it can use that data through Google's services, outside the browser too.",
+                  rule: "oauth2.account_data", evidence: data.map(&:last))
+    elsif sign_in.any?
+      add_finding("Low", "Google Sign-In",
+                  "Once you agree, it can sign you in with your Google account and read your name and email address.",
+                  rule: "oauth2.sign_in", evidence: sign_in.map(&:last))
+    end
+  end
+
   # --- helpers --------------------------------------------------------------
+
+  # [script, index] for each content script that is an object.
+  def content_scripts
+    scripts = read(:content_scripts)
+    return [] unless scripts.is_a?(Array)
+
+    scripts.each_with_index.select { |script, _| script.is_a?(Hash) }
+  end
+
+  # For the content scripts at these indexes: paths of the keys that make
+  # them run in embedded frames, and of run_at "document_start".
+  def script_detail_paths(indexes)
+    scripts = read(:content_scripts)
+    frames = []
+    early = []
+    indexes.each do |i|
+      script = scripts.is_a?(Array) ? scripts[i] : nil
+      next unless script.is_a?(Hash)
+
+      %i[all_frames match_about_blank match_origin_as_fallback].each do |key|
+        frames << ["content_scripts", i, key.to_s] if lookup(script, key) == true
+      end
+      early << ["content_scripts", i, "run_at"] if lookup(script, :run_at) == "document_start"
+    end
+    [frames, early]
+  end
+
+  # nil for a sign-in scope, otherwise the kind of account data it reaches.
+  def oauth_kind(scope)
+    name = scope.strip.downcase.sub(%r{\Ahttps?://www\.googleapis\.com/auth/}, "").sub(%r{\Ahttps?://}, "").delete_suffix("/")
+    return nil if OAUTH_SIGN_IN_SCOPES.include?(name) || OAUTH_SIGN_IN_SCOPES.include?(name.split(".").first)
+
+    OAUTH_DATA_SCOPES[name] || OAUTH_DATA_SCOPES[name.split(".").first] ||
+      "other account data (#{plain_text(scope) || 'a scope it names'})"
+  end
+
+  def whole_extension_glob?(resource)
+    %w[* ** /* /** *.* /*.*].include?(resource.strip)
+  end
+
+  # The host of an http(s) URL, lowercased; nil for anything else.
+  def url_host(url)
+    return nil unless url.is_a?(String)
+
+    url.strip[%r{\Ahttps?://(?:[^/?#@\s]*@)?([^/?#:\s]+)}i, 1]&.downcase
+  end
+
+  # Untrusted text as a short single line, or nil.
+  def plain_text(value)
+    return nil unless value.is_a?(String)
+
+    text = value.scrub("?").squish
+    return nil if text.empty?
+
+    text.length > 60 ? "#{text[0, 59]}…" : text
+  end
+
+  # "a, b, c, d, e and 3 more"
+  def short_list(names, limit = 5)
+    return names.join(", ") if names.size <= limit
+
+    "#{names.first(limit).join(', ')} and #{names.size - limit} more"
+  end
 
   # Most severe first, keeping the rule order within a level. The AI step
   # only receives the first findings of a long list, so the Critical and High

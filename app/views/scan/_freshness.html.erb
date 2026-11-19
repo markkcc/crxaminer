@@ -1,0 +1,23 @@
+<%# Notice that the stored scan may not match the extension in the store today.
+    Rendered from the scan's age (and a cached store version, if any) so it works
+    without JavaScript; scan_page.js asks store_version_scan_path after load and
+    fills in the message. The wrapper is a polite live region that is in the page
+    from the start, so a late change is announced without moving focus. Amber
+    notice colours, not the severity palette: this is not a rating. %>
+<% freshness = local_assigns.fetch(:freshness) %>
+<div id="scan-freshness"
+     aria-live="polite"
+     data-store-version-url="<%= store_version_scan_path(@extension_id) %>"><div data-freshness-banner
+       class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center rounded-lg border border-amber-300 border-l-4 border-l-amber-500 bg-amber-50 px-4 py-4 text-amber-950 shadow-sm dark:border-amber-700 dark:border-l-amber-400 dark:bg-amber-950/40 dark:text-amber-50"
+       <%= "hidden" unless freshness.notice? %>>
+    <svg class="hidden sm:block w-6 h-6 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="9"/>
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 2"/>
+    </svg>
+    <div class="min-w-0 flex-1">
+      <p class="font-semibold">This scan may be out of date</p>
+      <p class="mt-1 text-sm break-words" data-freshness-message><%= freshness.notice %></p>
+    </div>
+    <%= link_to "Scan again", scan_path(@extension_id, force: true),
+          class: "self-start sm:self-center shrink-0 inline-flex items-center justify-center rounded-lg bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-amber-50 dark:focus-visible:ring-offset-gray-900" %>
+  </div></div>

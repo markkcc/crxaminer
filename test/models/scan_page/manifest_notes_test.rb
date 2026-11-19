@@ -108,7 +108,7 @@ class ScanPage::ManifestNotesTest < ActiveSupport::TestCase
     assert_equal 2, notes.notes_for(doc.resolve(["permissions", 0])).size
   end
 
-  test "Low, Minimal and Info notes are quiet; a line is quiet only when all its notes are" do
+  test "Low, Minimal and Info notes are quiet; a line is slim only when all its notes are" do
     notes, = notes_for([
       { severity: "Low", title: "Low storage", description: "x", rule: "a", evidence: [["permissions", 0]] },
       { severity: "Minimal", title: "Minimal tabs", description: "x", rule: "b", evidence: [["permissions", 1]] },
@@ -118,12 +118,66 @@ class ScanPage::ManifestNotesTest < ActiveSupport::TestCase
       { severity: "<b>?</b>", title: "Unrated webRequest", description: "x", rule: "f", evidence: [["permissions", 2]] }
     ])
     storage, tabs, web, cookies = [0, 1, 2, 3].map { |i| doc.resolve(["permissions", i]) }
-    assert notes.quiet?(storage)
-    assert notes.quiet?(tabs)
-    assert_not notes.quiet?(cookies)
-    assert_not notes.quiet?(web), "an unrated note is never quiet"
-    assert_not notes.quiet?(doc.resolve(["name"])), "a line without notes is not quiet"
+    assert notes.slim?(storage)
+    assert notes.slim?(tabs)
+    assert_not notes.slim?(cookies)
+    assert_not notes.slim?(web), "an unrated note is never slim"
+    assert_not notes.slim?(doc.resolve(["name"])), "a line without notes is not slim"
     assert_equal [false, true], notes.notes_for(cookies).map(&:quiet?)
+  end
+
+  test "a finding on several lines is full on its lowest line and a repeat on the others" do
+    # Evidence order does not matter: the first occurrence is the lowest line.
+    notes, findings = notes_for([
+      { severity: "Critical", title: "Combo", description: "x", rule: "c",
+        evidence: [["host_permissions", 0], ["permissions", 3], ["permissions", 2]] },
+      { severity: "High", title: "High-Risk Permission: webRequest", description: "x" },
+      { severity: "Low", title: "Low cookies", description: "x", rule: "l", evidence: [["permissions", 3], ["optional_permissions", 0]] }
+    ])
+    combo = findings.find { |f| f.title == "Combo" }
+    web, cookies, all = doc.resolve(["permissions", 2]), doc.resolve(["permissions", 3]), doc.resolve(["host_permissions", 0])
+    assert_equal [web, cookies, all], notes.lines_for(combo)
+
+    first = notes.notes_for(web).find { |n| n.finding.equal?(combo) }
+    assert_equal [web, web], [first.line, first.first_line]
+    assert_not first.repeat?
+    assert_not first.slim?, "a Critical note on its first line is a full card"
+
+    [cookies, all].each do |line|
+      repeat = notes.notes_for(line).find { |n| n.finding.equal?(combo) }
+      assert repeat.repeat?
+      assert repeat.slim?
+      assert_equal web, repeat.first_line
+      assert_equal "critical", repeat.severity, "a repeat keeps its severity"
+      assert_equal "critical", notes.severity_of(line), "and the line keeps its marking"
+    end
+
+    # Several findings on one line keep the most severe first, whatever is a repeat.
+    assert_equal [["Combo", true], ["Low cookies", false]],
+                 notes.notes_for(cookies).map { |n| [n.finding.title, n.repeat?] }
+    assert notes.slim?(cookies), "a repeated Critical plus a Low first occurrence are both slim"
+    assert_equal [["Combo", false], ["High-Risk Permission: webRequest", false]],
+                 notes.notes_for(web).map { |n| [n.finding.title, n.repeat?] }
+    assert_not notes.slim?(web)
+    assert notes.slim?(all)
+    # Line counts still count lines by their most severe note.
+    assert_equal [["critical", 3], ["low", 1]], notes.line_counts
+  end
+
+  test "the first occurrence is the lowest line even inside a folded array" do
+    raw = RAW.merge("web_accessible_resources" => (1..30).map { |i| "f#{i}.js" })
+    document = ScanPage::ManifestDocument.new(raw)
+    notes, findings = notes_for([
+      { severity: "High", title: "Exposed files", description: "x", rule: "w",
+        evidence: [["web_accessible_resources", 25], ["web_accessible_resources", 3]] }
+    ], raw)
+    group = document.groups.find { |g| g.size == 30 }
+    lines = notes.lines_for(findings.first)
+    first = document.resolve(["web_accessible_resources", 3])
+    assert_equal first, lines.first
+    assert first > group.first && first < group.last, "the first line sits inside the long array"
+    assert_equal [false, true], lines.map { |l| notes.notes_for(l).first.repeat? }
+    assert_equal [first], lines.map { |l| notes.notes_for(l).first.first_line }.uniq
   end
 
   test "severity keys and labels" do

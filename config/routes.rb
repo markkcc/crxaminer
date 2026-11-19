@@ -6,6 +6,9 @@ Rails.application.routes.draw do
       get :analyze
       get :stats
     end
+    member do
+      get :store_version
+    end
   end
 
   get "help", to: "help#show", as: :help

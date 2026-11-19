@@ -82,17 +82,26 @@
                         data: { line: n, sev: line_notes.first&.severity, groups: groups },
                         aria: { describedby: ("manifest-note-#{n}" if line_notes.any?) } do %><code><% line.tokens.each do |css, text| %><% if css %><span class="<%= css %>"><%= text %></span><% else %><%= text %><% end %><% end %></code><% end %>
             <% if line_notes.any? %>
-              <%# Low, Minimal and Info notes are one slim row that opens to the description;
-                  a line with only those gets a slim note instead of a card (data-quiet). %>
+              <%# Slim notes are one row that opens to the description: Low, Minimal and Info
+                  findings, and any finding on a line after the first it points at (its full
+                  note is on that first line). A line with only slim notes gets no card. %>
               <%= tag.div class: "mn", id: "manifest-note-#{n}", hidden: hidden,
-                          data: { for: n, groups: groups, quiet: ("" if notes.quiet?(n)) } do %>
+                          data: { for: n, groups: groups, slim: ("" if notes.slim?(n)) } do %>
                 <div class="mn-card" data-sev="<%= line_notes.first.severity %>">
                   <span class="sr-only">Line <%= n %>:</span>
                   <ul>
                     <% line_notes.each do |note| %>
                       <% heading = capture do %><span class="mn-sev" data-sev="<%= note.severity %>"><%= note.label %></span> <strong class="mn-title"><%= note.finding.title.presence || "Untitled finding" %></strong><% end %>
-                      <%= tag.li class: "mn-item", data: { note_for: note.ref, quiet: ("" if note.quiet?) } do %>
-                        <% if note.quiet? && note.finding.description.present? %>
+                      <%= tag.li class: "mn-item", data: { note_for: note.ref, slim: ("" if note.slim?) } do %>
+                        <% if note.repeat? %>
+                          <details>
+                            <summary><%= heading %><span class="mn-ref">· explained at line <%= note.first_line %></span><span class="mn-why" aria-hidden="true">Why?</span></summary>
+                            <% if note.finding.description.present? %>
+                              <p class="mn-desc"><%= note.finding.description %></p>
+                            <% end %>
+                            <p class="mn-desc"><button type="button" class="mn-goto" data-goto-line="<%= note.first_line %>">Go to line <%= note.first_line %></button></p>
+                          </details>
+                        <% elsif note.quiet? && note.finding.description.present? %>
                           <details>
                             <summary><%= heading %><span class="mn-why" aria-hidden="true">Why?</span></summary>
                             <p class="mn-desc"><%= note.finding.description %></p>
