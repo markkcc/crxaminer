@@ -99,11 +99,12 @@ class ExtensionSecurityAnalyzer
   def self.shorten_for_tweet(text, budget)
     return text if tweet_length(text) <= budget
 
+    room = budget - tweet_length("…")
     kept = +""
     used = 0
     text.each_char do |char|
       used += tweet_length(char)
-      break if used > budget - 1
+      break if used > room
 
       kept << char
     end
