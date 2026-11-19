@@ -1,43 +1,40 @@
-<%# What puts an extension at each level, from ExtensionAnalyzerData (see HelpController).
-    A level with up to three permissions names them; longer lists are folded so the page stays short.
-    On large screens the levels flow into two columns; a level is never split across them. %>
-<dl class="mt-4 lg:columns-2 lg:gap-x-12" id="rating-levels">
-  <% @levels.each do |level| %>
-    <div class="break-inside-avoid mb-4 sm:flex sm:gap-4" data-level="<%= level.name %>">
-      <dt class="shrink-0 sm:w-24 mb-1 sm:mb-0">
-        <span class="<%= severity_classes(level.name) %> inline-block px-2 py-0.5 rounded font-semibold text-sm"><%= level.name.upcase %></span>
-      </dt>
-      <dd class="min-w-0">
-        <ul class="space-y-1">
-          <% level.rules.each do |rule| %>
-            <li><strong class="text-gray-700 dark:text-gray-200"><%= rule.name %>.</strong> <%= rule.summary %></li>
+<%# The access tiers and what puts an extension in each, from ExtensionAnalyzerData and
+    ScanRating::ACCESS_TIERS (see HelpController). A tier with up to three permissions names
+    them; longer lists are folded so the page stays short. On large screens the tiers flow
+    into two columns; a tier is never split across them. %>
+<% strong = "text-gray-700 dark:text-gray-200" %>
+<dl class="mt-4 lg:columns-2 lg:gap-x-12" id="access-tiers">
+  <% @tiers.each do |row| %>
+    <div class="break-inside-avoid mb-5" data-tier="<%= row.tier.key %>" data-level="<%= row.level %>">
+      <dt><%= access_badge(row.tier, label: nil, size: :sm) %></dt>
+      <dd class="mt-1.5 ml-1 pl-3 border-l-2 border-gray-200 dark:border-gray-700">
+        <p class="text-gray-700 dark:text-gray-200 font-medium" data-summary><%= row.tier.summary %></p>
+        <% if row.rules.any? || row.permissions.any? %>
+        <ul class="mt-1 space-y-1">
+          <% row.rules.each do |rule| %>
+            <li><strong class="<%= strong %>"><%= rule.name %>.</strong> <%= rule.summary %></li>
           <% end %>
-          <% if level.permissions.size.between?(1, 3) %>
+          <% if row.permissions.size.between?(1, 3) %>
             <li data-permissions>
-              <strong class="text-gray-700 dark:text-gray-200">The <span class="font-mono text-sm"><%= level.permissions.to_sentence %></span> <%= "permission".pluralize(level.permissions.size) %>.</strong>
-              <% if level.permissions.size == 1 %>
-                <% allows = ExtensionAnalyzerData.permission(level.permissions.first).allows %>
+              <strong class="<%= strong %>">The <span class="font-mono text-sm"><%= row.permissions.to_sentence %></span> <%= "permission".pluralize(row.permissions.size) %>.</strong>
+              <% if row.permissions.size == 1 %>
+                <% allows = ExtensionAnalyzerData.permission(row.permissions.first).allows %>
                 It lets the extension <%= allows[0].downcase + allows[1..] %>.
               <% end %>
             </li>
-          <% elsif level.permissions.any? %>
+          <% elsif row.permissions.any? %>
             <li>
               <details class="group">
                 <summary class="cursor-pointer rounded text-brand-700 dark:text-brand-300 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
-                  <%= pluralize(level.permissions.size, level.name == "Low" ? "routine permission" : "permission") %>
+                  <%= pluralize(row.permissions.size, row.level == "Low" ? "routine permission" : "permission") %>
                 </summary>
-                <p class="mt-1 font-mono text-xs leading-relaxed break-words" data-permissions><%= level.permissions.join(", ") %></p>
+                <p class="mt-1 font-mono text-xs leading-relaxed break-words" data-permissions><%= row.permissions.join(", ") %></p>
               </details>
             </li>
           <% end %>
         </ul>
+        <% end %>
       </dd>
     </div>
   <% end %>
-  <div class="break-inside-avoid mb-4 sm:flex sm:gap-4" data-level="Minimal">
-    <dt class="shrink-0 sm:w-24 mb-1 sm:mb-0">
-      <span class="<%= severity_classes("Minimal") %> inline-block px-2 py-0.5 rounded font-semibold text-sm">MINIMAL</span>
-    </dt>
-    <dd class="min-w-0">No rule found anything.</dd>
-  </div>
 </dl>
