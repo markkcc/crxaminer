@@ -148,11 +148,10 @@ class ScanController < ApplicationController
 
     # Filter recent scans by the level they show (ScanDisplayLevel)
     severity_filter = params[:severity]
-    @recent_scans = if severity_filter.present?
-      ScanDisplayLevel.where_level(ScanResult.all, severity_filter.to_s).order(created_at: :desc).limit(10)
-    else
-      ScanResult.order(created_at: :desc).limit(10)
-    end
+    # Only the columns the table shows: a stored manifest is large and is not one of them.
+    recent = ScanResult.select(:id, :extension_id, :extension_name, :extension_image, :security_findings, :created_at)
+                       .order(created_at: :desc).limit(10)
+    @recent_scans = severity_filter.present? ? ScanDisplayLevel.where_level(recent, severity_filter.to_s) : recent
 
     # If this is an AJAX request, only render the table partial
     if request.xhr?
@@ -160,42 +159,11 @@ class ScanController < ApplicationController
       return
     end
 
-    # Load cached stats or trigger refresh if cache is empty
-    cache = StatCache.first
-    if cache.nil?
-      # No cache exists, trigger a job to create it and use defaults
-      RefreshStatsJob.perform_later
-      # Ordered from most to least severe
-      @severity_counts = {
-        'Critical' => 0,
-        'High' => 0,
-        'Medium' => 0,
-        'Low' => 0,
-        'Minimal' => 0
-      }
-      @spiciest_extensions = []
-      @scans_last_30_days = 0
-      @all_urls_count = 0
-    else
-      # Ensure correct order (most to least severe) when loading from cache
-      stored_counts = cache.severity_counts
-      @severity_counts = {
-        'Critical' => stored_counts['Critical'] || 0,
-        'High' => stored_counts['High'] || 0,
-        'Medium' => stored_counts['Medium'] || 0,
-        'Low' => stored_counts['Low'] || 0,
-        'Minimal' => stored_counts['Minimal'] || 0
-      }
-      # Convert spiciest_extensions from stored hashes back to the format expected by the view
-      @spiciest_extensions = cache.spiciest_extensions.map do |ext_data|
-        {
-          scan: ScanResult.find_by(extension_id: ext_data['extension_id']),
-          finding_count: ext_data['finding_count']
-        }
-      end.compact # Remove any nil scans (in case an extension was deleted)
-      @scans_last_30_days = cache.scans_last_30_days || 0
-      @all_urls_count = cache.all_urls_count || 0
-    end
+    # The saved statistics (ScanStats). They are worked out in the background:
+    # ask for that when nothing is saved yet, or when the migration has just
+    # made room for the newer statistics and the saved row predates them.
+    @stats = ScanStats::Dashboard.load
+    request_stats_refresh if @stats.empty? || @stats.awaiting_metrics?
   end
 
   private
@@ -212,6 +180,21 @@ class ScanController < ApplicationController
     rating = ScanRating.for_scan(security_findings: findings, extension_details: scan.read_attribute(:extension_details))
     { level: ScanDisplayLevel.for(findings), overall: rating.overall, headline: rating.headline,
       access: rating.access.name, trust: rating.trust.name }
+  end
+
+  STATS_REFRESH_KEY = "stats/refresh_requested".freeze
+  STATS_REFRESH_EVERY = 30.minutes
+
+  # Queues RefreshStatsJob, at most once per STATS_REFRESH_EVERY for each
+  # server, however many people open the page meanwhile. A queue that cannot
+  # take the job does not stop the page.
+  def request_stats_refresh
+    return if Rails.cache.read(STATS_REFRESH_KEY)
+
+    Rails.cache.write(STATS_REFRESH_KEY, true, expires_in: STATS_REFRESH_EVERY)
+    RefreshStatsJob.perform_later
+  rescue StandardError => e
+    Rails.logger.error("The statistics refresh could not be queued: #{e.class}: #{e.message}")
   end
 
   def valid_extension_id?(id)

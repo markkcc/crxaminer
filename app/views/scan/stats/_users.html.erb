@@ -1,0 +1,19 @@
+<%# Extensions by the number of users their store listing shows. %>
+<div class="<%= StatsHelper::CARD %>" data-stat="users">
+  <h2 class="<%= StatsHelper::CARD_TITLE %> mb-1">Extensions by number of users</h2>
+  <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">From each extension's Chrome Web Store listing when it was scanned.</p>
+  <ul>
+    <% users.buckets.each do |share| %>
+      <li>
+        <%= render layout: "scan/stats/share", locals: { share: share, bar: "bg-brand-500 dark:bg-brand-400" } do %>
+          <span class="text-sm text-gray-700 dark:text-gray-200"><%= share.label %></span>
+        <% end %>
+      </li>
+    <% end %>
+  </ul>
+  <% if users.unknown.positive? %>
+    <p class="mt-2 px-2 text-xs text-gray-500 dark:text-gray-400" data-users-unknown>
+      <%= number_with_delimiter(users.unknown) %> more <%= users.unknown == 1 ? "has" : "have" %> no user count saved.
+    </p>
+  <% end %>
+</div>

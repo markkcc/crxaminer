@@ -1,0 +1,27 @@
+<%# A short ranked list of extensions (ScanStats::Dashboard::Extension), each
+    linking to its scan. unit: the noun for each extension's number. The name
+    and icon come from the saved statistics, so the list costs no query. %>
+<div class="<%= StatsHelper::CARD %>" data-stat="<%= key %>">
+  <h2 class="<%= StatsHelper::CARD_TITLE %> <%= local_assigns[:caption] ? 'mb-1' : 'mb-4' %>"><%= title %></h2>
+  <% if local_assigns[:caption] %>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mb-3"><%= caption %></p>
+  <% end %>
+  <ol class="space-y-3">
+    <% extensions.each do |extension| %>
+      <li>
+        <%# On phones the number sits under the name, so the name keeps the width. %>
+        <%= link_to scan_path(extension.extension_id), class: "flex items-center gap-3 p-2 hover:bg-brand-100 dark:hover:bg-gray-600 rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" do %>
+          <% if extension.image %>
+            <img src="<%= extension.image %>" alt="" loading="lazy" class="w-8 h-8 rounded flex-shrink-0">
+          <% else %>
+            <span class="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded flex-shrink-0" aria-hidden="true"></span>
+          <% end %>
+          <span class="min-w-0 flex-1 sm:flex sm:items-center sm:justify-between sm:gap-3">
+            <span class="block text-sm text-gray-700 dark:text-gray-200 truncate"><%= extension.name || "Unknown Extension" %></span>
+            <span class="block text-xs sm:text-sm font-semibold text-brand-700 dark:text-brand-200 sm:flex-shrink-0 tabular-nums" data-extension-number><%= number_with_delimiter(extension.number) %> <%= unit.pluralize(extension.number) %></span>
+          </span>
+        <% end %>
+      </li>
+    <% end %>
+  </ol>
+</div>

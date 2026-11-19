@@ -9,80 +9,68 @@
           Statistics Dashboard
         </h1>
 
-        <!-- Metrics Dashboard -->
-        <!-- Top Metrics Row -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <!-- Unique Extensions Scanned -->
-          <div class="bg-brand-50 dark:bg-gray-700 rounded-lg p-6 border border-brand-200 dark:border-gray-600">
-            <h2 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Unique ext. scanned</h2>
-            <p class="text-4xl font-bold text-brand-700 dark:text-brand-200"><%= number_with_delimiter(@total_scans) %></p>
-          </div>
+        <%# The cards. Each is built on its own (stat_card), from numbers saved in the
+            background (ScanStats): one that is missing or cannot be shown is left out
+            and the others still appear. %>
+        <% if @stats.empty? %>
+          <p class="mb-6 text-sm text-gray-600 dark:text-gray-400" id="stats-pending">
+            The statistics are being worked out. Check back in a few minutes.
+          </p>
+        <% end %>
 
-          <!-- Scans Last 30 Days -->
-          <div class="bg-brand-50 dark:bg-gray-700 rounded-lg p-6 border border-brand-200 dark:border-gray-600">
-            <h2 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Scans in last 30 days</h2>
-            <p class="text-4xl font-bold text-brand-700 dark:text-brand-200"><%= number_with_delimiter(@scans_last_30_days) %></p>
-          </div>
+        <%= stat_tiles(
+              stat_card(:total) { render "scan/stats/tile", key: "total", title: "Unique ext. scanned", value: @total_scans },
+              stat_card(:recent) { render "scan/stats/tile", key: "recent", title: "Scans in last 30 days", value: @stats.scans_last_30_days || 0 },
+              stat_card(:all_sites) do
+                if (all_sites = @stats.all_sites)
+                  render "scan/stats/tile", key: "all-sites", title: "Can run on every site", value: all_sites.count, notes: [
+                    "#{stat_percent(all_sites.count, all_sites.scans)} of scanned extensions",
+                    ("Host access: #{number_with_delimiter(all_sites.host_access)} · Content scripts: #{number_with_delimiter(all_sites.content_scripts)}" if all_sites.host_access && all_sites.content_scripts)
+                  ]
+                elsif (all_urls = @stats.all_urls_count)
+                  # The older, narrower count, until the newer one has been worked out.
+                  render "scan/stats/tile", key: "all-urls", title: "Ext. with <all_urls>", value: all_urls
+                end
+              end,
+              stat_card(:manifest_versions) do
+                if (versions = @stats.manifest_versions)
+                  render "scan/stats/tile", key: "manifest-v2", title: "Still on Manifest V2", value: versions.v2, notes: [
+                    "#{stat_percent(versions.v2, versions.total)} of scanned extensions",
+                    "Manifest V3: #{number_with_delimiter(versions.v3)}"
+                  ]
+                end
+              end
+            ) %>
 
-          <!-- Extensions with <all_urls> -->
-          <div class="bg-brand-50 dark:bg-gray-700 rounded-lg p-6 border border-brand-200 dark:border-gray-600">
-            <h2 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Ext. with &lt;all_urls&gt;</h2>
-            <p class="text-4xl font-bold text-brand-700 dark:text-brand-200"><%= number_with_delimiter(@all_urls_count) %></p>
-          </div>
-        </div>
+        <%= stat_row(
+              stat_card(:popular_full_control) do
+                if (popular = @stats.popular_full_control)
+                  render "scan/stats/extensions", key: "popular-full-control", title: "Most installed with full-control access",
+                         caption: "Extensions in the Full control access tier, by number of users.", extensions: popular, unit: "user"
+                end
+              end,
+              stat_card(:users) { (users = @stats.users) && render("scan/stats/users", users: users) }
+            ) %>
 
-        <!-- Bottom Tables Row -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <!-- Top 5 Spiciest Card -->
-          <div class="bg-brand-50 dark:bg-gray-700 rounded-lg p-6 border border-brand-200 dark:border-gray-600">
-            <h2 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-4">Top 5 spiciest</h2>
-            <div class="space-y-3">
-              <% @spiciest_extensions.each do |ext_data| %>
-                <% scan = ext_data[:scan] %>
-                <%= link_to scan_path(scan.extension_id), class: "flex items-center justify-between p-2 hover:bg-brand-100 dark:hover:bg-gray-600 rounded transition-colors" do %>
-                  <div class="flex items-center space-x-3 min-w-0 flex-1">
-                    <% if scan.extension_image.present? %>
-                      <img src="<%= scan.extension_image %>" alt="<%= scan.extension_name %>" class="w-8 h-8 rounded flex-shrink-0">
-                    <% else %>
-                      <div class="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded flex-shrink-0"></div>
-                    <% end %>
-                    <span class="text-sm text-gray-700 dark:text-gray-200 truncate"><%= scan.extension_name || "Unknown Extension" %></span>
-                  </div>
-                  <span class="text-sm font-semibold text-brand-700 dark:text-brand-200 ml-2 flex-shrink-0"><%= ext_data[:finding_count] %> findings</span>
-                <% end %>
-              <% end %>
-            </div>
-          </div>
+        <%= stat_row(
+              stat_card(:permissions) { (permissions = @stats.permissions) && render("scan/stats/permissions", permissions: permissions) }
+            ) %>
 
-          <!-- Overall rating distribution card -->
-          <div class="bg-brand-50 dark:bg-gray-700 rounded-lg p-6 border border-brand-200 dark:border-gray-600">
-            <h2 class="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Overall ratings</h2>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Select a level to list its recent scans.</p>
-            <% total_count = @severity_counts.values.sum %>
-            <div class="space-y-1" role="group" aria-label="Filter recent scans by overall rating">
-              <% @severity_counts.each do |severity, count| %>
-                <% percentage = total_count > 0 ? (count.to_f / total_count * 100).round : 0 %>
-                <button type="button"
-                        class="severity-filter-btn block w-full text-left p-2 hover:bg-brand-100 dark:hover:bg-gray-600 rounded transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 dark:focus-visible:ring-brand-300"
-                        data-severity="<%= severity %>"
-                        aria-pressed="false">
-                  <span class="flex items-center justify-between gap-3 mb-1.5">
-                    <%= overall_badge(severity, size: :sm) %>
-                    <span class="flex items-baseline gap-2 tabular-nums">
-                      <span class="text-xs text-gray-600 dark:text-gray-400"><%= percentage %>%</span>
-                      <span class="text-sm font-semibold text-brand-700 dark:text-brand-200"><%= number_with_delimiter(count) %></span>
-                    </span>
-                  </span>
-                  <span class="block w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 relative" aria-hidden="true">
-                    <span class="block <%= severity_classes(severity) %> h-2 rounded-full" style="width: <%= percentage %>%;"></span>
-                  </span>
-                </button>
-              <% end %>
-            </div>
-          </div>
-        </div>
+        <%= stat_row(
+              stat_card(:spiciest) do
+                spiciest = @stats.spiciest
+                render "scan/stats/extensions", key: "spiciest", title: "Top 5 spiciest", extensions: spiciest, unit: "finding" if spiciest.any?
+              end,
+              stat_card(:ratings) { render "scan/stats/ratings", level_counts: @stats.level_counts }
+            ) %>
+
+        <% if @stats.refreshed_at %>
+          <p class="-mt-2 text-xs text-gray-500 dark:text-gray-400" id="stats-updated">
+            Statistics updated <time datetime="<%= @stats.refreshed_at.utc.iso8601 %>"><%= @stats.refreshed_at.utc.strftime("%Y-%m-%d %H:%M") %> UTC</time>.
+          </p>
+        <% end %>
       </div>
-      
+
       <div class="border-t border-gray-200 dark:border-gray-700 pt-4">
         <h2 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Recent Scans</h2>
         

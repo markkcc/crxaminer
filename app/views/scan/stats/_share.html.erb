@@ -1,0 +1,14 @@
+<%# One bar of a breakdown (ScanStats::Dashboard::Share): its label, its
+    share and count, and the bar. The caller yields the label. %>
+<div class="p-2" data-share="<%= share.key %>">
+  <div class="flex items-center justify-between gap-3 mb-1.5">
+    <span class="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0"><%= yield %></span>
+    <span class="flex items-baseline gap-2 tabular-nums flex-shrink-0">
+      <span class="text-xs text-gray-600 dark:text-gray-400" data-share-percent><%= stat_percent(share.count, share.total) %></span>
+      <span class="text-sm font-semibold text-brand-700 dark:text-brand-200" data-share-count><%= number_with_delimiter(share.count) %></span>
+    </span>
+  </div>
+  <div class="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2" aria-hidden="true">
+    <div class="<%= bar %> h-2 rounded-full" style="width: <%= stat_bar_width(share.count, share.total) %>;"></div>
+  </div>
+</div>

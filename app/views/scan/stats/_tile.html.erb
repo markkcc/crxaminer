@@ -1,0 +1,8 @@
+<%# One headline number. notes: short lines of plain text shown under it. %>
+<div class="<%= StatsHelper::CARD %>" data-stat="<%= key %>">
+  <h2 class="<%= StatsHelper::CARD_TITLE %> mb-2"><%= title %></h2>
+  <p class="text-4xl font-bold text-brand-700 dark:text-brand-200 tabular-nums" data-stat-value><%= number_with_delimiter(value) %></p>
+  <% local_assigns.fetch(:notes, []).compact.each_with_index do |note, index| %>
+    <p class="<%= index.zero? ? 'mt-2' : 'mt-0.5' %> text-xs text-gray-600 dark:text-gray-400" data-stat-note><%= note %></p>
+  <% end %>
+</div>
