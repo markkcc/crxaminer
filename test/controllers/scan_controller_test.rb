@@ -10,18 +10,14 @@ class ScanControllerTest < ActionDispatch::IntegrationTest
                        security_findings: [OVERALL, ai_finding].compact)
   end
 
-  def verdict_heading
-    css_select("h2").map { |h| h.text.strip }.find { |t| ["Context-Aware Verdict", "Rule-based rating"].include?(t) }
-  end
-
-  test "without an AI analysis the card is titled Rule-based rating and says AI context is unavailable" do
+  test "without an AI analysis the rating card says trust rests on the listing alone" do
     create_scan("f" * 32)
     get scan_path("f" * 32), xhr: true
 
     assert_response :success
-    assert_equal "Rule-based rating", verdict_heading
-    assert_includes response.body, "AI context is unavailable for this scan."
-    assert_includes response.body, "MEDIUM"
+    assert_select "#verdict #verdict-trust [data-based-on]", text: /store listing alone: this scan has no AI check/
+    assert_select "#verdict [data-badge=access]", text: "Scoped"
+    assert_select "#ai-check", count: 0
     assert_not_includes response.body, "Claude-based AI analysis"
   end
 
@@ -37,8 +33,8 @@ class ScanControllerTest < ActionDispatch::IntegrationTest
     get scan_path("a1" * 16), xhr: true
 
     assert_response :success
-    assert_equal "Context-Aware Verdict", verdict_heading
-    assert_includes response.body, "HIGH"
+    assert_select "#ai-check[data-format=earlier] h2", text: "Earlier AI analysis"
+    assert_select "#ai-earlier-note", text: /It rated this extension High, but the rating above no longer uses that/
     assert_includes response.body, "Reads all pages"
     assert_includes response.body, "AI analysis by claude-opus-5-5 on 2026-11-16 12:00 UTC"
     assert_includes response.body, "&lt;script&gt;alert(1)&lt;/script&gt;"
@@ -54,10 +50,10 @@ class ScanControllerTest < ActionDispatch::IntegrationTest
     get scan_path("b2" * 16), xhr: true
 
     assert_response :success
-    assert_equal "Context-Aware Verdict", verdict_heading
-    assert_includes response.body, "LOW"
+    assert_select "#ai-check[data-format=earliest] h2", text: "Earlier AI analysis"
+    assert_select "#ai-earlier-note", text: /It rated this extension Low/
     assert_includes response.body, "Looks fine."
-    assert_includes response.body, "- &lt;b&gt;None&lt;/b&gt;"
+    assert_select "#ai-check [data-ai-list=concerns] li", text: "<b>None</b>"
   end
 
   test "the home page shows the dated upgrade notice" do
@@ -190,7 +186,7 @@ class ScanControllerTest < ActionDispatch::IntegrationTest
     get scan_path("g" * 32), xhr: true
 
     assert_select "#no-findings", count: 0
-    assert_select "#overview [data-area=other] [data-finding] div", text: "HIGH"
+    assert_select "#overview [data-area=other] [data-finding] [data-badge=access]", text: "Broad reach"
   end
 
   test "embedded URLs are in the page once, escaped, as text and never as links" do
@@ -259,10 +255,10 @@ class ScanControllerTest < ActionDispatch::IntegrationTest
   test "severity chips on the scan and stats pages use the shared palette" do
     create_scan("j" * 32)
     get scan_path("j" * 32), xhr: true
-    assert_select "#overview .bg-severity-medium.text-severity-medium-fg", text: /MEDIUM/
+    assert_select "#overview .bg-severity-medium.text-severity-medium-fg", text: /Scoped/
 
     get stats_scan_index_path
-    assert_select "#recent-scans-tbody span.inline-block.bg-severity-medium", text: "MEDIUM"
+    assert_select "#recent-scans-tbody .badge.bg-severity-medium", text: "Medium risk"
     assert_not_includes response.body, "bg-violet"
     assert_not_includes response.body, "bg-purple"
   end
@@ -305,7 +301,7 @@ class ScanControllerTest < ActionDispatch::IntegrationTest
                   text: /\A▸\s+3 routine permissions: activeTab · notifications · storage\z/
     # Folded findings keep their stored severity and text.
     assert_select "#overview details[data-routine] [data-finding]", count: 3
-    assert_select "#overview details[data-routine] .bg-severity-medium", text: "MEDIUM", count: 3
+    assert_select "#overview details[data-routine] .bg-severity-medium", text: "Scoped", count: 3
     assert_select "#overview details[data-routine]", text: /Storage text\./
   end
 
@@ -353,7 +349,7 @@ class ScanControllerTest < ActionDispatch::IntegrationTest
     rows = css_select("#permissions-required-table tbody tr")
     assert_equal %w[tabs storage notifications activeTab action], rows.map { |r| r.at_css("th[scope=row] > span.font-mono").text.strip }
     tabs = rows.first
-    assert_equal "Medium", tabs.at_css("td:nth-of-type(2) span").text.strip
+    assert_equal "Scoped", tabs.at_css("td:nth-of-type(2) span").text.strip
     assert_equal ["https://developer.chrome.com/docs/extensions/reference/api/tabs"], tabs.css("a").map { |a| a["href"] }.uniq
     assert_equal "noopener noreferrer", tabs.at_css("a")["rel"]
     action = rows.last

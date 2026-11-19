@@ -1,14 +1,12 @@
-<%# One rule finding, with a control that opens the manifest lines it came from and
+<%# One rule finding (id finding-N, linked from the rating card), with a control that opens the manifest lines it came from and
     points out its note there (data-manifest-finding matches the note's data-note-for). %>
 <% lines = @report.finding_lines(finding) %>
-<li class="border dark:border-gray-700 rounded-lg p-3" data-finding>
+<%= tag.li class: "border dark:border-gray-700 rounded-lg p-3 scroll-mt-24", id: "finding-#{@report.manifest_notes.ref_for(finding)}", data: { finding: "" } do %>
   <div class="flex items-start gap-2">
     <% if finding.severity.present? %>
-      <div class="<%= severity_classes(finding.severity) %> shrink-0 px-2 py-0.5 rounded font-semibold text-sm">
-        <%= finding.severity.upcase %>
-      </div>
+      <span class="shrink-0 max-w-[50%]"><%= finding_badge(finding.severity) %></span>
     <% end %>
-    <div class="font-medium text-gray-700 dark:text-gray-200 text-sm min-w-0 break-words">
+    <div class="font-medium text-gray-700 dark:text-gray-200 text-sm leading-[22px] min-w-0 break-words">
       <%= finding.title.presence || "Untitled finding" %>
     </div>
   </div>
@@ -23,4 +21,4 @@
       <% if lines.size == 1 %>Show line <%= lines.first %><% elsif lines.size <= 3 %>Show lines <%= lines.to_sentence %><% else %>Show the <%= lines.size %> lines<% end %> in the manifest
     </button>
   <% end %>
-</li>
+<% end %>

@@ -61,8 +61,13 @@ class AiVerdictBackfillTest < ActiveSupport::TestCase
     assert_equal [1.5], @sleeps
     @without_ai.reload
     assert_equal before, @without_ai.updated_at
-    assert_equal "Risk Level: High", AiContextAnalysis.find_in(@without_ai.security_findings)[:description].lines.first.chomp
-    assert_equal RULE_FINDINGS.first[:title], @without_ai.security_findings.first[:title]
+    ai = AiContextAnalysis.find_in(@without_ai.security_findings)
+    assert_equal "some", ai[:ai][:concern_level]
+    # The verdict is rebuilt with the new check: Scoped access, and concerns lower trust to the lowest level.
+    overall = @without_ai.security_findings.first
+    assert_equal ["Overall Risk: High", "High", "Medium", "concerns", ExtensionSecurityAnalyzer::RULES_VERSION],
+                 overall.values_at(:title, :severity, :access, :trust, :rules_version)
+    assert_equal ai, @without_ai.security_findings.last
     assert_includes client.calls.first[:messages].first[:content], "\"data_captured_on\":\"2026-09-01\""
     assert_empty AiVerdictBackfill.candidates
     assert_empty NoTweetsInTests::POSTED

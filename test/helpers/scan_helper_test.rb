@@ -25,14 +25,17 @@ class ScanHelperTest < ActionView::TestCase
     end
   end
 
-  test "the tokens carry the original palette with white text" do
+  test "the tokens carry the original palette, with text that reaches 4.5:1" do
     css = Rails.root.join("app/assets/tailwind/application.css").read
     original = { "critical" => "violet-600", "high" => "red-600", "medium" => "orange-500",
                  "low" => "yellow-500", "minimal" => "green-500", "info" => "blue-500" }
+    # White where it reaches 4.5:1 on the colour, a dark ink of the same hue where it does not.
+    text = { "critical" => "#ffffff", "high" => "#ffffff", "medium" => "#431407",
+             "low" => "#422006", "minimal" => "#052e16", "info" => "#020617" }
 
     original.each do |level, colour|
       assert_includes css, "--color-severity-#{level}: var(--color-#{colour});"
-      assert_includes css, "--color-severity-#{level}-fg: #ffffff;"
+      assert_includes css, "--color-severity-#{level}-fg: #{text.fetch(level)};"
     end
   end
 

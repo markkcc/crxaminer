@@ -76,6 +76,6 @@ class AiContextAnalysisManifestKeysTest < ActiveSupport::TestCase
     assert_includes AiContextAnalysis::SYSTEM_PROMPT,
                     "search_provider, homepage, startup_pages and replaced_pages, when present, are Chrome settings and pages " \
                     "the extension takes over;"
-    assert_equal "2026-11-18.1", AiContextAnalysis::PROMPT_VERSION
+    assert_equal "2026-11-19.1", AiContextAnalysis::PROMPT_VERSION
   end
 end

@@ -1,9 +1,10 @@
 <%# Rule findings grouped by area (ScanPage::FindingGroups). Routine permissions are
-    collapsed into one line per area; severities and texts are shown as stored. %>
+    collapsed into one line per area; each finding shows its level as an access tier
+    (finding_badge) and its text as stored. %>
 <% groups = @report.finding_groups %>
 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 mb-6">
   <div class="flex items-center gap-4 mb-4 relative">
-    <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200">Findings</h2>
+    <h2 id="findings-heading" class="text-xl font-semibold text-gray-700 dark:text-gray-200 scroll-mt-24">Findings</h2>
     <button type="button"
             class="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 text-xl leading-none rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
             data-popover-target="security-info-popup"
@@ -14,10 +15,10 @@
     </button>
     <div id="security-info-popup"
          class="hidden absolute left-0 top-full mt-2 z-40 w-full max-w-md bg-white dark:bg-gray-700 border border-brand-200 dark:border-gray-600 shadow-lg p-4 rounded-lg text-brand-700 dark:text-brand-200 text-sm">
-      These are CRXaminer's rule-based checks of the manifest, without broader context. They assume worst-case impact.
-      Each finding is rated Critical, High, Medium or Low, and the rule-based rating is the highest of these.
-      Findings are grouped by area; routine permissions are folded into one line and keep their rating when opened.
-      Optional items are ones the extension can ask for later; Chrome asks you first, so they are rated one level lower.
+      These are CRXaminer's rule-based checks of the manifest. They assume the worst about what the extension could do.
+      Each finding has an access tier: Full control, Broad reach, Scoped or Routine. The extension's access rating is the highest tier found.
+      Findings are grouped by area; routine permissions are folded into one line and keep their tier when opened.
+      Optional items are ones the extension can ask for later; Chrome asks you first, so they are one tier lower.
     </div>
   </div>
 

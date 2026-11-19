@@ -1,0 +1,71 @@
+<%# The stored AI finding (ScanPage::AiCheck), in any of its three formats. The current
+    format is the AI check that feeds trust: its purpose fit and concern level are shown
+    as chips. The two older formats rated the extension themselves; their text is shown
+    for reference and the page says plainly that their level no longer counts. %>
+<% ai = local_assigns.fetch(:ai_check) %>
+<% heading_class = "text-sm font-semibold text-gray-700 dark:text-gray-200 mb-1.5" %>
+<section id="ai-check" class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 mb-6 scroll-mt-24" aria-labelledby="ai-check-heading" data-format="<%= ai.format %>">
+  <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+    <h2 id="ai-check-heading" class="text-xl font-semibold text-gray-700 dark:text-gray-200"><%= ai.current? ? "AI check" : "Earlier AI analysis" %></h2>
+    <% if ai.current? %>
+      <% [ai.purpose_fit, ai.concern_level].compact.each do |tone, text| %>
+        <%= tone_chip(tone, text) %>
+      <% end %>
+    <% end %>
+  </div>
+
+  <% if ai.current? %>
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+      An AI model compares what the extension asks for with what its listing says it does.
+      It can lower trust, never raise it, and it never changes access.
+    </p>
+  <% else %>
+    <p class="mt-3 text-sm rounded-md border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 px-3 py-2 text-gray-700 dark:text-gray-200" id="ai-earlier-note">
+      This AI analysis was made with an earlier version of CRXaminer.
+      <% if ai.earlier_level %>It rated this extension <strong><%= ai.earlier_level %></strong>, but the rating above no longer uses that.<% else %>The rating above does not use it.<% end %>
+      Its text is kept for reference.
+    </p>
+  <% end %>
+
+  <%# The older formats' text is folded away: it argues for a level the page no longer uses. %>
+  <% content = capture do %>
+    <div class="mt-4 space-y-2 text-gray-600 dark:text-gray-300 break-words">
+      <% ai.summary.each do |paragraph| %>
+        <p><%= paragraph %></p>
+      <% end %>
+    </div>
+
+    <% if ai.lists.any? %>
+      <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4 text-sm text-gray-600 dark:text-gray-300">
+        <% ai.lists.each do |key, items| %>
+          <div class="min-w-0" data-ai-list="<%= key %>">
+            <h3 class="<%= heading_class %>"><%= ScanPage::AiCheck::LISTS.fetch(key) %></h3>
+            <ul class="list-disc ml-5 space-y-1 break-words">
+              <% items.each do |item| %>
+                <li><%= item %></li>
+              <% end %>
+            </ul>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+
+    <% if ai.byline? %>
+      <% analyzed_at = ai.analyzed_at %>
+      <p class="text-xs text-gray-500 dark:text-gray-400 mt-4 break-words" id="ai-byline">
+        AI analysis by <%= ai.model || "unknown model" %><% if analyzed_at %> on <%= analyzed_at.utc.strftime("%Y-%m-%d %H:%M UTC") %><% end %>
+      </p>
+    <% end %>
+  <% end %>
+  <% if ai.current? %>
+    <%= content %>
+  <% else %>
+    <details class="group mt-3" id="ai-earlier-text">
+      <summary class="cursor-pointer list-none inline-flex items-center gap-1.5 rounded text-sm font-medium text-brand-700 dark:text-brand-300 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 [&::-webkit-details-marker]:hidden">
+        <span aria-hidden="true" class="transition-transform group-open:rotate-90">▸</span>
+        Show the earlier analysis
+      </summary>
+      <%= content %>
+    </details>
+  <% end %>
+</section>

@@ -13,7 +13,8 @@ module FakeAnthropic
   end
 
   VALID_RESULT = {
-    "risk_level" => "High",
+    "concern_level" => "some",
+    "purpose_fit" => "broader_than_needed",
     "summary" => "Broad access with an unclear purpose.",
     "trust_factors" => ["Large user base"],
     "concerns" => ["Reads every page", "Unknown publisher"],

@@ -5,8 +5,7 @@ class RefreshStatsJobTest < ActiveJob::TestCase
     ScanResult.delete_all
     overall = { severity: "Medium", title: "Overall Risk: Medium", description: "x" }
     ai = { severity: "Info", title: "AI Context Analysis",
-           description: AiContextAnalysis.render_description(risk_level: "Critical", summary: "s",
-                                                             trust_factors: [], concerns: ["c"], recommendations: []),
+           description: "Risk Level: Critical\ns\n\nConcerns:\n- c",
            ai: { risk_level: "Critical" } }
     ScanResult.create!(extension_id: "6" * 32, manifest: {}, security_findings: [overall, ai])
     ScanResult.create!(extension_id: "7" * 32, manifest: {}, security_findings: [overall])

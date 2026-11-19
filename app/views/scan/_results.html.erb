@@ -5,17 +5,26 @@
 
   <!-- Extension header section (keep this outside tabs) -->
   <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-    <div class="flex items-center space-x-4 mb-4">
+    <%# On phones the inner block dissolves (contents) so the icon and name share the first
+        row and the rating badges and version get the full width below them. %>
+    <div class="flex flex-wrap sm:flex-nowrap items-center gap-x-4 mb-4">
       <% if @extension_image %>
         <img src="<%= @extension_image %>" alt="Extension icon" class="w-16 h-16 rounded-lg shrink-0">
       <% end %>
-      <div class="min-w-0">
-        <h1 class="text-2xl font-bold text-gray-700 dark:text-gray-200 break-words">
+      <div class="min-w-0 max-sm:contents">
+        <h1 class="text-2xl font-bold text-gray-700 dark:text-gray-200 break-words max-sm:flex-1 max-sm:min-w-0">
           <%= @extension_name || "Unknown Extension" %>
         </h1>
+        <%# The rating on every tab: the overall level and the two ratings behind it. %>
+        <% rating = @report.rating %>
+        <p class="mt-1.5 mb-1 max-sm:mt-3 max-sm:basis-full flex flex-wrap items-center gap-1.5" id="header-rating">
+          <%= overall_badge(rating.overall, size: :sm) %>
+          <%= access_badge(rating.access, size: :sm, label: :visible) %>
+          <%= trust_badge(rating.trust, size: :sm, label: :visible) %>
+        </p>
         <% if @manifest[:version] %>
           <%# The store version is filled in by scan_page.js once known (or here from the cache). %>
-          <div class="text-gray-600 dark:text-gray-300">
+          <div class="text-gray-600 dark:text-gray-300 max-sm:basis-full">
             <p>
               Version <%= @manifest[:version] %><% store_note = @freshness&.store_note %><% differs_class = "font-medium text-gray-800 dark:text-gray-100" %><% quiet_class = "text-sm text-gray-500 dark:text-gray-400" %><span
                 class="<%= @freshness&.version_differs? ? differs_class : quiet_class %>"

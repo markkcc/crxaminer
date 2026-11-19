@@ -13,9 +13,13 @@
 #   ExtensionAnalyzerData.permission_level(name)    "High" etc., or nil when unknown
 #   ExtensionAnalyzerData.optional_level(level)     the level of the same item when optional
 #   ExtensionAnalyzerData.sensitive_sites           {"Banking" => [domains], ...}
+#   ExtensionAnalyzerData.full_control_reason(key)  why a permission or rule is Critical (full control)
 module ExtensionAnalyzerData
-  # Levels a finding can have, most severe first. The overall rating is the
-  # highest level among the findings, or "Minimal" when there are none.
+  # Levels a finding can have, most severe first. Each level is a capability
+  # tier (ScanRating::ACCESS_TIERS): Critical is full control, High broad
+  # reach, Medium scoped, Low routine. The access rating is the highest level
+  # among the findings, or "Minimal" when there are none. The stored
+  # `severity` of a finding keeps these names.
   LEVELS = %w[Critical High Medium Low].freeze
   OVERALL_LEVELS = (LEVELS + ["Minimal"]).freeze
 
@@ -31,7 +35,7 @@ module ExtensionAnalyzerData
     { id: "combination.all_sites_web_request_blocking", severity: "Critical", name: "All sites plus blocking web requests",
       summary: "It can watch, block and change the traffic of every website while it happens." },
     { id: "permission", severity: nil, name: "Permission",
-      summary: "Each permission it asks for at install is rated from the permission table (debugger is Critical)." },
+      summary: "Each permission it asks for at install is rated from the permission table (debugger, management, nativeMessaging and proxy are Critical)." },
     { id: "host.all_sites", severity: "High", name: "Access to all websites",
       summary: "It can read and change every website you visit, including sites where you are signed in." },
     { id: "content_script.all_sites", severity: "High", name: "Scripts on all websites",
@@ -48,9 +52,9 @@ module ExtensionAnalyzerData
       summary: "It uses the older Manifest V2 format, which has fewer restrictions and is being phased out." },
     { id: "settings.search_provider", severity: "High", name: "Changes your search engine",
       summary: "Searches you type in the address bar go to a site it names, which sees every search." },
-    { id: "content_script.main_world_all_sites", severity: "High", name: "Scripts inside every website's own code",
+    { id: "content_script.main_world_all_sites", severity: "Critical", name: "Scripts inside every website's own code",
       summary: "Its scripts run in the page's own JavaScript on every website, where they can change what the page's code does." },
-    { id: "update_url.external", severity: "High", name: "Updates from outside the Chrome Web Store",
+    { id: "update_url.external", severity: "Critical", name: "Updates from outside the Chrome Web Store",
       summary: "Its updates would come from a server other than the Chrome Web Store, so they skip the store's review." },
     { id: "settings.homepage", severity: "Medium", name: "Changes your homepage or startup pages",
       summary: "It sets the page Chrome opens at startup or for the home button." },
@@ -81,6 +85,28 @@ module ExtensionAnalyzerData
   ].map { |attrs| Rule.new(**attrs).freeze }.freeze
 
   RULE_IDS = RULES.map(&:id).freeze
+
+  # Why each Critical (full control) item is Critical, one sentence each,
+  # keyed by permission name or rule id. Every Critical permission and every
+  # Critical rule has an entry (a test checks this).
+  #
+  # Access to all websites plus the scripting permission is deliberately not
+  # here, although it is often listed as full control: it gives the same
+  # capability as content scripts declared on all websites, which are High
+  # (broad reach), and two extensions that can do the same thing must not get
+  # different tiers.
+  FULL_CONTROL_REASONS = {
+    "debugger" => "It can take full control of the pages it attaches to, including sites where you are signed in.",
+    "management" => "It can switch off or remove your other extensions, including security tools.",
+    "nativeMessaging" => "It can hand work to programs on your computer, which Chrome's protections do not limit.",
+    "proxy" => "It can send all your browser traffic through a server it chooses.",
+    "combination.all_sites_cookies" => "It can take the cookies that keep you signed in on every website and use them to take over your accounts.",
+    "combination.all_sites_web_request_blocking" => "It can watch, block and change the traffic of every website while it happens.",
+    "content_script.main_world_all_sites" => "Its scripts run inside every website's own code, where they can change what the site does, " \
+                                             "including sign-in and payment pages.",
+    "update_url.external" => "It can get new code from a server outside the Chrome Web Store, without the store's review, " \
+                             "so what it does can change at any time."
+  }.freeze
 
   # The Critical combinations: the rule id and the API permissions that,
   # together with required access to all websites, trigger it. Only
@@ -120,6 +146,12 @@ module ExtensionAnalyzerData
   PERMISSION_TABLE = {
     "debugger" => ["Critical", "Attach Chrome's debugger to tabs, which gives full control over those pages",
                    "It can read and change anything in those pages, including passwords and sites where you are signed in.", "debugger"],
+    "management" => ["Critical", "List, turn on or off, and uninstall your other extensions and apps",
+                     "It can turn off other extensions, including security tools.", "management"],
+    "nativeMessaging" => ["Critical", "Exchange messages with programs installed on your computer",
+                          "Programs outside the browser are not limited by Chrome's protections.", nil],
+    "proxy" => ["Critical", "Choose the proxy server that your browser traffic goes through",
+                "All your browsing can be sent through a server it chooses, which can see which sites you visit.", "proxy"],
 
     "browsingData" => ["High", "Clear browsing data such as history, cookies and cache",
                        "It can delete your history and cookies, which signs you out of sites and can remove traces of what it did.", "browsingData"],
@@ -131,14 +163,8 @@ module ExtensionAnalyzerData
                          "Anything shown on what you share can be recorded, including private information.", "desktopCapture"],
     "history" => ["High", "Read and change your browsing history",
                   "Your history lists every site you have visited.", "history"],
-    "management" => ["High", "List, turn on or off, and uninstall your other extensions and apps",
-                     "It can turn off other extensions, including security tools.", "management"],
-    "nativeMessaging" => ["High", "Exchange messages with programs installed on your computer",
-                          "Programs outside the browser are not limited by Chrome's protections.", nil],
     "privacy" => ["High", "Change privacy-related browser settings",
                   "It can turn off protections such as Safe Browsing or limits on third-party cookies.", "privacy"],
-    "proxy" => ["High", "Choose the proxy server that your browser traffic goes through",
-                "All your browsing can be sent through a server it chooses, which can see which sites you visit.", "proxy"],
     "tabCapture" => ["High", "Record the video and audio of a tab",
                      "What you see and hear in a tab can be recorded, including private information.", "tabCapture"],
     "webAuthenticationProxy" => ["High", "Answer Web Authentication requests on behalf of sites (remote desktop)",
@@ -342,6 +368,11 @@ module ExtensionAnalyzerData
     return nil unless index
 
     LEVELS[[index + 1, LEVELS.size - 1].min]
+  end
+
+  # Why a Critical permission or rule (by name or id) is full control, or nil.
+  def full_control_reason(key)
+    key.is_a?(String) ? FULL_CONTROL_REASONS[key] : nil
   end
 
   def sensitive_sites

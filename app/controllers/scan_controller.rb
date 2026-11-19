@@ -30,6 +30,7 @@ class ScanController < ApplicationController
         @security_findings = @scan_result.security_findings
         @last_scanned = @scan_result.updated_at
         @report = ScanPage::Report.new(manifest: @manifest, security_findings: @security_findings,
+                                       extension_details: @extension_details,
                                        cache_key: [@scan_result.id, @scan_result.updated_at.to_f])
         # Cached store version only: the page never waits for Google.
         @freshness = ScanFreshness.new(@scan_result, store: StoreVersionClient.cached(@extension_id))
@@ -47,6 +48,7 @@ class ScanController < ApplicationController
         @security_findings = @scan_result.security_findings
         @last_scanned = @scan_result.updated_at
         @report = ScanPage::Report.new(manifest: @manifest, security_findings: @security_findings,
+                                       extension_details: @extension_details,
                                        cache_key: [@scan_result.id, @scan_result.updated_at.to_f])
         # Cached store version only: the page never waits for Google.
         @freshness = ScanFreshness.new(@scan_result, store: StoreVersionClient.cached(@extension_id))
@@ -70,7 +72,8 @@ class ScanController < ApplicationController
     # (the server asks the store; nothing from the browser decides this).
     if existing_scan && (params[:force] != 'true' || !rescan_allowed?(existing_scan))
       Rails.logger.debug "Found recent scan for extension #{@extension_id}"
-      render json: existing_scan.as_json(except: [:id]).merge(last_scanned: existing_scan.updated_at)
+      render json: existing_scan.as_json(except: [:id]).merge(last_scanned: existing_scan.updated_at,
+                                                              rating: rating_json(existing_scan))
       return
     end
 
@@ -101,7 +104,8 @@ class ScanController < ApplicationController
 
       if scan_result.save
         Rails.logger.debug "Saved new scan result"
-        render json: scan_result.as_json(except: [:id]).merge(last_scanned: scan_result.updated_at)
+        render json: scan_result.as_json(except: [:id]).merge(last_scanned: scan_result.updated_at,
+                                                              rating: rating_json(scan_result))
       else
         render json: { error: scan_result.errors.full_messages.join(", ") }, status: :unprocessable_entity
       end
@@ -142,34 +146,12 @@ class ScanController < ApplicationController
   def stats
     @total_scans = ScanResult.count
 
-    # Filter recent scans by severity if specified
+    # Filter recent scans by the level they show (ScanDisplayLevel)
     severity_filter = params[:severity]
-    if severity_filter.present?
-      @recent_scans = ScanResult.where(
-        "EXISTS (
-          SELECT 1 FROM jsonb_array_elements(security_findings) AS finding
-          WHERE finding->>'title' = 'AI Context Analysis'
-          AND finding->>'severity' = 'Info'
-          AND finding->>'description' LIKE ?
-        )",
-        "Risk Level: #{severity_filter}%"
-      ).or(
-        ScanResult.where(
-          "NOT EXISTS (
-            SELECT 1 FROM jsonb_array_elements(security_findings) AS finding
-            WHERE finding->>'title' = 'AI Context Analysis'
-            AND finding->>'severity' = 'Info'
-          )
-          AND EXISTS (
-            SELECT 1 FROM jsonb_array_elements(security_findings) AS finding
-            WHERE LOWER(finding->>'title') LIKE '%overall risk%'
-            AND finding->>'severity' = ?
-          )",
-          severity_filter
-        )
-      ).order(created_at: :desc).limit(10)
+    @recent_scans = if severity_filter.present?
+      ScanDisplayLevel.where_level(ScanResult.all, severity_filter.to_s).order(created_at: :desc).limit(10)
     else
-      @recent_scans = ScanResult.order(created_at: :desc).limit(10)
+      ScanResult.order(created_at: :desc).limit(10)
     end
 
     # If this is an AJAX request, only render the table partial
@@ -224,21 +206,21 @@ class ScanController < ApplicationController
     ScanFreshness.new(scan, store: StoreVersionClient.lookup(scan.extension_id)).rescan_allowed?
   end
 
+  # The verdict as the page shows it, for clients of the analyze endpoint.
+  def rating_json(scan)
+    findings = scan.read_attribute(:security_findings)
+    rating = ScanRating.for_scan(security_findings: findings, extension_details: scan.read_attribute(:extension_details))
+    { level: ScanDisplayLevel.for(findings), overall: rating.overall, headline: rating.headline,
+      access: rating.access.name, trust: rating.trust.name }
+  end
+
   def valid_extension_id?(id)
     id.present? && id.match?(/\A[a-zA-Z0-9]{32}\z/)
   end
 
-  # Get display severity - prefers AI context-aware verdict, falls back to overall risk
+  # The level shown for a scan in the recent-scans list (ScanDisplayLevel),
+  # read from the column as stored so a junk row cannot break the page.
   def get_display_severity(scan)
-    # First, try to get AI context-aware verdict
-    ai_analysis = scan.security_findings&.find { |f| f[:severity] == "Info" && f[:title] == "AI Context Analysis" }
-    if ai_analysis && ai_analysis[:description]&.start_with?("Risk Level:")
-      risk_level = ai_analysis[:description].split("\n").first.split("Risk Level:").last&.strip
-      return risk_level&.capitalize
-    end
-
-    # Fall back to overall risk
-    overall_risk = scan.security_findings&.find { |f| f[:title]&.downcase&.include?('overall risk') }
-    overall_risk[:severity]&.capitalize if overall_risk
+    ScanDisplayLevel.for(scan.read_attribute(:security_findings))
   end
-end 
+end

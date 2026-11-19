@@ -16,7 +16,7 @@ class ExtensionSecurityAnalyzerOrderTest < ActiveSupport::TestCase
     levels = findings.drop(1).map { |f| ExtensionAnalyzerData::LEVELS.index(f[:severity]) }
     assert_equal levels.sort, levels
     assert_equal "combination.all_sites_cookies", findings[1][:rule]
-    assert_equal ROUTINE.map { |name| "Low-Risk Permission: #{name}" }, findings.last(35).map { |f| f[:title] },
+    assert_equal ROUTINE.map { |name| "Permission: #{name}" }, findings.last(35).map { |f| f[:title] },
                  "within a level the manifest order is kept"
   end
 
@@ -28,8 +28,8 @@ class ExtensionSecurityAnalyzerOrderTest < ActiveSupport::TestCase
     assert_operator findings.size, :>, sent.size, "the list is longer than what is sent"
     assert_includes sent, "Critical: All Websites Plus Cookies"
     assert_includes sent, "High: Access to All Websites"
-    assert_includes sent, "High: High-Risk Permission: history"
-    assert_includes sent, "Medium: Medium-Risk Permission: cookies"
+    assert_includes sent, "High: Permission: history"
+    assert_includes sent, "Medium: Permission: cookies"
   end
 end
 

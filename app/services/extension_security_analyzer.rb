@@ -3,9 +3,14 @@
 # sensitive sites) lives in ExtensionAnalyzerData; match patterns are parsed
 # by MatchPattern.
 #
-# Rating model: every finding has a level (Critical, High, Medium or Low).
-# The overall rating is the highest level found, or Minimal when nothing is
-# found. Nothing is counted: many Low findings stay Low.
+# Rating model: every finding has a level (Critical, High, Medium or Low),
+# which is its capability tier (ScanRating::ACCESS_TIERS). The access rating
+# is the highest level found, or Minimal when nothing is found. Nothing is
+# counted: many Low findings stay Low. The AI check cannot change it.
+#
+# The stored list is: the overall finding (the combined verdict of access
+# and trust, see ScanRating and #overall_finding), the rule findings most
+# severe first, then the AI finding when there is one.
 #
 # The rules run on a freshly extracted manifest (top-level symbol keys, raw
 # with string keys) and on a stored one (everything deep-symbolized), and on
@@ -16,7 +21,9 @@ class ExtensionSecurityAnalyzer
   # Bump when the rules or their texts change, so RuleRerating picks up
   # every stored scan again. Stored on the overall finding as :rules_version.
   # Findings written before the version existed carry none (version 1).
-  RULES_VERSION = 3
+  #   4: capability tiers; the overall finding carries the combined verdict
+  #      (severity = overall level, plus access, trust and headline).
+  RULES_VERSION = 4
 
   OVERALL_TITLE_PREFIX = "Overall Risk: ".freeze
 
@@ -28,10 +35,80 @@ class ExtensionSecurityAnalyzer
   # A match pattern found in the manifest and where it was written.
   Site = Struct.new(:pattern, :path, :source, keyword_init: true)
 
-  # The rule findings for a manifest (overall finding first), without the AI
-  # step or the tweet. Used by RuleRerating.
+  # The overall finding followed by the rule findings for a manifest alone,
+  # rated as if there were no listing data and no AI check. No AI call, no
+  # tweet.
   def self.rule_findings(manifest)
     new(manifest).rule_findings
+  end
+
+  # The whole stored list rebuilt from stored data, with the current rules:
+  # the overall finding (rated from the access level, the stored listing
+  # details and the first stored AI finding), the rule findings, then every
+  # stored AI finding exactly as given (old-format ones included; they add
+  # nothing to trust). No AI call, no tweet. Used by RuleRerating and
+  # AiVerdictBackfill.
+  def self.rated_findings(manifest, extension_details: nil, ai_findings: [])
+    ai_findings = Array(ai_findings).select { |f| f.is_a?(Hash) && ScanPage::FindingGroups.ai?(f) }
+    new(manifest, extension_details).rated_findings(ai_findings)
+  end
+
+  TWEET_LIMIT = 280
+  TWEET_FIELD_LIMIT = 20
+
+  # The post for X: the name, the store rating line, the overall level with
+  # the headline, access and trust, then the link. The name is shortened so
+  # the post stays within TWEET_LIMIT as X counts it.
+  def self.tweet_text(name:, extension_id:, extension_details:, rating:)
+    details = extension_details.is_a?(Hash) ? extension_details : {}
+    stars, count, size = %i[rating rating_count size].map { |key| tweet_field(ScanPage.value(details, key)) }
+    rest = [
+      "#{stars && count ? "#{stars} ★ (#{count})" : '? ★'}, #{size || '?KiB'}",
+      "Overall: #{rating.overall} (#{rating.headline})",
+      "Access: #{rating.access.name}. Trust: #{rating.trust.name}",
+      "https://crxaminer.tech/scan/#{extension_id}"
+    ]
+    name = AiContextAnalysis.clean(name).squish.presence || "Unknown Extension"
+    budget = TWEET_LIMIT - tweet_length(rest.join("\n")) - 1
+    [shorten_for_tweet(name, budget), *rest].join("\n")
+  rescue StandardError => e
+    Rails.logger.error "Error formatting tweet text: #{e.message}"
+    "Scan complete! https://crxaminer.tech/scan/#{extension_id}"
+  end
+
+  # A store field as short plain text, or nil.
+  def self.tweet_field(value)
+    return nil unless value.is_a?(String) || value.is_a?(Numeric)
+
+    text = AiContextAnalysis.clean(value).squish
+    return nil if text.empty?
+
+    text.length > TWEET_FIELD_LIMIT ? "#{text[0, TWEET_FIELD_LIMIT - 1]}…" : text
+  end
+
+  # Length as X counts it: most Latin, Greek, Cyrillic and similar letters
+  # and some punctuation count 1; everything else (CJK, emoji) counts 2. A
+  # link counts 23, so counting it in full is safe.
+  def self.tweet_length(text)
+    text.each_char.sum do |char|
+      code = char.ord
+      code <= 4351 || code.between?(8192, 8205) || code.between?(8208, 8223) || code.between?(8242, 8247) ? 1 : 2
+    end
+  end
+
+  def self.shorten_for_tweet(text, budget)
+    return text if tweet_length(text) <= budget
+
+    room = budget - tweet_length("…")
+    kept = +""
+    used = 0
+    text.each_char do |char|
+      used += tweet_length(char)
+      break if used > room
+
+      kept << char
+    end
+    "#{kept.rstrip}…"
   end
 
   def initialize(manifest, extension_details = nil, extension_name = nil, extension_id = nil, previous_findings: nil, ai_client: :default)
@@ -44,18 +121,40 @@ class ExtensionSecurityAnalyzer
     @security_findings = []
   end
 
+  # Rule findings, then the access level, then the AI check (given the rule
+  # findings and the access tier, never the overall line), then the rating
+  # and the overall finding, which goes first.
   def analyze
     return [] unless @manifest
 
-    @security_findings = rule_findings.map(&:dup)
-    analyze_with_claude
+    ai_finding = analyze_with_ai
+    @security_findings = rated_findings(ai_finding ? [ai_finding] : [])
     tweet_results
     @security_findings
   end
 
-  # The overall finding followed by every rule finding.
+  # The overall finding (without listing data or AI) followed by every rule finding.
   def rule_findings
-    @rule_findings ||= begin
+    [overall_finding(rating_for(nil, nil))] + findings_only.map(&:dup)
+  end
+
+  # The overall finding rated with this scan's listing details and the first
+  # of ai_findings, then the rule findings, then ai_findings as given.
+  def rated_findings(ai_findings)
+    @rating = rating_for(@extension_details, ScanPage.value(ai_findings.first, :ai))
+    [overall_finding(@rating)] + findings_only.map(&:dup) + ai_findings
+  end
+
+  # The highest finding level, or "Minimal" when nothing was found.
+  def access_level
+    highest_level(findings_only.map { |f| f[:severity] }) || "Minimal"
+  end
+
+  private
+
+  # The rule findings, most severe first (no overall line, no AI finding).
+  def findings_only
+    @findings_only ||= begin
       @findings = []
       @data = @manifest.is_a?(Hash) ? @manifest : {}
       analyze_permissions
@@ -71,11 +170,13 @@ class ExtensionSecurityAnalyzer
       analyze_web_accessible_resources
       analyze_update_url
       analyze_oauth2
-      [overall_finding] + most_severe_first(@findings)
+      most_severe_first(@findings).each(&:freeze).freeze
     end
   end
 
-  private
+  def rating_for(extension_details, ai)
+    ScanRating.new(access_level: access_level, extension_details: extension_details, ai: ai)
+  end
 
   # --- reading the manifest -------------------------------------------------
 
@@ -181,7 +282,7 @@ class ExtensionSecurityAnalyzer
       entry = PERMISSIONS[name]
       next unless entry
 
-      add_finding(entry.level, "#{entry.level}-Risk Permission: #{name}",
+      add_finding(entry.level, "Permission: #{name}",
                   "It asks for the #{name} permission, which lets it #{lower_first(entry.allows)}. " \
                   "#{entry.why || 'This is a routine permission with little risk on its own.'}",
                   rule: "permission", evidence: indexes.map { |i| ["permissions", i] })
@@ -311,7 +412,7 @@ class ExtensionSecurityAnalyzer
     end
 
     if eval_paths.any?
-      add_finding("High", "Unsafe JavaScript Evaluation",
+      add_finding("High", "Text Can Be Run as Code",
                   "Its Content Security Policy for its own pages allows 'unsafe-eval', so its code can turn text into code " \
                   "and run it (eval and similar functions). That makes it easier to run code that was never reviewed, " \
                   "such as code downloaded later.",
@@ -419,7 +520,7 @@ class ExtensionSecurityAnalyzer
               "change how the page's own code behaves, for example read or alter what the page sends and receives, " \
               "and the page's code can reach them too."
     if everywhere.any?
-      add_finding("High", "Scripts Run Inside Every Website's Own Code",
+      add_finding("Critical", "Scripts Run Inside Every Website's Own Code",
                   "On every website, some of its scripts run inside #{explain}",
                   rule: "content_script.main_world_all_sites", evidence: everywhere)
     end
@@ -522,7 +623,7 @@ class ExtensionSecurityAnalyzer
     host = url_host(url)
     return if host.nil? || host == STORE_UPDATE_HOST
 
-    add_finding("High", "Updates From Outside the Chrome Web Store",
+    add_finding("Critical", "Updates From Outside the Chrome Web Store",
                 "Its updates would come from #{host} instead of the Chrome Web Store, so new " \
                 "versions would skip the store's review and could change what it does at any time.",
                 rule: "update_url.external", evidence: [["update_url"]])
@@ -714,73 +815,54 @@ class ExtensionSecurityAnalyzer
     @findings << finding
   end
 
-  # The highest level found; Minimal when nothing was found. Carries the
-  # rules version so stored scans can be re-rated when the rules change.
-  def overall_finding
-    level = highest_level(@findings.map { |f| f[:severity] }) || "Minimal"
-    description = if @findings.empty?
-      "No rule found anything to flag, so the rating is Minimal."
-    else
-      counts = LEVELS.filter_map do |l|
-        n = @findings.count { |f| f[:severity] == l }
-        "#{n} #{l}" if n.positive?
-      end
-      noun = @findings.size == 1 ? "finding" : "findings"
-      "The rating is the highest level among #{@findings.size} rule #{noun} (#{counts.join(', ')})."
-    end
-    { severity: level, title: "#{OVERALL_TITLE_PREFIX}#{level}", description: description, rules_version: RULES_VERSION }
+  # The combined verdict, stored first in the list:
+  #   severity:      the overall level (ScanRating#overall)
+  #   title:         "Overall Risk: <overall>" (statistics and older code find it by that title)
+  #   description:   both ratings and the advice, in plain words
+  #   rules_version: RULES_VERSION, so stored scans can be re-rated when the rules change
+  #   access:        the access level, the highest finding level ("Minimal" when none)
+  #   trust:         the trust level key (ScanRating::TRUST_LEVELS)
+  #   headline:      the two combined in a few words
+  def overall_finding(rating)
+    {
+      severity: rating.overall,
+      title: "#{OVERALL_TITLE_PREFIX}#{rating.overall}",
+      description: overall_description(rating),
+      rules_version: RULES_VERSION,
+      **rating.to_stored
+    }
   end
 
-  def analyze_with_claude
-    finding = AiContextAnalysis.new(
+  def overall_description(rating)
+    found = findings_only.size
+    basis = found.zero? ? "no rule found anything to flag" : "the highest of #{found} rule #{found == 1 ? 'finding' : 'findings'}"
+    "Access: #{rating.access.name} (#{basis}). Trust: #{rating.trust.name}. #{rating.advice}"
+  end
+
+  # The AI finding, or nil when the check fails, is refused or is not
+  # configured; the scan is then rated from the listing alone.
+  def analyze_with_ai
+    AiContextAnalysis.new(
       manifest: @manifest,
       extension_details: @extension_details,
       extension_name: @extension_name,
-      findings: @security_findings,
+      findings: findings_only,
+      access: ScanRating.access_tier(access_level).name,
       previous_findings: @previous_findings,
       client: @ai_client
     ).call
-    @security_findings << finding if finding
   rescue StandardError => e
     # AiContextAnalysis does not raise; this keeps the rule findings even if it ever does.
     Rails.logger.error "AI analysis failed for #{@extension_id}: #{e.class}: #{e.message}"
+    nil
   end
 
   def tweet_results
-    tweet_text = format_tweet_text
-    Rails.logger.info "#{tweet_text}"
+    tweet_text = self.class.tweet_text(name: @extension_name, extension_id: @extension_id,
+                                       extension_details: @extension_details, rating: @rating)
+    Rails.logger.info tweet_text
     TwitterClient.new.post_tweet(tweet_text)
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to tweet scan results: #{e.message}"
   end
-
-  def format_tweet_text
-    ai_analysis = @security_findings.find { |f| f[:severity] == "Info" && f[:title] == "AI Context Analysis" }
-
-    risk_level = if ai_analysis&.[](:description)&.start_with?("Risk Level:")
-      ai_analysis[:description].split("\n").first.split("Risk Level:").last&.strip
-    else
-      "N/A"
-    end
-
-    overall_risk = @security_findings.find { |f| f[:title]&.downcase&.include?('overall risk') }&.[](:severity) || "N/A"
-
-    combined_risk = if risk_level == overall_risk
-      "Risk: #{risk_level}"
-    else
-      "Risk: #{risk_level} / #{overall_risk}"
-    end
-
-    [
-      @extension_name.presence || "Unknown Extension",
-      "#{(@extension_details[:rating].present? && @extension_details[:rating_count].present?) ?
-        "#{@extension_details[:rating]} ★ (#{@extension_details[:rating_count]})" : "? ★"}, #{@extension_details[:size].presence || "?KiB"}",
-      combined_risk,
-      "https://crxaminer.tech/scan/#{@extension_id}"
-    ].join("\n")
-  rescue StandardError => e
-    Rails.logger.error "Error formatting tweet text: #{e.message}"
-    "Scan complete! https://crxaminer.tech/scan/#{@extension_id}"
-  end
-
 end
