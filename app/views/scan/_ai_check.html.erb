@@ -35,17 +35,25 @@
       <% end %>
     </div>
 
-    <% if ai.lists.any? %>
-      <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4 text-sm text-gray-600 dark:text-gray-300">
-        <% ai.lists.each do |key, items| %>
-          <div class="min-w-0" data-ai-list="<%= key %>">
-            <h3 class="<%= heading_class %>"><%= ScanPage::AiCheck::LISTS.fetch(key) %></h3>
-            <ul class="list-disc ml-5 space-y-1 break-words">
+    <%# One column per list that has items, with a thin rule between columns (between
+        rows when they stack on phones). Each list has a tone, shown by its icon and
+        bullets: good for trust factors, caution for concerns, brand for advice. %>
+    <% lists = ai.lists %>
+    <% if lists.any? %>
+      <div class="ai-lists mt-5 grid grid-cols-1 <%= { 2 => "md:grid-cols-2", 3 => "md:grid-cols-3" }[lists.size] %> divide-y md:divide-y-0 md:divide-x divide-gray-200 dark:divide-gray-700 text-sm text-gray-600 dark:text-gray-300" data-ai-lists="<%= lists.size %>">
+        <% lists.each do |key, items| %>
+          <% tone, icon = ai_list_looks.fetch(key) %>
+          <section class="ai-list min-w-0 py-4 first:pt-0 last:pb-0 md:py-0 md:px-6 md:first:pl-0 md:last:pr-0" data-ai-list="<%= key %>" data-tone="<%= tone %>" aria-labelledby="ai-list-<%= key %>">
+            <h3 class="<%= heading_class %> flex items-center gap-2" id="ai-list-<%= key %>">
+              <span class="ai-list-icon" aria-hidden="true"><%= icon %></span>
+              <%= ScanPage::AiCheck::LISTS.fetch(key) %>
+            </h3>
+            <ul class="list-disc ml-5 space-y-1.5 break-words">
               <% items.each do |item| %>
                 <li><%= item %></li>
               <% end %>
             </ul>
-          </div>
+          </section>
         <% end %>
       </div>
     <% end %>

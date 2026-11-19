@@ -237,6 +237,47 @@ main {
 
 }
 
+/* ---- AI check lists ---------------------------------------------------------
+   app/views/scan/_ai_check.html.erb: each list (data-tone good, caution or
+   brand) gets a small tinted icon by its heading and bullets in its ink.
+   Good and caution reuse the tone tokens above; brand is the same idea in
+   the brand colours (light 6.55:1, dark 9.94:1, icon on its tint). */
+:root {
+  --tone-brand-bg: var(--color-brand-50); --tone-brand-fg: var(--color-brand-700); --tone-brand-line: var(--color-brand-200);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --tone-brand-bg: #2a2142; --tone-brand-fg: var(--color-brand-200); --tone-brand-line: var(--color-brand-800);
+  }
+}
+
+.ai-list[data-tone="good"] { --t-bg: var(--tone-good-bg); --t-fg: var(--tone-good-fg); --t-line: var(--tone-good-line); }
+.ai-list[data-tone="caution"] { --t-bg: var(--tone-caution-bg); --t-fg: var(--tone-caution-fg); --t-line: var(--tone-caution-line); }
+.ai-list[data-tone="brand"] { --t-bg: var(--tone-brand-bg); --t-fg: var(--tone-brand-fg); --t-line: var(--tone-brand-line); }
+
+.ai-list-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid var(--t-line);
+  border-radius: 0.375rem;
+  background: var(--t-bg);
+  color: var(--t-fg);
+}
+
+.ai-list-icon svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.ai-list li::marker {
+  color: var(--t-fg);
+}
+
 /* A finding jumped to from the verdict card's list of capabilities. */
 [data-finding]:target {
   outline: 2px solid var(--color-brand-500);
