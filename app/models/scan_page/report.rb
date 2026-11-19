@@ -10,10 +10,16 @@ module ScanPage
 
     # cache_key identifies the stored scan (for example its id and update
     # time); without it nothing is cached.
-    def initialize(manifest:, security_findings:, cache_key: nil)
+    def initialize(manifest:, security_findings:, extension_details: nil, cache_key: nil)
       @manifest = manifest.is_a?(Hash) ? manifest : {}
       @security_findings = security_findings
+      @extension_details = extension_details
       @cache_key = cache_key
+    end
+
+    # The access and trust ratings and the headline that combines them.
+    def rating
+      @rating ||= ScanRating.for_scan(security_findings: @security_findings, extension_details: @extension_details)
     end
 
     def finding_groups

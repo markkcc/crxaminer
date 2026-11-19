@@ -30,6 +30,7 @@ class ScanController < ApplicationController
         @security_findings = @scan_result.security_findings
         @last_scanned = @scan_result.updated_at
         @report = ScanPage::Report.new(manifest: @manifest, security_findings: @security_findings,
+                                       extension_details: @extension_details,
                                        cache_key: [@scan_result.id, @scan_result.updated_at.to_f])
         # Cached store version only: the page never waits for Google.
         @freshness = ScanFreshness.new(@scan_result, store: StoreVersionClient.cached(@extension_id))
@@ -47,6 +48,7 @@ class ScanController < ApplicationController
         @security_findings = @scan_result.security_findings
         @last_scanned = @scan_result.updated_at
         @report = ScanPage::Report.new(manifest: @manifest, security_findings: @security_findings,
+                                       extension_details: @extension_details,
                                        cache_key: [@scan_result.id, @scan_result.updated_at.to_f])
         # Cached store version only: the page never waits for Google.
         @freshness = ScanFreshness.new(@scan_result, store: StoreVersionClient.cached(@extension_id))
