@@ -78,7 +78,7 @@ gem 'nokogiri'
 # parsed with ExtensionAnalyzer::PACKAGE_JSON_OPTIONS so those still scan.
 gem "json", "~> 3.1"
 
-gem "anthropic", "~> 2.10"
+gem "anthropic", "~> 2.13"
 gem 'dotenv-rails', groups: [:development, :test]
 
 # for the twitter client
